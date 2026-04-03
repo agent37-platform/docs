@@ -1,0 +1,177 @@
+---
+title: "How to Set Up WhatsApp for OpenClaw"
+---
+
+ntegrating WhatsApp with your OpenClaw bot allows you to automate conversations, provide instant support, and streamline communication with your users. In this guide, we’ll walk you through the simple steps to set up WhatsApp for your OpenClaw bot using [Agent37](https://www.agent37.com/dashboard).
+
+Follow the steps below or watch the full video tutorial.
+
+## Video walkthrough
+
+<iframe src="https://www.youtube.com/embed/IopVahw46YM" title="YouTube video player" frameborder="0" className="w-full aspect-video rounded-xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
+
+### **Step 1: Access the Agent37 Dashboard**
+
+Start by visiting the Agent37 dashboard:
+
+🔗 [https://www.agent37.com/dashboard](https://www.agent37.com/dashboard)
+
+Log in to your account. If you don’t have one yet, create an account to get started.
+
+### **Step 2: Create a New Instance**
+
+Once logged in:
+
+1. Navigate to your dashboard.
+2. Click on **Create Instance**.
+3. Wait for the instance to be successfully created.
+
+Your instance is essentially the environment where your OpencClaw bot will run.
+
+### **Step 3: Open the Terminal**
+
+After your instance is ready:
+
+1. Click on your newly created instance.
+2. Select **Terminal** from the available options.
+
+This will open a command-line interface where you can configure your OpenClaw bot.
+
+### **Step 4: Run the Configuration Command**
+
+Inside the terminal, execute the following command:
+
+```text
+openclaw configure
+```
+
+This command will initiate the configuration process for your OpenClaw bot, including the WhatsApp setup.
+
+## **Step 5: Gateway Setup**
+
+When prompted:
+
+- **Where will the gateway run?**
+
+👉 Select `Local`
+
+<Frame>
+  ![Image5](/images/image5.png)
+</Frame>
+
+This ensures the gateway runs on your current instance.
+
+You’ll see:
+
+- **Select Section to Configure?**
+
+👉 Select `Channel`
+
+👉 Choose `Configure / Link`
+
+Use the **arrow keys** on your keyboard
+
+<Frame>
+  ![Image9](/images/image9.png)
+</Frame>
+
+<Frame>
+  ![Image10](/images/image10.png)
+</Frame>
+
+You will now see:
+
+- **Select Channel**
+
+👉 Choose `WhatsApp`
+
+<Frame>
+  ![Image4](/images/image4.png)
+</Frame>
+
+Next prompt:
+
+- **Link WhatsApp Now?**
+
+> 👉 Select `Yes`
+
+<Frame>
+  ![Image3](/images/image3.png)
+</Frame>
+
+The system will now generate a **QR Code** in the terminal.
+
+<Frame>
+  ![Image8](/images/image8.png)
+</Frame>
+
+## **Step 6: Scan the QR Code**
+
+Now, take your phone and:
+
+1. Open **WhatsApp**
+2. Tap the **3-dot menu** (top-right corner)
+3. Select **Linked Devices**
+4. Tap **Link a Device**
+5. Scan the QR code displayed in your terminal
+
+Once scanned successfully, your WhatsApp account will connect to the Openclaw gateway.
+
+<Frame>
+  ![Image2](/images/image2.png)
+</Frame>
+
+## **Step 7: Confirm Connection**
+
+After scanning the QR code:
+
+👉 Go back to the terminal.
+
+## **Step 8: WhatsApp Phone Setup**
+
+After successfully scanning the QR code and linking your account, you’ll complete the WhatsApp phone setup process. Follow the steps below carefully.
+
+When prompted in the terminal:
+
+- **WhatsApp phone setup**
+
+👉 Select `This is my personal phone number`
+
+<Frame>
+  ![Image6](/images/image6.png)
+</Frame>
+
+- **You will then be asked to:**
+
+👉 `Enter your phone number`
+
+<Frame>
+  ![Image7](/images/image7.png)
+</Frame>
+
+Make sure you enter the correct number linked to your WhatsApp account.
+
+## **Step 9: Complete Setup**
+
+After entering your number:
+
+1. Navigate to `Finish`
+2. Then select `Continue`
+
+<Frame>
+  ![Image1](/images/image1.png)
+</Frame>
+
+This completes the WhatsApp channel configuration.
+
+## **Step 10: Test Your Bot**
+
+Now open **WhatsApp** on your phone.
+
+In the search bar:
+
+- Search for **your own number**
+
+Start a chat and send a message.
+
+If everything is configured correctly, your **OpenClaw bot will respond automatically** 🎉
