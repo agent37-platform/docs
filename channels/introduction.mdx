@@ -1,0 +1,73 @@
+---
+title: "Channel setup"
+description: "Set up OpenClaw channels from the Agent 37 dashboard"
+---
+
+OpenClaw lets you connect channels so your bot can receive and respond to messages through the platforms your team already uses. You can manage the setup flow from the Agent 37 dashboard and complete the final channel linking steps in your instance terminal.
+
+<Info>
+  **Before you begin**:
+  - Access to the [Agent 37 dashboard](https://www.agent37.com/dashboard)
+  - A running instance for your OpenClaw bot
+  - Permission to link the messaging account you want to use
+</Info>
+
+## How channel setup works
+
+You will use the Agent 37 dashboard to open your OpenClaw instance, then run the OpenClaw configuration flow inside the terminal. From there, you can choose the channel you want to connect and complete the provider-specific prompts.
+
+<Steps>
+<Step title="Open the Agent 37 dashboard">
+  Sign in to the [Agent 37 dashboard](https://www.agent37.com/dashboard) and open the instance you want to configure.
+</Step>
+
+<Step title="Open the terminal for your instance">
+  Select **Terminal** from the instance view so you can run OpenClaw commands directly in that environment.
+</Step>
+
+<Step title="Start the OpenClaw configuration flow">
+  Run the following command:
+
+  ```bash
+  openclaw configure
+  ```
+</Step>
+
+<Step title="Choose the channel setup section">
+  In the interactive menu:
+
+  1. Select `Channel`
+  2. Choose `Configure / Link`
+  3. Pick the platform you want to connect
+</Step>
+
+<Step title="Complete provider-specific authentication">
+  Follow the prompts for the selected channel. Depending on the provider, this may include scanning a QR code, entering a phone number, approving a login, or confirming account access.
+</Step>
+
+<Step title="Test the connection">
+  Send a test message through the connected platform and confirm that your OpenClaw bot receives and responds as expected.
+</Step>
+</Steps>
+
+## Supported setup guides
+
+Use the guide below for a complete platform-specific walkthrough.
+
+<Card
+  title="WhatsApp"
+  icon="message-circle"
+  href="/channels/whats-app"
+>
+  Link WhatsApp to OpenClaw with the Agent 37 dashboard and terminal flow.
+</Card>
+
+## Tips for a smooth setup
+
+- Keep the terminal open until the linking flow is fully complete.
+- Use the account that will actually own the channel in production.
+- Test with a real message immediately after setup so you can catch permissions or linking issues early.
+
+<Note>
+  If you plan to add more channels, keep each platform in its own page under `/channels` so users can follow one setup flow at a time.
+</Note>

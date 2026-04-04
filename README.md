@@ -1,38 +1,36 @@
-# Mintlify Starter Kit
+# Agent 37 documentation
 
-Use the starter kit to get your docs deployed and ready to customize.
+This repository contains the Agent 37 documentation site built with Mintlify.
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+The repo includes:
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
-
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+- Product guides
+- Site configuration in `docs.json`
+- AI-tool setup guides for documentation work
+- An example API reference section
+- Reusable Mintlify patterns for writing and navigation
 
 ## AI-assisted writing
 
-Set up your AI coding tool to work with Mintlify:
+Set up your AI coding tool to work with Mintlify's documentation skill:
 
 ```bash
 npx skills add https://mintlify.com/docs
 ```
 
-This command installs Mintlify's documentation skill for your configured AI tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance.
+This command installs Mintlify's documentation skill for tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance for maintaining this docs site.
 
-See the [AI tools guides](/ai-tools) for tool-specific setup.
+See the files in `ai-tools/` for tool-specific setup instructions.
 
 ## Development
 
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
+Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview documentation changes locally:
 
 ```
 npm i -g mint
 ```
 
-Run the following command at the root of your documentation, where your `docs.json` is located:
+Run the following command at the root of the repo, where `docs.json` is located:
 
 ```
 mint dev
@@ -42,7 +40,7 @@ View your local preview at `http://localhost:3000`.
 
 ## Publishing changes
 
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
+Commit and push your changes through your normal review workflow. If this repository is connected to a Mintlify project, the configured deployment pipeline will publish the latest approved changes.
 
 ## Need help?
 
