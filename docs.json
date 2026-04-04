@@ -51,7 +51,10 @@
             "group": "Messaging platforms",
             "pages": [
               "channels/introduction",
-               "channels/whats-app"
+              "channels/whats-app",
+              "channels/telegram",
+              "channels/discord",
+              "channels/slack"
             ]
           },
           {

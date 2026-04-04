@@ -1,0 +1,98 @@
+---
+title: "Telegram"
+description: "How to configure Telegram Bot for OpenClaw"
+---
+
+In this tutorial, you will learn how to configure a Telegram bot and connect it with OpenClaw.
+
+Follow the steps below or watch the full video tutorial.
+
+## Video walkthrough
+
+<iframe src="https://www.youtube.com/embed/5bBp9cU-ZqQ" title="YouTube video player" frameborder="0" className="w-full aspect-video rounded-xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
+
+### Prerequisites
+
+- An Agent37 account and an OpenClaw instance
+- Access to the instance **Terminal**
+
+### Step 1: Create a Telegram bot (BotFather)
+
+1. Open Telegram and search for **@BotFather**.
+2. Start a chat and send `/newbot`.
+   - Give your bot a name (e.g., “My OpenClaw Assistant”).
+   - Give it a username (must end in `bot`, e.g., `my_openclaw_assistant_bot`).
+3. Copy the **Bot Token** BotFather returns.
+   - This token is your API key. **Keep it secret**.
+
+<Frame>
+  ![Image](/images/image-4.png)
+
+  ![Image](/images/image.png)
+
+  ![Image](/images/image-5.png)
+</Frame>
+
+### Step 2: Open the Agent37 Terminal
+
+1. Go to the Agent37 dashboard: [https://www.agent37.com/dashboard](https://www.agent37.com/dashboard)
+2. Create an instance (or open an existing one).
+3. Open **Terminal**.
+
+### Step 3: Configure OpenClaw to use Telegram
+
+Run:
+
+```text
+openclaw configure
+```
+
+Then follow the prompts:
+
+- **Where will the gateway run?** → Select `Local`
+- **Select Section to Configure?** → `Channel`
+- **Configure / Link**
+- **Select Channel** → `Telegram`
+- **Enter Telegram bot token** → Paste the token you copied
+- Navigate to `Finish` → `Continue`
+
+<Frame>
+  ![Image](/images/image-6.png)
+</Frame>
+
+<Frame>
+  ![Image](/images/image-8.png)
+</Frame>
+
+<Frame>
+  ![Image](/images/image-9.png)
+</Frame>
+
+<Frame>
+  ![Image](/images/image-10.png)
+</Frame>
+
+### Step 4: Pair the bot (approve pairing code)
+
+In Telegram, open your bot and send `/start`.
+
+<Frame>
+  ![Image](/images/image-11.png)
+</Frame>
+
+When Telegram shows a pairing code, run this in the instance terminal:
+
+```text
+openclaw pairing approve telegram <code>
+```
+
+<Frame>
+  ![Image](/images/image-12.png)
+</Frame>
+
+### Step 5: Restart and test
+
+1. Start/restart your OpenClaw service so the bot connection becomes active.
+2. Send a message to your bot to confirm it responds.
+
+You have successfully connected a **Telegram bot with OpenClaw**.

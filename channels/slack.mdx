@@ -1,0 +1,137 @@
+---
+title: "Slack"
+description: "How to Configure Slack for OpenClaw"
+---
+
+OpenClaw can integrate with Slack to send and receive messages, react to updates, pin important notes, and automate workflows. This turns OpenClaw into a Slack bot or listener.
+
+Follow the steps below or watch the full video tutorial.
+
+## Video Walkthrough
+
+<iframe src="https://www.youtube.com/embed/VAj7h8eM7x0" title="YouTube video player" frameborder="0" className="w-full aspect-video rounded-xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
+
+## Prerequisites
+
+- A Slack workspace (free tier works)
+- Admin access to create and install apps (or ask your workspace admin)
+- OpenClaw installed and running
+- Basic CLI familiarity (we’ll use `openclaw` commands)
+
+## Step 1: Create a Slack app
+
+1. Go to [api.slack.com/apps](http://api.slack.com/apps) and sign in.
+2. Click **Create New App** → **From scratch**.
+3. Name it something like `OpenClaw Bot` and select your workspace.
+4. Click **Create App**.
+
+## Step 2: Enable Socket Mode
+
+OpenClaw typically connects to Slack using **Socket Mode**, which avoids needing a public webhook server.
+
+1. In your Slack app dashboard, open **Socket Mode**.
+2. Turn **Enable Socket Mode** ON.
+3. Go to **Basic Information**.
+4. Scroll to **App-Level Tokens**.
+5. Click **Generate Token and Scopes**.
+6. Enter a **Token Name**.
+7. Add the scope `connections:write`.
+
+You’ll receive an **App Token** that looks like `xapp-...`. Save it.
+
+## Step 3: Configure bot permissions (OAuth scopes)
+
+In your Slack app, go to **OAuth & Permissions** → **Bot Token Scopes** and add:
+
+- `chat:write` (send messages)
+- `app_mentions:read` (read mentions)
+- `channels:read` (access channels)
+- `reactions:write` (add emoji reactions)
+- `pins:write` (pin/unpin messages)
+- `im:write` (DM users)
+- `users:read` (member info)
+- `im:history` (respond in direct messages)
+
+Optional:
+
+- `files:write` (attachments)
+- `search:read` (search messages/conten)
+
+## Step 4: Install the app to your workspace
+
+1. Go to **OAuth & Permissions**.
+2. Click **Install App to Workspace**.
+3. Approve the permissions.
+
+After installation, you’ll receive a **Bot User OAuth Token** that looks like `xoxb-...`. Save it.
+
+## Step 5: Subscribe to events
+
+In your Slack app, go to **Event Subscriptions**:
+
+1. Enable events.
+2. Under **Subscribe to bot events**, add the events you want the bot to receive.
+
+Common choices:
+
+- `app_mention`
+- `message.channels`
+- `message.groups`
+- `message.im`
+- `message.mpim`
+- `reaction_added`
+- `reaction_removed`
+- `pin_added`
+- `pin_removed`
+- `member_joined_channel`
+- `member_left_channel`
+- `channel_rename`
+
+Also enable **App Home** → **Messages Tab** for DMs, and check **Allow users to send Slash commands and messages from the messages tab**.
+
+## Step 6: Configure OpenClaw
+
+Add the Slack tokens to your instance configuration.
+
+1. Go to the [Agent37](https://www.agent37.com/dashboard) dashboard.
+2. Create an instance (or open an existing one).
+3. Open **Terminal**.
+4. Edit your OpenClaw config (`~/.openclaw/config.json`—create if missing):
+
+```text
+{
+  "channels": {
+    "slack": {
+      "enabled": true,
+      "appToken": "xapp-your-app-token",
+      "botToken": "xoxb-your-bot-token"
+    }
+  }
+}
+```
+
+Alternatively, set the values via CLI:
+
+```text
+openclaw config set channels.slack.appToken "xapp-your-app-token"
+openclaw config set channels.slack.botToken "xoxb-your-bot-token"
+```
+
+## Step 7: Start the OpenClaw gateway
+
+```text
+openclaw gateway start
+```
+
+## Step 8: Test the integration
+
+1. In Slack, open a DM with the **OpenClaw Bot**.
+2. Send `Hello`.
+3. If set up correctly, the bot should reply with a pairing code.
+4. In the instance terminal, execute the below command with pairing code.
+
+```text
+openclaw pairing approve slack <code>
+```
+
+Once approved, that Slack DM is authorized and the bot will respond normally.

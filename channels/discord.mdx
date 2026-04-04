@@ -1,0 +1,120 @@
+---
+title: "Discord"
+description: "How to Setup Discord for OpenClaw"
+---
+
+OpenClaw can integrate with Discord to send messages, reply to threads, add reactions, manage roles, and run slash commands. This guide walks you through connecting a Discord bot to OpenClaw so your agent can respond in a server or via DM.
+
+## Video walkthrough
+
+<iframe src="https://www.youtube.com/embed/ySGprROPlvk" title="YouTube video player" frameborder="0" className="w-full aspect-video rounded-xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
+
+## Step 1: Create a Discord application (bot setup)
+
+Discord bots run under an “Application” in the Discord Developer Portal.
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) and sign in.
+2. Click **New Application**.
+   - Name it something like “OpenClaw Bot”.
+   - Accept the terms.
+3. In the left sidebar, open **Bot**.
+   - Click **Add Bot** → **Yes, do it!**
+   - Under **Token**, click **Copy** (or **Reset Token** if needed). Keep this secret.
+   - Under **Privileged Gateway Intents**, enable **Message Content Intent** (required to read message content).
+   - Optional: Turn **Public Bot** off if you want a private bot, and set avatar/description.
+4. In the left sidebar, open **OAuth2 → URL Generator**.
+   - Scopes: select `bot` and `applications.commands`.
+   - Bot Permissions (pick what you need):
+     - Core: `View Channels`, `Send Messages`, `Read Message History`
+     - Optional: `Add Reactions`, `Manage Messages`, `Embed Links`, `Manage Roles`
+   - Copy the generated URL (you’ll use it to invite the bot).
+
+## Step 2: Invite the bot to your Discord server
+
+1. Paste the OAuth2 URL you generated into a browser.
+2. Select the server.
+3. Click **Authorize**.
+4. Confirm the bot appears in your server.
+   - You can verify under **Server Settings → Integrations → Bots**.
+
+## Step 3: Enable Developer Mode and copy your IDs
+
+You’ll need IDs for the server and your user.
+
+1. In Discord, go to **User Settings (gear)** → **Advanced** → enable **Developer Mode**.
+2. Right-click your **server icon** → **Copy Server ID**.
+3. Right-click your **own user** → **Copy User ID**.
+
+Save these along with your bot token:
+
+- Bot Token
+- Server ID
+- User ID
+
+## Step 4: Allow DMs from server members
+
+This makes it easier to pair/test via DM.
+
+1. Right-click your **server icon** → **Privacy Settings**.
+2. Turn on **Direct Messages**.
+
+## Step 5: Configure OpenClaw for Discord
+
+1. Go to the [Agent37](https://www.agent37.com/dashboard) dashboard.
+2. Open an existing instance (or create a new one).
+3. Open **Terminal**.
+
+### Option A: Configure via `config.json`
+
+Edit (or create) `~/.openclaw/config.json`:
+
+```text
+{
+  "channels": {
+    "discord": {
+      "enabled": true,
+      "token": "your-bot-token-here"
+    }
+  }
+}
+```
+
+### Option B: Configure via CLI
+
+```text
+openclaw config set channels.discord.token "your-bot-token"
+openclaw config set channels.discord.enabled true
+openclaw gateway
+```
+
+If OpenClaw is already running as a background service, use:
+
+`openclaw gateway restart`
+
+## Step 6: Test and pair
+
+### A) Send a test message (optional)
+
+```text
+openclaw message --action send --channel discord --target "your-channel-id" --message "Hello from OpenClaw!"
+```
+
+- Replace `your-channel-id` with a real channel ID (e.g., `1234567890123456789`).
+
+### B) Pair via DM
+
+1. DM your bot: “Hello from OpenClaw”.
+2. The bot responds with a pairing code.
+3. In your instance terminal, approve it:
+
+```text
+openclaw pairing approve discord <CODE>
+```
+
+You should now be able to chat with your OpenClaw agent in Discord via DM.
+
+When prompted by your agent, send:
+
+“I already set my Discord bot token in config. Please finish Discord setup with User ID `<user_id>` and Server ID `<server_id>`.”
+
+Your **Discord bot** is now connected successfully.
