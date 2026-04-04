@@ -1,0 +1,131 @@
+---
+title: "How to set up OpenClaw Web Chat with Tailscale IP"
+description: "Install Tailscale, get your tailnet IP, and access OpenClaw Web Chat securely"
+---
+
+Use this guide to install Tailscale, turn it on, get your Tailscale IP, and open OpenClaw Web Chat through your private tailnet. This is a practical way to access OpenClaw securely from another device without exposing the gateway on the public internet.
+
+<Info>
+  **Before you begin**:
+  - A running OpenClaw instance with Web Chat available
+  - Access to the instance terminal
+  - A Tailscale account
+  - Tailscale installed on the device that hosts OpenClaw
+  - Tailscale installed on the device you want to use for access
+</Info>
+
+## Video walkthrough
+
+<iframe src="https://www.youtube.com/embed/WubWm-uTl7Q" title="How to install and start Tailscale and setup OpenClaw Web Chat with Tailscale IP" frameborder="0" className="w-full aspect-video rounded-xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
+
+## What this setup does
+
+Tailscale gives each approved device a private tailnet IP, usually in the `100.x.x.x` range. Once the OpenClaw host is reachable through that network, you can open Web Chat from another approved device on the same tailnet.
+
+## Step 1: Install and sign in to Tailscale
+
+Install Tailscale on the machine that hosts OpenClaw, then install it on the device you want to use to access Web Chat.
+
+1. Download Tailscale from [tailscale.com/download](https://tailscale.com/download).
+2. Install the app.
+3. Sign in with your Tailscale account.
+4. Make sure Tailscale is turned on.
+
+Repeat the same sign-in flow on the second device so both devices join the same tailnet.
+
+Once Tailscale is active, each device receives a private tailnet IP.
+
+## Step 2: Get your Tailscale IP
+
+After Tailscale is connected on the OpenClaw host, find that device's IP.
+
+On a terminal, you can run:
+
+```bash
+tailscale ip -4
+```
+
+You should see an address in the `100.x.x.x` range.
+
+This is the address you will use to open Web Chat from another device on your tailnet.
+
+## Step 3: Open your OpenClaw terminal
+
+1. Sign in to the [Agent 37 dashboard](https://www.agent37.com/dashboard).
+2. Open the instance you want to use.
+3. Click **Terminal**.
+
+## Step 4: Configure OpenClaw for tailnet access
+
+Use the OpenClaw configuration flow to make the gateway reachable over Tailscale.
+
+Run:
+
+```bash
+openclaw configure
+```
+
+When prompted, configure the gateway for tailnet access so the Web Chat surface is reachable from devices on the same Tailscale network.
+
+If you already know your preferred bind mode, a common approach is:
+
+```bash
+openclaw gateway --bind tailnet
+```
+
+<Tip>
+  Use tailnet-only access when you want the gateway available to your private Tailscale devices without opening it to the public internet.
+</Tip>
+
+## Step 5: Open Web Chat with the Tailscale IP
+
+Once the gateway is running over Tailscale, open Web Chat in your browser using the tailnet IP and the OpenClaw port.
+
+For example:
+
+```text
+http://100.x.x.x:18789
+```
+
+Replace `100.x.x.x` with your actual Tailscale IP.
+
+Open that URL from another device on the same tailnet. If authentication is enabled for your gateway, enter the required token or credentials when prompted.
+
+## Step 6: Test the connection
+
+After Web Chat loads:
+
+1. Start a conversation in the browser
+2. Send a simple test message such as `Hello`
+3. Confirm that your OpenClaw bot responds normally
+
+If the bot responds, your Web Chat is working through Tailscale.
+
+## Troubleshooting
+
+- Make sure both devices are logged into the same tailnet
+- Confirm Tailscale is connected and active
+- Verify the gateway is running
+- Recheck the IP and port
+- Confirm you are using the Tailscale IP of the OpenClaw host, not the client device
+- If access is denied, confirm the correct gateway auth token is being used
+
+Common health checks:
+
+```bash
+openclaw gateway status
+openclaw status
+openclaw channels status
+```
+
+## When to use this setup
+
+This setup is a good fit when you want:
+
+- secure remote access without exposing a public port
+- access to Web Chat from another laptop or mobile device
+- a simple private-network workflow for testing OpenClaw
+
+<Tip>
+  This approach works best when both your OpenClaw host and your client devices stay connected to the same Tailscale network. It gives you private access without the usual public networking setup.
+</Tip>

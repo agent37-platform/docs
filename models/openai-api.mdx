@@ -1,0 +1,88 @@
+---
+title: "OpenAI API"
+description: "Set up OpenClaw with an OpenAI API key in Agent 37"
+---
+
+Use this guide to create an OpenAI API key and configure OpenClaw inside Agent 37 to use it. By the end, you will have OpenAI selected as the model provider and a quick way to verify the configured default model.
+
+<Info>
+  **Prerequisites**:
+  - An active [Agent 37 account](https://www.agent37.com/dashboard)
+  - A running OpenClaw instance in Agent 37
+  - An [OpenAI Platform](https://platform.openai.com/) account
+  - A valid OpenAI API key
+</Info>
+
+## Step 1: Create your OpenAI API key
+
+1. Go to the [OpenAI API keys page](https://platform.openai.com/api-keys) and sign in.
+2. Click **Create new secret key**.
+3. Enter a name for the key so you can identify it later.
+4. If prompted, choose the project or permissions you want to use.
+5. Copy the generated key and store it somewhere safe.
+
+OpenAI API keys typically start with:
+
+```text
+sk-...
+```
+
+<Warning>
+  Keep this key private. OpenAI recommends treating API keys as secrets and not exposing them in client-side apps or public repos.
+</Warning>
+
+## Step 2: Open your Agent 37 instance
+
+1. Go to the [Agent 37 dashboard](https://www.agent37.com/dashboard) and sign in.
+2. Open an existing instance, or create a new one.
+3. Open **Terminal**.
+
+## Step 3: Configure OpenClaw to use OpenAI
+
+In Terminal, run:
+
+```bash
+openclaw configure
+```
+
+When prompted, choose the following:
+
+1. **Where will the gateway run?** → `Local`
+2. **Select Section to Configure?** → `Model`
+3. **Model / Auth Provider** → `OpenAI`
+4. **OpenAI Auth Model** → `OpenAI API Key`
+5. **How do you want to provide this API key now?** → `Paste API key now`
+6. **Enter OpenAI API key** → paste the key you copied in Step 1
+7. **Models in /models picker** → choose the model you want to use, for example `openai/gpt-5.4`
+8. After selecting the model, choose `Continue`
+
+<Tip>
+  If you want a simple default, start with a general-purpose GPT model that matches your latency and cost needs, then adjust later after real usage.
+</Tip>
+
+## Step 4: Verify the configured model
+
+Run:
+
+```bash
+openclaw models list
+```
+
+You should see the model you selected marked as the default in the output.
+
+## What to do next
+
+Once OpenAI is configured, you can:
+
+- connect a channel like WhatsApp or Telegram
+- test your bot in Web Chat
+- compare OpenAI and Anthropic for your workflow
+
+<CardGroup cols={2}>
+  <Card title="Connect your first channel" icon="plug" href="/get-started/connect-first-channel">
+    Link a real messaging platform to your OpenClaw bot.
+  </Card>
+  <Card title="Claude API" icon="key-round" href="/models/claude-api">
+    Compare the Anthropic setup flow with the OpenAI flow.
+  </Card>
+</CardGroup>

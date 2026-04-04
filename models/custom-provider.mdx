@@ -1,0 +1,138 @@
+---
+title: "Custom provider"
+description: "Set up OpenClaw with a custom model provider in Agent 37"
+---
+
+Use this guide when your model endpoint is not listed in the built-in providers. OpenClaw supports custom providers for endpoints that expose standard OpenAI-compatible or Anthropic-compatible APIs, and Agent 37 gives you a hosted environment to configure them from the dashboard.
+
+<Info>
+  **Before you begin**:
+  - An active [Agent 37 account](https://www.agent37.com/dashboard)
+  - A running OpenClaw instance in Agent 37
+  - The base URL for your custom provider
+  - An API key if your provider requires authentication
+  - A model ID supported by that provider
+</Info>
+
+## When to use a custom provider
+
+Use a custom provider when:
+
+- your preferred vendor is not in the built-in provider list
+- you use an OpenAI-compatible proxy or gateway
+- you route traffic through a private or self-hosted endpoint
+- you want multiple external providers behind one custom base URL
+
+## Step 1: Gather the provider details
+
+Before you open the setup flow, make sure you have:
+
+1. The provider base URL, for example `https://your-provider.example.com/v1`
+2. The API compatibility type:
+   - OpenAI-compatible
+   - Anthropic-compatible
+   - Unknown, if you want OpenClaw to auto-detect
+3. The API key, if required
+4. The model ID you want to use
+5. An endpoint ID or label so you can recognize this provider later
+
+## Step 2: Open your Agent 37 instance
+
+1. Go to the [Agent 37 dashboard](https://www.agent37.com/dashboard) and sign in.
+2. Open an existing instance, or create a new one.
+3. Open **Terminal**.
+
+## Step 3: Start the configuration flow
+
+In Terminal, run:
+
+```bash
+openclaw configure
+```
+
+When prompted, choose:
+
+1. **Where will the gateway run?** → `Local`
+2. **Select Section to Configure?** → `Model`
+3. **Model / Auth Provider** → `Custom Provider`
+
+## Step 4: Enter the custom provider details
+
+OpenClaw will guide you through the custom provider setup. You will be asked to:
+
+1. Pick the compatibility type:
+   - `OpenAI-compatible`
+   - `Anthropic-compatible`
+   - `Unknown (auto-detect)`
+2. Enter the **base URL**
+3. Enter the **API key** if the endpoint requires one
+4. Provide the **model ID**
+5. Choose an **Endpoint ID** so multiple custom endpoints can coexist
+
+<Tip>
+  If your provider claims OpenAI compatibility, start with the OpenAI-compatible option first. If requests fail, verify the exact API format your provider supports.
+</Tip>
+
+## Step 5: Continue and verify the model
+
+After you finish the prompt flow, run:
+
+```bash
+openclaw models list
+```
+
+You should see the custom provider model available in the output. If you selected it as the default, it should be marked accordingly.
+
+## Optional: Understand the underlying config
+
+OpenClaw stores custom providers in the model configuration. A custom provider entry typically includes fields like:
+
+- `baseUrl`
+- `apiKey`
+- `api`
+- `models`
+
+For example:
+
+```json
+{
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "custom-proxy": {
+        "baseUrl": "http://localhost:4000/v1",
+        "apiKey": "YOUR_API_KEY",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "llama-3.1-8b",
+            "name": "Llama 3.1 8B"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+<Warning>
+  “OpenAI-compatible” does not always mean full compatibility with every OpenClaw feature. Some providers only support basic chat-completions payloads and may not fully support tools, reasoning controls, or advanced response formats.
+</Warning>
+
+## Troubleshooting tips
+
+- Confirm that the base URL includes the correct API path, often `/v1`
+- Make sure the model ID exactly matches the provider catalog
+- Recheck whether the endpoint is OpenAI-compatible or Anthropic-compatible
+- Verify that your API key has active billing or access
+
+## What to do next
+
+<CardGroup cols={2}>
+  <Card title="OpenAI API" icon="sparkles" href="/models/openai-api">
+    Use the built-in OpenAI flow if you do not need a custom endpoint.
+  </Card>
+  <Card title="Claude API" icon="key-round" href="/models/claude-api">
+    Use the Anthropic flow if you want the native Claude provider setup.
+  </Card>
+</CardGroup>

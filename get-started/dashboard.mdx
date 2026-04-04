@@ -1,0 +1,76 @@
+---
+title: "Dashboard"
+description: "Understand the key parts of the Agent 37 dashboard"
+---
+
+The Agent 37 dashboard is where you create bots, monitor status, open terminals, and launch the setup flows that connect OpenClaw to real channels.
+
+## What you can do in the dashboard
+
+The main dashboard view helps you manage each hosted OpenClaw instance from one place.
+
+### Instance list
+
+Each row in the instance list shows the bot name, plan tier, status, usage, storage, and the last update time.
+
+### Actions
+
+From the actions area, you can:
+
+- **Update** your bot instance
+- Open **Manage** to review bot settings
+- Open **Web Chat** to test conversations
+- Open **Terminal** to run OpenClaw commands
+
+### Create Bot
+
+Use **Create Bot** in the top-right corner to launch a new hosted OpenClaw instance.
+
+## When to use each action
+
+<AccordionGroup>
+  <Accordion title="Use Terminal">
+    Open **Terminal** when you need to run commands like `openclaw configure`,
+    approve a pairing code, or inspect the bot environment directly.
+  </Accordion>
+  <Accordion title="Use Web Chat">
+    Open **Web Chat** when you want to test bot responses quickly without setting
+    up a third-party channel first.
+  </Accordion>
+  <Accordion title="Use Manage">
+    Open **Manage** when you want to review settings and instance-level details.
+  </Accordion>
+  <Accordion title="Use Update">
+    Use **Update** when Agent 37 provides a newer version or maintenance update
+    for your hosted bot instance.
+  </Accordion>
+</AccordionGroup>
+
+## Recommended first workflow
+
+<Steps>
+<Step title="Create a bot">
+  Start by creating your first bot from the dashboard.
+</Step>
+
+<Step title="Open Terminal">
+  Use the terminal to run the initial OpenClaw setup commands.
+</Step>
+
+<Step title="Connect a channel">
+  Link WhatsApp, Telegram, Slack, Discord, or another supported channel.
+</Step>
+
+<Step title="Test the bot">
+  Use Web Chat or the connected channel to confirm that the bot responds.
+</Step>
+</Steps>
+
+<CardGroup cols={2}>
+  <Card title="Create your first bot" icon="bot" href="/get-started/create-first-bot">
+    Launch a new hosted OpenClaw instance.
+  </Card>
+  <Card title="Connect your first channel" icon="plug" href="/get-started/connect-first-channel">
+    Link your bot to a real messaging platform.
+  </Card>
+</CardGroup>

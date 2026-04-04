@@ -9,37 +9,18 @@
   },
   "favicon": "/favicon.svg",
   "navigation": {
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Website",
-          "icon": "globe",
-          "href": "https://www.agent37.com"
-        },
-        {
-          "anchor": "Dashboard",
-          "icon": "grid-2",
-          "href": "https://www.agent37.com/dashboard"
-        }
-      ]
-    },
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Get Started",
         "groups": [
           {
-            "group": "Channels",
+            "group": "Getting started",
             "pages": [
               "index",
-              "quickstart",
-              "development"
-            ]
-          },
-          {
-            "group": "Customization",
-            "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "get-started/overview",
+              "get-started/create-first-bot",
+              "get-started/connect-first-channel",
+              "get-started/dashboard"
             ]
           }
         ]
@@ -50,20 +31,35 @@
           {
             "group": "Messaging platforms",
             "pages": [
-              "channels/introduction",
-              "channels/whats-app",
-              "channels/telegram",
               "channels/discord",
-              "channels/slack"
+              "channels/slack",
+              "channels/telegram",
+              "channels/whats-app"
             ]
-          },
+          }
+        ]
+      },
+      {
+        "tab": "Models",
+        "groups": [
           {
-            "group": "Endpoint examples",
+            "group": "Providers",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "models/claude-api",
+              "models/openai-api",
+              "models/custom-provider"
+
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Tailscale",
+        "groups": [
+          {
+            "group": "Networking",
+            "pages": [
+              "tailscale"
             ]
           }
         ]
