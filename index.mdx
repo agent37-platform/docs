@@ -1,11 +1,11 @@
 ---
-title: "Introduction"
-description: "Welcome to the Agent 37 documentation"
+title: "Agent 37 documentation"
+description: "Hosted OpenClaw docs for setup, channels, models, and Tailscale access"
 ---
 
-Agent 37 helps you configure channels, manage instances, and maintain the docs that support your team.
+Agent 37 gives you a hosted OpenClaw environment so you can launch a bot, connect channels, configure models, and access Web Chat from one dashboard.
 
-## Get started
+## Start with Agent 37
 
 <CardGroup cols={2}>
   <Card title="Create your first bot" icon="bot" href="/get-started/create-first-bot">
@@ -17,75 +17,44 @@ Agent 37 helps you configure channels, manage instances, and maintain the docs t
   <Card title="Use the dashboard" icon="layout-dashboard" href="/get-started/dashboard">
     Learn where to create bots, open the terminal, and manage instances.
   </Card>
-  <Card title="Set up WhatsApp" icon="message-circle" href="/channels/whats-app">
-    Follow the OpenClaw WhatsApp setup flow in the Agent 37 dashboard.
+  <Card title="Get started overview" icon="rocket" href="/get-started/overview">
+    Follow the recommended setup flow from first bot to first live message.
   </Card>
 </CardGroup>
 
-## Maintain the docs
+## Browse by section
 
-<Columns cols={2}>
-  <Card
-    title="Preview locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Run the docs site locally with the Mintlify CLI while you edit content.
+<CardGroup cols={3}>
+  <Card title="Channels" icon="message-circle" href="/channels/whats-app">
+    Set up WhatsApp, Telegram, Slack, and Discord for OpenClaw.
   </Card>
-  <Card
-    title="Customize the site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Update branding, navigation, colors, and shared configuration in `docs.json`.
+  <Card title="Models" icon="sparkles" href="/models/claude-api">
+    Configure Claude, OpenAI, or a custom model provider.
   </Card>
-  <Card
-    title="Organize navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Keep the Agent 37 docs easy to navigate as you add more guides and references.
+  <Card title="Tailscale" icon="shield-check" href="/tailscale">
+    Access OpenClaw Web Chat securely over your tailnet.
   </Card>
-  <Card
-    title="Channels"
-    icon="terminal"
-    href="/channels/introduction"
-  >
-    Document your supported channels and the setup details users need.
-  </Card>
-</Columns>
+</CardGroup>
 
-## Write better pages
+## Popular guides
 
-Use Mintlify's MDX workflow to build clear, practical product documentation.
+<CardGroup cols={2}>
+  <Card title="WhatsApp setup" icon="message-circle" href="/channels/whats-app">
+    Link WhatsApp to OpenClaw through the Agent 37 dashboard and terminal flow.
+  </Card>
+  <Card title="Telegram setup" icon="send" href="/channels/telegram">
+    Create a Telegram bot, configure the token, and approve the pairing code.
+  </Card>
+  <Card title="Claude API" icon="key-round" href="/models/claude-api">
+    Configure OpenClaw to use Anthropic with a Claude API key.
+  </Card>
+  <Card title="OpenAI API" icon="sparkles" href="/models/openai-api">
+    Configure OpenClaw to use OpenAI with an API key.
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use Markdown and components together to create polished docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add terminal commands and code examples that help users move faster.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Use screenshots and media to support setup and troubleshooting content.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Reuse shared content across multiple Agent 37 docs pages.
-  </Card>
-</Columns>
+<Tip>
+  If you are new to Agent 37, start with
+  [Create your first bot](/get-started/create-first-bot), then move to
+  [Connect your first channel](/get-started/connect-first-channel).
+</Tip>
