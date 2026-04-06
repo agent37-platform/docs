@@ -5,8 +5,15 @@ description: "Set up OpenClaw with a custom model provider in Agent 37"
 
 Use this guide when your model endpoint is not listed in the built-in providers. OpenClaw supports custom providers for endpoints that expose standard OpenAI-compatible or Anthropic-compatible APIs, and Agent 37 gives you a hosted environment to configure them from the dashboard.
 
+Follow the steps below or watch the video walkthrough:
+
+## Video Walkthrough
+
+<iframe src="https://www.youtube.com/embed/k8-MqWbJmaI" title="YouTube video player" frameborder="0" className="w-full aspect-video rounded-xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
+
 <Info>
   **Before you begin**:
+
   - An active [Agent 37 account](https://www.agent37.com/dashboard)
   - A running OpenClaw instance in Agent 37
   - The base URL for your custom provider
@@ -60,14 +67,21 @@ When prompted, choose:
 
 OpenClaw will guide you through the custom provider setup. You will be asked to:
 
-1. Pick the compatibility type:
-   - `OpenAI-compatible`
-   - `Anthropic-compatible`
-   - `Unknown (auto-detect)`
-2. Enter the **base URL**
-3. Enter the **API key** if the endpoint requires one
-4. Provide the **model ID**
-5. Choose an **Endpoint ID** so multiple custom endpoints can coexist
+1. **API Base URL** → your provider’s base API URL, such as: `https://your-provider.example.com/v1` Example: `https://api.minimax.io/v1`
+
+According to OpenClaw’s onboarding flow, **Custom provider** is the correct choice for endpoints that are not listed directly, including providers that expose OpenAI-compatible or Anthropic-compatible APIs.
+
+Next, complete the remaining prompts:
+
+2. **How do you want to provide this API key now?** → `Paste API key now`
+3. **Endpoint-compatibility**
+   - Choose `OpenAI-compatible` if your provider exposes an OpenAI-style /v1 API
+   - Choose `Anthropic-compatible` if it uses Anthropic’s Messages API
+   - Choose `Unknown` if you want OpenClaw to auto-detect compatibility
+4. **Enter API key** → paste the API key you copied from your provider
+5. **Model ID** → enter the exact upstream model name Example: `Minimax-M2.7`
+6. **Alias (optional)** → enter a friendly display name for the model
+7. **Endpoint ID** → enter a short provider identifier such as: `myproxy` or `minimax`
 
 <Tip>
   If your provider claims OpenAI compatibility, start with the OpenAI-compatible option first. If requests fail, verify the exact API format your provider supports.
@@ -82,6 +96,20 @@ openclaw models list
 ```
 
 You should see the custom provider model available in the output. If you selected it as the default, it should be marked accordingly.
+
+Your custom model should appear as:
+
+`<endpoint-id>/<model-id>`
+
+Example:
+
+`minimax/Minimax-M2.7`
+
+If you want to make it your default model, run:
+
+```text
+openclaw models set minimax/Minimax-M2.7
+```
 
 ## Optional: Understand the underlying config
 
@@ -132,6 +160,7 @@ For example:
   <Card title="OpenAI API" icon="sparkles" href="/models/openai-api">
     Use the built-in OpenAI flow if you do not need a custom endpoint.
   </Card>
+
   <Card title="Claude API" icon="key-round" href="/models/claude-api">
     Use the Anthropic flow if you want the native Claude provider setup.
   </Card>
