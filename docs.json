@@ -16,11 +16,8 @@
           {
             "group": "Getting started",
             "pages": [
-              "index",
-              "get-started/overview",
               "get-started/create-first-bot-openclaw",
-              "get-started/connect-first-channel-openclaw",
-              "get-started/dashboard"
+              "get-started/connect-first-channel-openclaw"
             ]
           }
         ]
@@ -45,7 +42,7 @@
           {
             "group": "Providers",
             "pages": [
-              "models/change-default-model-openclaw",
+              "models/how-to-change-default-model-openclaw",
               "models/how-to-setup-openclaw-claude-api",
               "models/how-to-setup-openclaw-custom-provider",
               "models/how-to-setup-openclaw-openai-api"
@@ -60,7 +57,7 @@
           {
             "group": "Networking",
             "pages": [
-              "tailscale/openclaw-web-chat-with-tailscale"
+              "tailscale/how-to-setup-tailscale-with-openclaw"
             ]
           }
         ]
