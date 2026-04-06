@@ -6,12 +6,13 @@ description: "Install Tailscale, get your tailnet IP, and access OpenClaw Web Ch
 Use this guide to install Tailscale, turn it on, get your Tailscale IP, and open OpenClaw Web Chat through your private tailnet. This is a practical way to access OpenClaw securely from another device without exposing the gateway on the public internet.
 
 <Info>
-  **Before you begin**:
-  - A running OpenClaw instance with Web Chat available
-  - Access to the instance terminal
-  - A Tailscale account
-  - Tailscale installed on the device that hosts OpenClaw
-  - Tailscale installed on the device you want to use for access
+  **What you’re setting up (quick mental model)**
+
+  - Your **Agent37 instance** runs OpenClaw and exposes the Web Chat UI on port **18789**.
+  - **Tailscale** gives the instance a private, routable **Tailnet IP (100.x.x.x)**.
+  - You open the Web Chat from your laptop at `http://<instance-tailscale-ip>:18789/`
+  - You must whitelist that browser origin in `openclaw.json` via `gateway.controlUi.allowedOrigins`
+  - You authenticate to the gateway using `gateway.auth.token`
 </Info>
 
 ## Video walkthrough
@@ -22,101 +23,243 @@ Use this guide to install Tailscale, turn it on, get your Tailscale IP, and open
 
 Tailscale gives each approved device a private tailnet IP, usually in the `100.x.x.x` range. Once the OpenClaw host is reachable through that network, you can open Web Chat from another approved device on the same tailnet.
 
-## Step 1: Install and sign in to Tailscale
+## Prerequisites
 
-Install Tailscale on the machine that hosts OpenClaw, then install it on the device you want to use to access Web Chat.
+- An Agent37 instance you can open a terminal into
+- A Tailscale account (Google/GitHub/Microsoft/email login)
+- Tailscale installed on your laptop (signed into the same Tailnet)
 
-1. Download Tailscale from [tailscale.com/download](https://tailscale.com/download).
-2. Install the app.
-3. Sign in with your Tailscale account.
-4. Make sure Tailscale is turned on.
+## Part A — Install \+ sign in to Tailscale on macOS
 
-Repeat the same sign-in flow on the second device so both devices join the same tailnet.
+### Step 1: Download
 
-Once Tailscale is active, each device receives a private tailnet IP.
+1. Go to [https://tailscale.com/download](https://tailscale.com/download)
+2. Download **Tailscale for Mac** (a `.pkg` installer)
 
-## Step 2: Get your Tailscale IP
+### Step 2: Install
 
-After Tailscale is connected on the OpenClaw host, find that device's IP.
+1. Open the downloaded `.pkg`
+2. Follow the prompts (Continue → Install)
+3. Enter your Mac password if prompted
 
-On a terminal, you can run:
+### Step 3: Sign in
 
-```bash
-tailscale ip -4
-```
+1. Open **Tailscale** (Applications → Tailscale)
+2. Click **Sign in**
+3. Complete authentication in your browser
+4. Authorize your device
+5. Toggle Tailscale **On** You’ll see:
+   - Status: **Connected**
+   - Your **Tailscale IP (100.x.x.x)**
 
-You should see an address in the `100.x.x.x` range.
+### Step 4: Confirm it’s working
 
-This is the address you will use to open Web Chat from another device on your tailnet.
+- In the Tailscale app, verify the status shows **Connected**
+- Note your laptop’s **Tailscale IP (100.x.x.x)**
 
-## Step 3: Open your OpenClaw terminal
+<Frame>
+  ![Image](/images/image-13.png)
+</Frame>
 
-1. Sign in to the [Agent 37 dashboard](https://www.agent37.com/dashboard).
-2. Open the instance you want to use.
-3. Click **Terminal**.
+## Part B — Connect your Agent37 instance to Tailscale
 
-## Step 4: Configure OpenClaw for tailnet access
+### Step 1: Open the Agent37 terminal
 
-Use the OpenClaw configuration flow to make the gateway reachable over Tailscale.
+1. Go to [https://www.agent37.com/dashboard](https://www.agent37.com/dashboard)
+2. Create an instance (or open an existing one)
+3. Open **Terminal** for that instance
+
+<Frame>
+  ![Image](/images/image-14.png)
+</Frame>
+
+### Step 2: Install Tailscale on the instance
 
 Run:
 
-```bash
-openclaw configure
+```text
+curl -fsSL <https://tailscale.com/install.sh> | sh
 ```
 
-When prompted, configure the gateway for tailnet access so the Web Chat surface is reachable from devices on the same Tailscale network.
+### Step 3: **Start the Tailscale Daemon Automatically in the Background**
 
-If you already know your preferred bind mode, a common approach is:
+if you access OpenClaw Web Chat using a Tailscale IP, you may find yourself manually starting tailscaled every time your instance restarts. To avoid that extra step, add the Tailscale daemon command to `post-restart.sh` so it runs automatically in the background.
 
-```bash
-openclaw gateway --bind tailnet
-```
-
-<Tip>
-  Use tailnet-only access when you want the gateway available to your private Tailscale devices without opening it to the public internet.
-</Tip>
-
-## Step 5: Open Web Chat with the Tailscale IP
-
-Once the gateway is running over Tailscale, open Web Chat in your browser using the tailnet IP and the OpenClaw port.
-
-For example:
+**Open** `post-restart.sh`
 
 ```text
-http://100.x.x.x:18789
+nano .agent37/hooks/post-restart.sh
 ```
 
-Replace `100.x.x.x` with your actual Tailscale IP.
+**Add this command to**  `post-restart.sh`
 
-Open that URL from another device on the same tailnet. If authentication is enabled for your gateway, enter the required token or credentials when prompted.
+```text
+sudo tailscaled \\
+	--tun=userspace-networking \\
+	--socket=/var/run/tailscale/tailscaled.sock \\
+	--state=/home/node/.openclaw/tailscaled.state \\
+	&
+```
 
-## Step 6: Test the connection
+<Frame>
+  ![Image](/images/image-15.png)
+</Frame>
 
-After Web Chat loads:
+**Save and exit**
 
-1. Start a conversation in the browser
-2. Send a simple test message such as `Hello`
-3. Confirm that your OpenClaw bot responds normally
+- `Ctrl + O` to write out/save
+- Press `Enter` to confirm the filename
+- `Ctrl + X` to exit
+
+If you press `Ctrl + X` first and it asks to save, press `Y`, then `Enter`
+
+**Restart your OpenClaw instance**
+
+After saving the file, restart your OpenClaw instance from the Agent37 dashboard.
+
+<Frame>
+  ![Image](/images/image-16.png)
+</Frame>
+
+#### **Why this helps**
+
+Adding this command to `post-restart.sh` makes startup smoother:
+
+- You no longer need to manually start tailscaled each time.
+- The Tailscale daemon keeps running in the background.
+- OpenClaw Web Chat continues to work with the same Tailscale IP flow.
+
+This is a small change, but it removes a repetitive manual step and makes the OpenClaw workflow much more convenient. If you regularly access OpenClaw Web Chat through Tailscale, this is an easy improvement that helps streamline the workflow.
+
+### Step 4: Bring Tailscale up (authenticate)
+
+Open the Terminal and Run:
+
+```text
+sudo tailscale up
+```
+
+You’ll see a login URL like `https://login.tailscale.com/a/xxxxx`.
+
+1. Open that URL in your browser
+2. Sign in to the same Tailscale account/Tailnet as your laptop
+
+### Step 5: Verify the instance is online and get its Tailnet IP
+
+Run:
+
+```text
+tailscale status
+```
+
+You should see your instance with a **100.x.x.x** IP and an **online** status, for example:
+
+```text
+100.90.12.5  my-instance  online
+```
+
+Save this IP — you’ll use it in the Web Chat URL and in `allowedOrigins`.
+
+## Part C — Whitelist the Web Chat origin \+ copy the gateway token
+
+This step prevents browser-origin/CORS blocks and ensures only allowed origins can open the control UI.
+
+### Step 1: Open `openclaw.json`
+
+1. Go to [https://www.agent37.com/dashboard](https://www.agent37.com/dashboard)
+2. Open your instance
+3. Go to **Actions → Files**
+4. Open `openclaw.json`
+
+### Step 2: Add your Web Chat origin to `allowedOrigins`
+
+Add the instance’s Tailscale IP with port `18789`.
+
+- Use the same scheme you will use in the browser (typically `http://`).
+- The origin must match exactly: scheme \+ host \+ port.
+
+Example:
+
+```text
+"gateway": {
+	"mode": "local",
+	"controlUi": {
+		"allowedOrigins": [
+			"<http://100.64.8.101:18789>"
+		]
+	},
+	"auth": {
+		"mode": "token",
+		"token": "xxxxxxxxxxxx"
+	}
+}
+```
+
+### Step 3: Copy the gateway token
+
+Copy `gateway.auth.token` — you’ll paste it into Web Chat when prompted.
+
+## Part D — Open Web Chat from your laptop
+
+### Step 1: Confirm both devices are on the same Tailnet
+
+- Laptop: Tailscale is **On** and shows **Connected**
+- Instance: shows **online** in `tailscale status`
+
+### Step 2: Open the Web Chat URL
+
+In your browser, open:
+
+- `http://<instance-tailscale-ip>:18789/`
+
+Example:
+
+- `http://100.90.12.5:18789/`
+
+### Step 3: Authenticate in the Web Chat UI
+
+When prompted, paste the token from `openclaw.json` → `gateway.auth.token`
+
+<Frame>
+  ![Image](/images/image-17.png)
+</Frame>
+
+### Step 4: Validate it works
+
+- Click **Connect** (you should see a connected state)
+- Send a test message in the chat box
+- Confirm that your OpenClaw bot responds normally
 
 If the bot responds, your Web Chat is working through Tailscale.
 
 ## Troubleshooting
 
-- Make sure both devices are logged into the same tailnet
-- Confirm Tailscale is connected and active
-- Verify the gateway is running
-- Recheck the IP and port
-- Confirm you are using the Tailscale IP of the OpenClaw host, not the client device
-- If access is denied, confirm the correct gateway auth token is being used
+### Page doesn’t load
 
-Common health checks:
+- Confirm the instance is online: `tailscale status`
+- Confirm you used the correct instance IP (100.x.x.x)
+- Confirm you included the port: `:18789`
 
-```bash
-openclaw gateway status
-openclaw status
-openclaw channels status
-```
+### “Origin not allowed” / CORS issues
+
+- Ensure `gateway.controlUi.allowedOrigins` includes the exact origin you opened:
+  - `http://100.x.x.x:18789` (scheme \+ IP \+ port must match)
+- If you changed the IP (new instance) or changed ports, update `allowedOrigins` accordingly
+
+### Token rejected
+
+- Make sure you copied `gateway.auth.token` (not another token)
+- Re-open `openclaw.json` and re-copy (avoid hidden whitespace)
+
+### Instance appears offline
+
+- Re-run:
+  - `sudo tailscaled ... &` (if the daemon isn’t running)
+  - `sudo tailscale up` (if the node isn’t authenticated)
+
+### Multiple accounts / devices
+
+- Laptop and instance must be signed into the same Tailnet/account in Tailscale
 
 ## When to use this setup
 
