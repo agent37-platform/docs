@@ -18,8 +18,8 @@
             "pages": [
               "index",
               "get-started/overview",
-              "get-started/create-first-bot",
-              "get-started/connect-first-channel",
+              "get-started/create-first-bot-openclaw",
+              "get-started/connect-first-channel-openclaw",
               "get-started/dashboard"
             ]
           }
@@ -31,10 +31,10 @@
           {
             "group": "Messaging platforms",
             "pages": [
-              "channels/discord",
-              "channels/slack",
-              "channels/telegram",
-              "channels/whats-app"
+              "channels/how-to-setup-discord-openclaw",
+              "channels/how-to-setup-slack-openclaw",
+              "channels/how-to-setup-telegram-openclaw",
+              "channels/how-to-setup-whatsapp-openclaw"
             ]
           }
         ]
@@ -45,9 +45,10 @@
           {
             "group": "Providers",
             "pages": [
-              "models/claude-api",
-              "models/openai-api",
-              "models/custom-provider"
+              "models/change-default-model-openclaw",
+              "models/how-to-setup-openclaw-claude-api",
+              "models/how-to-setup-openclaw-custom-provider",
+              "models/how-to-setup-openclaw-openai-api"
 
             ]
           }
@@ -59,7 +60,7 @@
           {
             "group": "Networking",
             "pages": [
-              "tailscale/tailscale"
+              "tailscale/openclaw-web-chat-with-tailscale"
             ]
           }
         ]

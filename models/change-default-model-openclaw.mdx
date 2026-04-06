@@ -1,0 +1,178 @@
+---
+title: "Change default model"
+description: "Change the default AI model in OpenClaw from the Agent 37 dashboard"
+---
+
+Use this guide to change the default AI model in OpenClaw without rebuilding your setup. You will open your Agent 37 instance, run the OpenClaw configuration wizard, choose a provider, add authentication, and select a new default model.
+
+## Video walkthrough
+
+<iframe src="https://www.youtube.com/embed/sEIQx46O9EI" title="How to change default LLM model for OpenClaw" frameborder="0" className="w-full aspect-video rounded-xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
+
+<Info>
+  **Before you begin**:
+  - A running OpenClaw instance in [Agent 37](https://www.agent37.com/dashboard)
+  - Access to the instance terminal
+  - A valid API key or token for the model provider you want to use
+</Info>
+
+## Why you might change the default model
+
+Changing the default model is useful when you want to:
+
+- test a different provider
+- improve response quality
+- reduce cost or latency
+- switch to a model better suited to your workflow
+
+OpenClaw lets you do this through the built-in configuration wizard, so you do not need to rebuild your full environment.
+
+## Step 1: Open your OpenClaw instance
+
+1. Sign in to the [Agent 37 dashboard](https://www.agent37.com/dashboard).
+2. Open your OpenClaw instances.
+3. Confirm your target instance is running.
+
+Before you continue, check that the instance row shows a healthy running status.
+
+## Step 2: Open the terminal
+
+Inside the instance row, click **Terminal**.
+
+This opens the command-line interface connected to your OpenClaw environment.
+
+## Step 3: Start the configuration wizard
+
+Inside Terminal, run:
+
+```bash
+openclaw configure
+```
+
+If an existing configuration is already present, OpenClaw will detect it and let you update the current setup.
+
+When prompted for the gateway location, the usual choice is:
+
+```text
+Local (this machine)
+```
+
+## Step 4: Select the section to configure
+
+The wizard will ask which parts of the configuration you want to update.
+
+You may see sections such as:
+
+- Workspace
+- Model
+- Web tools
+- Gateway
+- Daemon
+- Channels
+
+To change the default AI model, select:
+
+```text
+Model
+```
+
+## Step 5: Choose your model provider
+
+Once the model section opens, OpenClaw will show the supported model providers. Depending on your setup, these may include:
+
+- OpenAI
+- Anthropic
+- MiniMax
+- Moonshot AI
+- Google
+- XAI
+- OpenRouter
+- Qwen
+- GLM
+- Copilot
+- Vercel AI Gateway
+- Venice AI
+
+Choose the provider you want to use for the new default model.
+
+## Step 6: Choose the authentication method
+
+Depending on the provider, OpenClaw may offer one or more authentication methods, such as:
+
+- API key
+- OAuth token
+
+For example, Anthropic may offer both an API-key flow and a token-based flow.
+
+Most users will simply paste an API key.
+
+## Step 7: Paste your API key or token
+
+After you choose the authentication method, OpenClaw will prompt you for the credential.
+
+At this step, you can:
+
+- paste the key or token
+- optionally give it a name
+- leave the name blank to use the default
+
+When the credential is accepted, OpenClaw updates the configuration automatically.
+
+You may see a confirmation similar to:
+
+```text
+Updated ~/.openclaw/openclaw.json
+```
+
+## Step 8: Select the default model
+
+Once authentication is complete, OpenClaw will list the available models for that provider.
+
+Choose the model you want to use as the new default.
+
+From that point forward, your agent will use the selected model unless you change it again.
+
+## Step 9: Finalize the configuration
+
+After the model selection, OpenClaw may continue through additional sections such as Workspace, Gateway, or Channels.
+
+You can update those sections if needed, or continue without making extra changes.
+
+When the wizard finishes, your new model configuration is active.
+
+## How to confirm the model change worked
+
+To verify the new model is active:
+
+1. Open **Chat** or **Web Chat**
+2. Send a simple test prompt
+3. Confirm the agent responds normally
+4. Check terminal logs if you want to inspect the runtime behavior
+
+If the agent responds correctly, the model change was successful.
+
+## Common mistakes
+
+Watch for these common issues:
+
+- invalid API key or token
+- selecting a model not supported by the provider
+- exiting the wizard before the flow is complete
+- assuming the provider changed before model selection finished
+
+If something goes wrong, rerun:
+
+```bash
+openclaw configure
+```
+
+## What to do next
+
+<CardGroup cols={2}>
+  <Card title="Claude API" icon="key-round" href="/models/claude-api">
+    Configure Anthropic if you want to switch to Claude.
+  </Card>
+  <Card title="OpenAI API" icon="sparkles" href="/models/openai-api">
+    Configure OpenAI if you want to switch to a GPT model.
+  </Card>
+</CardGroup>
