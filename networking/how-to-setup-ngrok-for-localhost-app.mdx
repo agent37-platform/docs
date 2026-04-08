@@ -1,0 +1,148 @@
+---
+title: "How to setup ngrok for localhost app"
+description: "Expose a localhost app with ngrok so you can access it from the internet"
+---
+
+Use this guide when your app is already running inside the Agent 37 terminal and you want to expose it to the internet with ngrok. This is useful for testing webhooks, sharing a preview URL, or checking how your app behaves from another device.
+
+<Info>
+  **Before you begin**:
+  - A running app inside your Agent 37 terminal
+  - An [ngrok account](https://dashboard.ngrok.com/signup)
+  - The port your app uses inside the Agent 37 terminal, such as `3000`, `5173`, `8000`, or `8080`
+</Info>
+
+## What ngrok does
+
+ngrok creates a secure public URL that forwards traffic to a port running inside your Agent 37 Linux terminal. That means your app can stay bound to `localhost` in the instance while still being reachable from the internet.
+
+For example, if your app runs inside the Agent 37 terminal on:
+
+```text
+http://localhost:3000
+```
+
+ngrok can create a public URL that forwards requests to that app.
+
+## Step 1: Open the Agent 37 terminal
+
+1. Sign in to the [Agent 37 dashboard](https://www.agent37.com/dashboard)
+2. Open the instance where your app is running
+3. Click **Terminal**
+
+The Agent 37 terminal is a Linux environment, so use Linux install commands inside it.
+
+## Step 2: Install ngrok in the Agent 37 Linux terminal
+
+Install ngrok with the official Linux apt setup:
+
+```bash
+curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+  | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null \
+  && echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
+  | sudo tee /etc/apt/sources.list.d/ngrok.list \
+  && sudo apt update \
+  && sudo apt install ngrok
+```
+
+After installation, confirm it works:
+
+```bash
+ngrok version
+```
+
+## Step 3: Add your authentication token
+
+Sign in to the [ngrok dashboard](https://dashboard.ngrok.com/get-started/your-authtoken), copy your authtoken, then run:
+
+```bash
+ngrok config add-authtoken YOUR_AUTHTOKEN
+```
+
+This connects the ngrok client inside your Agent 37 instance to your ngrok account.
+
+## Step 4: Confirm your app is already running in the Agent 37 terminal
+
+Start your app normally in the same terminal environment if it is not already running.
+
+For example, you may be using:
+
+```bash
+npm run dev
+```
+
+or:
+
+```bash
+npm start
+```
+
+Your app can stay bound to localhost inside the instance, for example:
+
+```text
+http://localhost:3000
+```
+
+If your app uses another port, replace `3000` with the correct value in the next step.
+
+## Step 5: Start an ngrok tunnel from the Agent 37 terminal
+
+If your app runs on port `3000`, run:
+
+```bash
+ngrok http 3000
+```
+
+If your app uses another port, replace `3000` with that port number.
+
+ngrok will start a tunnel and show output similar to:
+
+```text
+Forwarding  https://abc123.ngrok-free.app -> http://localhost:3000
+```
+
+## Step 6: Open the public URL
+
+Copy the `https://...ngrok...` forwarding URL and open it in your browser.
+
+You should see the app running inside your Agent 37 instance through the ngrok URL.
+
+You can also use that URL for:
+
+- webhook callbacks
+- OAuth redirect testing
+- mobile-device testing
+- temporary demos
+
+## Troubleshooting
+
+### The public page does not load
+
+- Confirm your app is running inside the Agent 37 terminal first
+- Confirm ngrok is forwarding to the correct port
+- Check whether your app uses a different host or port
+
+### The wrong app appears
+
+- You may have multiple services running inside the same instance
+- Recheck the port in:
+
+```bash
+ngrok http 3000
+```
+
+### Webhooks are failing
+
+- Verify that you pasted the exact ngrok URL into the third-party service
+- If you restarted ngrok, the free URL may have changed
+- Update the webhook target with the new forwarding URL
+
+### HTTPS redirects fail
+
+- Use the `https://` forwarding URL, not the `http://` one
+- Confirm your app accepts the incoming host and redirect origin
+
+<Tip>
+  If you need private access between your own devices instead of a public tunnel,
+  use the [Tailscale guide](/tailscale/how-to-setup-tailscale-with-openclaw).
+</Tip>

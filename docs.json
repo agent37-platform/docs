@@ -57,7 +57,8 @@
           {
             "group": "Networking",
             "pages": [
-              "tailscale/how-to-setup-tailscale-with-openclaw"
+              "tailscale/how-to-setup-tailscale-with-openclaw",
+              "networking/how-to-setup-ngrok-for-localhost-app"
             ]
           }
         ]
