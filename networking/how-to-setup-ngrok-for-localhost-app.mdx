@@ -3,7 +3,8 @@ title: "ngrok"
 description: "Expose a localhost app with ngrok so you can access it from the internet"
 ---
 
-ngrok creates a secure public URL that forwards traffic to a port running inside your Agent 37 Linux terminal. That means your app can stay bound to `localhost` in the instance while still being reachable from the internet.
+
+ngrok creates a secure public URL that forwards traffic to a port running inside your Agent 37 terminal. That means your app can stay bound to `localhost` in the instance while still being reachable from the internet.
 
 For example, if your app runs inside the Agent 37 terminal on:
 
@@ -19,17 +20,23 @@ ngrok can create a public URL that forwards requests to that app.
 2. Open the instance where your app is running
 3. Click **Terminal**
 
-The Agent 37 terminal is a Linux environment, so use Linux install commands inside it.
+ngrok is already available in the Agent 37 terminal, so you can start from authentication and tunnel setup.
 
 ## Step 2: Add your authentication token
 
-Sign in to the [ngrok dashboard](https://dashboard.ngrok.com/get-started/your-authtoken) and copy your authtoken,
+Before you continue, confirm ngrok is available:
+
+```bash
+ngrok version
+```
+
+Then sign in to the [ngrok dashboard](https://dashboard.ngrok.com/get-started/your-authtoken) and copy your authtoken.
 
 <Frame>
   ![Image](/images/image-46.png)
 </Frame>
 
-Then Run:
+Then run:
 
 ```bash
 ngrok config add-authtoken YOUR_AUTHTOKEN

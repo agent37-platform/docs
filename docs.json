@@ -7,7 +7,10 @@
     "light": "#8d8d8d",
     "dark": "#000000"
   },
-  "favicon": "/favicon.svg",
+  "icons": {
+    "library": "tabler"
+  },
+  "favicon": "/favicon/favicon.svg",
   "navigation": {
     "tabs": [
       {
@@ -16,8 +19,7 @@
           {
             "group": "Getting started",
             "pages": [
-              "get-started/create-first-bot-openclaw",
-              "get-started/connect-first-channel-openclaw"
+              "index"
             ]
           }
         ]
