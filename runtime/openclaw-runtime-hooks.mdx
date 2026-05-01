@@ -1,0 +1,226 @@
+---
+title: "OpenClaw runtime hooks"
+description: "Use persisted lifecycle hooks to restore custom setup after an OpenClaw container starts or after a runtime image update."
+---
+
+OpenClaw runtime containers support two persisted lifecycle hooks for restoring custom setup after a container starts or after a runtime image update.
+
+Hook scripts live under the persisted home volume:
+
+```text
+/home/node/.agent37/hooks/
+```
+
+That directory is mounted from the host instance data directory, so hook files survive container recreation, runtime updates, and normal restarts.
+
+<Info>
+  Use runtime hooks when you need your Agent 37 OpenClaw instance to restore packages, background services, or temporary runtime state automatically.
+</Info>
+
+## Hook files
+
+### Post-image-update hook
+
+Path:
+
+```text
+/home/node/.agent37/hooks/post-image-update.sh
+```
+
+This hook runs only when the runtime image reference changes. Use it for setup that is lost when the container image changes, such as packages installed into non-persisted system paths.
+
+Common use cases:
+
+- reinstall `apt` packages
+- recreate files under `/usr`, `/etc`, or `/var/lib/dpkg`
+- run one-time migrations needed after a runtime image update
+
+Timeout:
+
+```text
+15 minutes
+```
+
+If the hook fails or times out, startup continues. The image ref is not marked as completed, so the hook retries on the next container start.
+
+### Post-restart hook
+
+Path:
+
+```text
+/home/node/.agent37/hooks/post-restart.sh
+```
+
+This hook runs on every container start, including restarts, host reboots, and updates. Use it for runtime state that should be restored every time the container starts.
+
+Common use cases:
+
+- start background services
+- recreate temporary directories
+- re-export environment-specific state
+- restart a dev server or worker process
+
+Timeout:
+
+```text
+5 minutes
+```
+
+If the hook fails or times out, startup continues.
+
+The default scaffold is comments only. The post-restart hook is skipped until the file contains at least one non-comment command.
+
+## Startup order
+
+On each container start, the runtime entrypoint runs hooks in this order:
+
+1. `post-image-update.sh`, only if the runtime image ref changed
+2. `post-restart.sh`, if it contains executable commands
+
+So the behavior is:
+
+- update: `post-image-update.sh` runs first when needed, then `post-restart.sh` runs
+- restart: `post-image-update.sh` is skipped when the image ref is unchanged, then `post-restart.sh` runs
+
+## How image change detection works
+
+The backend passes the current runtime image into the container as:
+
+```text
+AGENT37_RUNTIME_IMAGE_REF
+```
+
+The container stores the last successfully handled image ref in:
+
+```text
+/home/node/.agent37/hooks/.last-image-ref
+```
+
+On startup, the entrypoint compares `.last-image-ref` with `AGENT37_RUNTIME_IMAGE_REF`.
+
+If they differ:
+
+1. The entrypoint runs `post-image-update.sh`
+2. If the hook exits successfully, it writes the current image ref into `.last-image-ref`
+3. If the hook fails, `.last-image-ref` is not updated, so the hook retries later
+
+## Backend lifecycle behavior
+
+### Restart endpoint
+
+The restart API intentionally recreates the container instead of running raw `docker restart`.
+
+Reason: `docker restart` preserves old environment variables, but the app needs restart to pick up current Firestore-backed settings such as plugin toggles and starter model settings.
+
+The restart path reuses the instance's saved image tag when available. Because the image ref should remain unchanged, `post-image-update.sh` normally does not run on restart.
+
+Relevant code:
+
+- `app/api/restartOpenclawInstance/route.ts`
+- `app/api/helpers/openclaw.ts`
+
+### Update endpoint
+
+The update API pulls the current `OPENCLAW_RUNTIME_IMAGE`, recreates the container, and saves that image tag on the instance.
+
+Because the new container receives the current image ref through `AGENT37_RUNTIME_IMAGE_REF`, the entrypoint can detect whether the image changed and run `post-image-update.sh`.
+
+Relevant code:
+
+- `app/api/updateOpenclawInstance/route.ts`
+- `app/api/helpers/openclaw.ts`
+
+## Runtime implementation
+
+Primary implementation:
+
+```text
+docker/runtime/entrypoint.sh
+```
+
+Important functions:
+
+- `ensure_post_update_hook`
+- `run_post_update_hook_if_needed`
+- `ensure_post_restart_hook`
+- `run_post_restart_hook`
+
+The hook paths are also surfaced in:
+
+```text
+src/constants/openclawRuntimeRelease.ts
+```
+
+The dashboard documentation page is:
+
+```text
+app/dashboard/openclaw/runtime-updates/page.tsx
+```
+
+## Example post-image-update hook
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends ffmpeg
+```
+
+## Example post-restart hook
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p "$HOME/.cache/my-worker"
+nohup "$HOME/.local/bin/my-worker" > "$HOME/.cache/my-worker/worker.log" 2>&1 &
+```
+
+## Testing
+
+The hook behavior is covered by OpenClaw E2E tests:
+
+```text
+tests/e2e/openclaw/runtime.e2e.ts
+tests/e2e/openclaw/post-update-existing.e2e.ts
+```
+
+These tests verify that:
+
+- `post-image-update.sh` runs after an update
+- `post-image-update.sh` does not rerun after a plain restart
+- `post-restart.sh` remains the hook for every container start
+
+Run the relevant tests with:
+
+```bash
+npm run test:e2e:openclaw:runtime
+npm run test:e2e:openclaw:post-update-existing
+```
+
+## Troubleshooting
+
+Check container logs for hook status:
+
+```bash
+docker logs openclaw-<instanceId>
+```
+
+Look for entries with:
+
+```text
+[openclaw-entrypoint]
+```
+
+Useful log messages include:
+
+- `Runtime image changed (...)`
+- `post-image-update hook completed`
+- `post-image-update hook failed`
+- `post-image-update hook timed out`
+- `Running post-restart hook`
+- `post-restart hook completed`
+- `post-restart hook failed`
+
+If `post-image-update.sh` keeps rerunning, check whether the hook exits non-zero or times out. The `.last-image-ref` file is updated only after a successful hook run.

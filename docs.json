@@ -46,6 +46,9 @@
             "pages": [
               "models/how-to-change-default-model-openclaw",
               "models/how-to-setup-openclaw-claude-api",
+              "models/how-to-setup-openclaw-deepseek",
+              "models/how-to-setup-openclaw-grok-api",
+              "models/how-to-setup-openclaw-kimi-k2-5",
               "models/how-to-setup-openclaw-custom-provider",
               "models/how-to-setup-openclaw-openai-api"
 
@@ -61,6 +64,17 @@
             "pages": [
               "tailscale/how-to-setup-tailscale-with-openclaw",
               "networking/how-to-setup-ngrok-for-localhost-app"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Runtime",
+        "groups": [
+          {
+            "group": "Lifecycle hooks",
+            "pages": [
+              "runtime/openclaw-runtime-hooks"
             ]
           }
         ]

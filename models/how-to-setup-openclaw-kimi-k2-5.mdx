@@ -1,0 +1,108 @@
+---
+title: "Kimi K2.5"
+description: "Use Agent 37 to connect OpenClaw to Moonshot AI and configure Kimi K2.5 as your model provider."
+keywords:
+  - "OpenClaw Kimi"
+  - "Moonshot AI Agent 37"
+  - "Kimi K2.5 setup"
+  - "OpenClaw model provider"
+---
+
+If you want to run OpenClaw with Kimi instead of OpenAI or Claude, this guide walks you through the full setup inside Agent 37. You will create a Moonshot AI API key, open your hosted OpenClaw terminal, and configure Kimi K2.5 as the active model for your instance.
+
+This page is based on the video walkthrough below and turns it into a written setup guide you can follow at your own pace.
+
+## Video walkthrough
+
+<iframe src="https://www.youtube.com/embed/5D-CVIemHrM" title="How to Setup OpenClaw with Kimi Model Moonshot AI" frameborder="0" className="w-full aspect-video rounded-xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
+
+<Info>
+  **Before you begin**:
+
+  - An active [Agent 37 account](https://www.agent37.com/dashboard)
+  - A running OpenClaw instance in Agent 37
+  - A [Moonshot AI / Kimi API](https://platform.moonshot.ai/docs/overview) account
+  - A valid Moonshot AI API key
+</Info>
+
+## Why use Kimi K2.5 with OpenClaw
+
+Kimi K2.5 is a useful option when you want another strong model provider for coding, long context tasks, or multilingual workflows. If you already run OpenClaw in Agent 37, switching to Kimi is mostly a configuration change inside the terminal.
+
+## Step 1: Create your Moonshot AI API key
+
+1. Sign in to the [Kimi API Platform](https://platform.moonshot.ai/docs/overview).
+2. Open the console or API key management area.
+3. Create a new API key for your workspace.
+4. Copy the key and store it somewhere safe.
+
+<Warning>
+  Keep this key private. Anyone with the key can consume usage on your Moonshot AI account.
+</Warning>
+
+## Step 2: Open your Agent 37 instance
+
+1. Go to the [Agent 37 dashboard](https://www.agent37.com/dashboard).
+2. Open an existing OpenClaw instance, or create a new one.
+3. Click **Terminal**.
+
+You will do the full model setup from the hosted Agent 37 terminal. You do not need to configure this on your local machine.
+
+## Step 3: Start the OpenClaw configuration flow
+
+In Terminal, run:
+
+```bash
+openclaw configure
+```
+
+When prompted, choose:
+
+1. **Where will the gateway run?** → `Local`
+2. **Select Section to Configure?** → `Model`
+3. **Model / Auth Provider** → `Moonshot AI (Kimi)`
+
+## Step 4: Add your Moonshot AI API key
+
+After selecting the provider:
+
+1. Choose the Moonshot AI API key authentication option
+2. Paste the API key you created in Step 1
+3. Continue to the model picker
+
+OpenClaw will save the credential to your instance configuration.
+
+## Step 5: Select a Kimi model
+
+Choose the Kimi model you want OpenClaw to use as the active default model for this instance.
+
+A common choice is:
+
+```text
+kimi-k2.5
+```
+
+Moonshot’s Kimi API docs also describe Kimi K2.5 as an OpenAI-compatible API surface, which makes it a practical provider option for OpenClaw workflows.
+
+## Step 6: Verify the model is active
+
+Run:
+
+```bash
+openclaw models list
+```
+
+You should see the selected Kimi model in the output.
+
+If you want to switch models later, you can rerun `openclaw configure` or use the exact model identifier shown by OpenClaw in the model management commands.
+
+## What to do next
+
+<CardGroup cols={2}>
+  <Card title="Change default model" icon="refresh-cw" href="/models/how-to-change-default-model-openclaw">
+    Switch between configured model providers as your workflow changes.
+  </Card>
+  <Card title="OpenAI API" icon="sparkles" href="/models/how-to-setup-openclaw-openai-api">
+    Compare the Kimi setup flow with the OpenAI provider flow.
+  </Card>
+</CardGroup>

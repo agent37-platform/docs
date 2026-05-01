@@ -1,0 +1,138 @@
+---
+title: "How to set up OpenClaw with DeepSeek"
+description: "Use Agent 37 to connect OpenClaw to DeepSeek and configure a DeepSeek model for your hosted instance."
+keywords:
+  - "OpenClaw DeepSeek"
+  - "Agent 37 DeepSeek setup"
+  - "DeepSeek API OpenClaw"
+  - "deepseek-chat"
+---
+
+If you want to run OpenClaw with DeepSeek, this guide walks you through the full setup inside Agent 37. You will create a DeepSeek API key, open your hosted OpenClaw terminal, and configure DeepSeek as the active model provider for your instance.
+
+This page is based on the video walkthrough below and turns it into a written step-by-step guide you can follow at your own pace.
+
+## Video walkthrough
+
+<iframe src="https://www.youtube.com/embed/5E3kRM6lHvo" title="How to Setup OpenClaw with DeepSeek Model" frameborder="0" className="w-full aspect-video rounded-xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
+
+<Info>
+  **Before you begin**:
+
+  - An active [Agent 37 account](https://www.agent37.com/dashboard)
+  - A running OpenClaw instance in Agent 37
+  - A [DeepSeek API](https://api-docs.deepseek.com/) account
+  - A valid DeepSeek API key
+</Info>
+
+## Why use DeepSeek with OpenClaw
+
+DeepSeek is a useful option when you want a provider that is API-compatible with OpenAI-style tooling while still giving you DeepSeek-specific model choices. If you already run OpenClaw in Agent 37, switching to DeepSeek is mostly a configuration change in the hosted terminal.
+
+## Step 1: Create your DeepSeek API key
+
+1. Go to the [DeepSeek API docs](https://api-docs.deepseek.com/) and open your DeepSeek platform account.
+2. Create or copy an API key for the account you want to use with OpenClaw.
+3. Store the key somewhere safe so you can paste it into the Agent 37 terminal.
+
+<Warning>
+  Keep this key private. Anyone with the key can consume usage on your DeepSeek account.
+</Warning>
+
+## Step 2: Open your Agent 37 instance
+
+1. Go to the [Agent 37 dashboard](https://www.agent37.com/dashboard).
+2. Open the OpenClaw instance you want to configure.
+3. Click **Terminal**.
+
+You will do the full setup from the hosted Agent 37 terminal. You do not need to configure DeepSeek on your local machine.
+
+## Step 3: Start the OpenClaw configuration flow
+
+In Terminal, run:
+
+```bash
+openclaw configure
+```
+
+When prompted, choose:
+
+1. **Where will the gateway run?** → `Local`
+2. **Select Section to Configure?** → `Model`
+3. **Model / Auth Provider** → `DeepSeek`
+
+## Step 4: Add your DeepSeek API key
+
+After selecting the provider:
+
+1. Choose the DeepSeek API key authentication option
+2. Paste the API key you created in Step 1
+3. Continue to the model picker
+
+OpenClaw will save the credential to your instance configuration.
+
+## Step 5: Select a DeepSeek model
+
+Choose the DeepSeek model you want OpenClaw to use as the active model for this instance.
+
+Common choices include:
+
+```text
+deepseek-chat
+deepseek-reasoner
+```
+
+According to the official DeepSeek API docs, `deepseek-chat` is the standard chat model and `deepseek-reasoner` is the reasoning-focused model.
+
+## Step 6: Verify the model is active
+
+Run:
+
+```bash
+openclaw models list
+```
+
+You should see the selected DeepSeek model in the output.
+
+If you want to switch models later, rerun `openclaw configure` or use the exact model identifier shown by OpenClaw in the model management commands.
+
+## What this changes in Agent 37
+
+Once setup is complete:
+
+- your OpenClaw instance uses DeepSeek as the configured provider
+- your agent can use the selected DeepSeek model for prompts and workflows
+- you can keep using the same Agent 37 channels, tools, and hosted environment
+
+## Common issues
+
+If the setup does not work on the first try, check these first:
+
+- the API key was copied correctly
+- you selected `DeepSeek` in `openclaw configure`
+- the model name you picked is available in your DeepSeek account
+- the configuration flow finished without interruption
+- your DeepSeek account has available balance if the API rejects requests
+
+If needed, rerun:
+
+```bash
+openclaw configure
+```
+
+## Which DeepSeek model should you choose
+
+Start with `deepseek-chat` if you want a general-purpose model for everyday agent tasks.
+
+Choose `deepseek-reasoner` if your workflow benefits from stronger reasoning and more deliberate responses.
+
+## What to do next
+
+<CardGroup cols={2}>
+  <Card title="Change default model" icon="refresh-cw" href="/models/how-to-change-default-model-openclaw">
+    Switch between configured model providers as your workflow changes.
+  </Card>
+  <Card title="OpenAI API" icon="sparkles" href="/models/how-to-setup-openclaw-openai-api">
+    Compare the DeepSeek setup flow with the OpenAI provider flow.
+  </Card>
+</CardGroup>
