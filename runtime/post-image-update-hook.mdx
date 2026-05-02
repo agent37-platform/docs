@@ -1,0 +1,40 @@
+---
+title: "Post-image-update hook"
+description: "Use the post-image-update hook to restore setup after an OpenClaw runtime image update."
+---
+
+This hook runs only when the runtime image reference changes. Use it for setup that is lost when the container image changes, such as packages installed into non-persisted system paths.
+
+## File path
+
+Create this file:
+
+```text
+/home/node/.agent37/hooks/post-image-update.sh
+```
+
+## When to use it
+
+This hook is useful when you want to:
+
+- reinstall system packages
+- restore tools that are not part of your persisted home directory
+- rerun one-time setup after a runtime update
+
+## Timeout
+
+```text
+15 minutes
+```
+
+If the hook fails or times out, startup continues. The image ref is not marked as completed, so the hook retries on the next container start.
+
+## Example
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends ffmpeg
+```

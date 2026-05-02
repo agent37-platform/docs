@@ -1,103 +1,41 @@
 ---
-title: "OpenClaw runtime hooks"
-description: "Use persisted lifecycle hooks to restore custom setup after an OpenClaw container starts or after a runtime image update."
+title: "Runtime Hooks"
+description: "Use runtime hook scripts to restore setup after OpenClaw restarts or runtime updates."
 ---
 
-OpenClaw runtime containers support two persisted lifecycle hooks for restoring custom setup after a container starts or after a runtime image update.
+Runtime hooks let your OpenClaw instance run small setup scripts automatically during startup.
 
-Hook scripts live under the persisted home volume:
+Use them when you want to:
+
+- reinstall packages after a runtime update
+- restart background services
+- recreate temporary runtime state
+- restore tools or files your app depends on
+
+Hook files live in:
 
 ```text
 /home/node/.agent37/hooks/
 ```
 
-That directory is mounted from the host instance data directory, so hook files survive container recreation, runtime updates, and normal restarts.
+## Available hooks
 
-<Info>
-  Use runtime hooks when you need your Agent 37 OpenClaw instance to restore packages, background services, or temporary runtime state automatically.
-</Info>
+<CardGroup cols={2}>
+  <Card title="Post-image-update hook" icon="refresh" href="/runtime/post-image-update-hook">
+    Run setup after the runtime image changes.
+  </Card>
+  <Card title="Post-restart hook" icon="rotate-clockwise" href="/runtime/post-restart-hook">
+    Run setup every time the container starts.
+  </Card>
+</CardGroup>
 
-## Hook files
+## Which hook should you use
 
-### Post-image-update hook
+- Use `post-image-update.sh` for things that should run only after a runtime update
+- Use `post-restart.sh` for things that should run on every start
 
-Path:
+## Tips
 
-```text
-/home/node/.agent37/hooks/post-image-update.sh
-```
-
-This hook runs only when the runtime image reference changes. Use it for setup that is lost when the container image changes, such as packages installed into non-persisted system paths.
-
-Common use cases:
-
-- reinstall `apt` packages
-- recreate files under `/usr`, `/etc`, or `/var/lib/dpkg`
-- run one-time migrations needed after a runtime image update
-
-Timeout:
-
-```text
-15 minutes
-```
-
-If the hook fails or times out, startup continues. The image ref is not marked as completed, so the hook retries on the next container start.
-
-### Post-restart hook
-
-Path:
-
-```text
-/home/node/.agent37/hooks/post-restart.sh
-```
-
-This hook runs on every container start, including restarts, host reboots, and updates. Use it for runtime state that should be restored every time the container starts.
-
-Common use cases:
-
-- start background services
-- recreate temporary directories
-- re-export environment-specific state
-- restart a dev server or worker process
-
-Timeout:
-
-```text
-5 minutes
-```
-
-If the hook fails or times out, startup continues.
-
-The default scaffold is comments only. The post-restart hook is skipped until the file contains at least one non-comment command.
-
-## Startup order
-
-On each container start, the runtime entrypoint runs hooks in this order:
-
-1. `post-image-update.sh`, only if the runtime image ref changed
-2. `post-restart.sh`, if it contains executable commands
-
-So the behavior is:
-
-- update: `post-image-update.sh` runs first when needed, then `post-restart.sh` runs
-- restart: `post-image-update.sh` is skipped when the image ref is unchanged, then `post-restart.sh` runs
-
-## Example post-image-update hook
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-sudo apt-get update
-sudo apt-get install -y --no-install-recommends ffmpeg
-```
-
-## Example post-restart hook
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-mkdir -p "$HOME/.cache/my-worker"
-nohup "$HOME/.local/bin/my-worker" > "$HOME/.cache/my-worker/worker.log" 2>&1 &
-```
+- Keep each hook focused on one job
+- Test the commands manually in Terminal first
+- Keep the script short enough to finish within its timeout

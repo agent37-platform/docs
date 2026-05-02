@@ -1,0 +1,47 @@
+---
+title: "Post-restart hook"
+description: "Use the post-restart hook to restore setup every time your OpenClaw container starts."
+---
+
+This hook runs on every container start, including restarts, host reboots, and updates. Use it for runtime state that should be restored every time the container starts.
+
+## File path
+
+Create this file:
+
+```text
+/home/node/.agent37/hooks/post-restart.sh
+```
+
+## When to use it
+
+This hook is useful when you want to:
+
+- start background services
+- restart a local app or worker
+- recreate temporary directories
+- restore runtime-only state
+
+## Timeout
+
+```text
+5 minutes
+```
+If the hook fails or times out, startup continues.
+The default scaffold is comments only. The post-restart hook is skipped until the file contains at least one non-comment command.
+
+## Example
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p "$HOME/.cache/my-worker"
+nohup "$HOME/.local/bin/my-worker" > "$HOME/.cache/my-worker/worker.log" 2>&1 &
+```
+
+## Tips
+
+- Put long-running processes in the background when needed
+- Keep the script short and predictable
+- Test the commands manually in Terminal before relying on the hook

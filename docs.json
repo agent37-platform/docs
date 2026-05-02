@@ -69,12 +69,13 @@
         ]
       },
       {
-        "tab": "Runtime",
+        "tab": "Runtime Hooks",
         "groups": [
           {
-            "group": "Lifecycle hooks",
+            "group": "Runtime hooks",
             "pages": [
-              "runtime/openclaw-runtime-hooks"
+              "runtime/post-image-update-hook",
+              "runtime/post-restart-hook"
             ]
           }
         ]
