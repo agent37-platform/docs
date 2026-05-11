@@ -79,6 +79,17 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "Dashboard",
+        "groups": [
+          {
+            "group": "OpenClaw",
+            "pages": [
+              "openclaw/deepgram-setup"
+            ]
+          }
+        ]
       }
     ]
   },

@@ -1,0 +1,48 @@
+---
+title: "Deepgram"
+description: "Connect Deepgram to your OpenClaw bot so voice notes can transcribe automatically."
+---
+
+Follow this guide to connect Deepgram to your OpenClaw bot so voice notes can transcribe automatically.
+
+Video walkthrough: [Setup DeepGram Text to Speech with OpenClaw](https://youtu.be/k-6MbOW11nM)
+
+## What this setup does
+
+In the current Agent 37 dashboard, Deepgram is used to turn on automatic voice-note transcription for your OpenClaw bot. Once connected, audio messages can be transcribed inside your bot workflow.
+
+## Step 1: Create your Deepgram API key
+
+1. Open the [Deepgram Console](https://console.deepgram.com/).
+2. Create a new API key for the project you want to use.
+3. Copy the key and keep it somewhere safe.
+
+Deepgram's API key setup docs are available [here](https://developers.deepgram.com/docs/create-additional-api-keys).
+
+## Step 2: Open your OpenClaw bot
+
+1. Go to your Agent 37 dashboard.
+2. Open the OpenClaw instance you want to configure.
+3. Open the **Advanced** tab.
+4. Scroll to the **Voice** section.
+
+## Step 3: Paste the API key
+
+1. Find the Deepgram setup card in the **Voice** section.
+2. Paste your Deepgram API key into the input field.
+3. Click **Save key**.
+
+After the key is saved, the bot is ready to transcribe voice notes automatically.
+
+## Step 4: Test voice transcription
+
+1. Send a voice note through your connected channel.
+2. Wait for OpenClaw to process the audio.
+3. Confirm the bot receives the transcript correctly.
+
+## Troubleshooting
+
+- Make sure the API key was copied correctly from Deepgram.
+- Check that you saved the key on the correct OpenClaw bot.
+- Retry with a fresh voice note after saving the key.
+- If the bot is unavailable, wait for it to return to a running state before updating the key.
