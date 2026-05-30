@@ -104,12 +104,49 @@ curl -X POST https://api.agent37.com/v1/instances \
 | --- | --- |
 | Retrieve / list | `GET /v1/instances/{id}` · `GET /v1/instances?user=` |
 | Update (name, cap, resize `vcpu`) | `PATCH /v1/instances/{id}` |
-| Restart / update template | `POST /v1/instances/{id}/restart` · `/update` |
 | Delete / restore | `DELETE /v1/instances/{id}` · `POST /v1/instances/{id}/restore` |
 
 <Warning>
-  **Delete is how you stop billing.** An instance bills compute as long as it exists, running or idle, since it runs continuously (cron, heartbeats). Delete archives it, refunds the unused part of the month, and keeps the data recoverable with `restore`. Add `?permanent=true` to purge it.
+  **Delete frees the seat.** An instance occupies one of your pre-purchased seats for as long as it exists, running or idle, since it runs continuously (cron, heartbeats). Delete archives it and opens the seat so a new instance can take its spot. There is no refund; the seat is already yours to reuse. The data stays recoverable with `restore`. Add `?permanent=true` to purge it.
 </Warning>
+
+## Lifecycle
+
+Three calls control whether the instance's computer is running and which version it runs. Each is a `POST` to a subpath, takes no body, and returns the instance with its new `status`. Everything on the instance (files, memory, connected accounts) survives all three.
+
+### Stop
+
+`POST /v1/instances/{id}/stop` halts the container. The agent stops doing work (no cron, no heartbeats, no responses) and `status` becomes `stopped`. The instance and its data stay intact; bring it back up with `restart`.
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/inst_x7/stop \
+  -H "Authorization: Bearer sk_live_..."
+# -> { "id": "inst_x7", "status": "stopped", ... }
+```
+
+<Warning>
+  **Stopping does not free the seat.** A stopped instance still occupies its pre-purchased seat, just like a running one. To open the seat for another instance, `delete` it (see above).
+</Warning>
+
+### Restart
+
+`POST /v1/instances/{id}/restart` recreates the container from the image already on the host (no download), then returns it to `running`. Use it to recover a wedged agent, to pick up changed settings, or to bring a `stopped` instance back up. Same template version, same data.
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/inst_x7/restart \
+  -H "Authorization: Bearer sk_live_..."
+# -> { "id": "inst_x7", "status": "running", ... }
+```
+
+### Update
+
+`POST /v1/instances/{id}/update` pulls the latest version of the instance's template, recreates the container on it, and preserves the data. The instance object's `update_available` is `true` whenever a newer version exists, and this call is how you apply it.
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/inst_x7/update \
+  -H "Authorization: Bearer sk_live_..."
+# -> { "id": "inst_x7", "status": "running", "update_available": false, ... }
+```
 
 ## Next steps
 
