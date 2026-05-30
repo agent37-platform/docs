@@ -31,10 +31,10 @@ Omit `template` and you get `hermes`.
 ## Custom templates
 
 <Info>
-  Custom templates are in preview. The flow below is the shape it takes: build an image `FROM` our base, push it to our registry, then create instances from your tag.
+  Custom templates are in preview, and for now they start from a **public** image you host. Build an image `FROM` our base, push it to a public registry you already use, then register it with us and create instances from it. Private images and pushing straight to our own registry are coming soon.
 </Info>
 
-A custom template is your own image, built on our base and published under a tag you choose. Use it to preinstall [skills, plugins, and packages](/agents-api/skills#preinstall-with-a-custom-image) so every instance you create from it starts ready.
+A custom template is your own image, built on our base and registered with us under a name you choose. Use it to preinstall [skills, plugins, and packages](/agents-api/skills#preinstall-with-a-custom-image) so every instance you create from it starts ready.
 
 <Steps>
   <Step title="Build on our base">
@@ -43,28 +43,38 @@ A custom template is your own image, built on our base and published under a tag
     ```bash
     docker build --platform=linux/amd64 -t my-agent:v1 .
     ```
+
+    Build for `linux/amd64` even on an Apple Silicon Mac. Instances run on amd64, and an arm64 image will fail to start.
   </Step>
 
-  <Step title="Push it to our registry">
-    Log in once with your API key, then tag and push under your namespace. The push publishes the image; we validate that it builds on our base, and it appears in your templates as `building`, then `ready`.
+  <Step title="Push it to a public registry">
+    Push the image to any registry you already use, such as Docker Hub or GitHub Container Registry, and make sure it is public so we can pull it. You log in to your own registry the usual way; we never see your registry password.
 
     ```bash
-    # your API key is the password; the username is "token"
-    docker login registry.agent37.com -u token -p sk_live_...
-
-    docker tag my-agent:v1 registry.agent37.com/your-namespace/my-agent:v1
-    docker push registry.agent37.com/your-namespace/my-agent:v1
+    docker tag my-agent:v1 ghcr.io/your-name/my-agent:v1
+    docker push ghcr.io/your-name/my-agent:v1
     ```
   </Step>
 
-  <Step title="Create instances from your tag">
-    Once the template is `ready`, pass its tag as `template` when you create an [instance](/agents-api/instances).
+  <Step title="Register it with us">
+    Tell us the image to pull and a name to call it. The template moves from `pending` to `ready`, or `failed` with a reason if we cannot pull it (a wrong reference, a missing tag, or a private image).
 
-    ```bash
+    ```bash curl
+    curl -X POST https://api.agent37.com/v1/templates \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{ "name": "my-agent", "image": "ghcr.io/your-name/my-agent:v1" }'
+    ```
+  </Step>
+
+  <Step title="Create instances from it">
+    Once the template is `ready`, pass the name you registered (or its `tmpl_` id) as `template` when you create an [instance](/agents-api/instances).
+
+    ```bash curl
     curl -X POST https://api.agent37.com/v1/instances \
       -H "Authorization: Bearer sk_live_..." \
       -H "Content-Type: application/json" \
-      -d '{ "template": "my-agent:v1" }'
+      -d '{ "template": "my-agent" }'
     ```
   </Step>
 </Steps>
@@ -74,26 +84,30 @@ A custom template is your own image, built on our base and published under a tag
 | Action | Endpoint |
 | --- | --- |
 | List built-in and custom templates | `GET /v1/templates` |
-| Get one, to poll build status | `GET /v1/templates/{id}` |
-| Register an image hosted in your own registry | `POST /v1/templates` |
+| Get one, to poll status | `GET /v1/templates/{id}` |
+| Register an image you host | `POST /v1/templates` |
 | Delete a custom template | `DELETE /v1/templates/{id}` |
 
 <ResponseField name="id" type="string">
   The template id, prefixed `tmpl_`.
 </ResponseField>
 <ResponseField name="name" type="string">
-  The image name you pushed, e.g. `my-agent`.
+  The name you chose, and what you pass as `template` when creating an instance, e.g. `my-agent`.
 </ResponseField>
-<ResponseField name="tag" type="string">
-  What you pass as `template` when creating an instance, e.g. `my-agent:v1`.
+<ResponseField name="image" type="string">
+  The image we pull, e.g. `ghcr.io/your-name/my-agent:v1`. Pin a tag; do not rely on `latest`.
 </ResponseField>
 <ResponseField name="status" type="string">
-  `building`, then `ready`, or `failed` if the image cannot be pulled or does not build on our base.
+  `pending` while we pull and check the image, then `ready`, or `failed` with a reason if we cannot pull it.
 </ResponseField>
 
 <Tip>
-  Already host your image elsewhere? Register it instead of pushing to us: `POST /v1/templates` with `{ "name": "my-agent", "image": "ghcr.io/you/my-agent:v1" }` and we pull it. An image that is not built `FROM` our base still runs, but as a plain container with no managed agent, chat, terminal, desktop, or files.
+  Building `FROM` our base is what gives an instance the managed agent, chat, terminal, desktop, and files. An image that is not built from our base still runs, but as a plain container without them.
 </Tip>
+
+<Note>
+  **Coming soon.** Registering a **private** image (you give us a read-only pull token for your registry) and pushing an image **straight to our registry** at `registry.agent37.com`, so you can skip hosting it yourself. For now, use a public image.
+</Note>
 
 ## Next steps
 
