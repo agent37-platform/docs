@@ -1,0 +1,115 @@
+---
+title: "Quickstart"
+description: "Create an agent and stream its first reply in two API calls."
+---
+
+You create an agent with one call, then talk to it with the next. Files, connected accounts, and memory stay on the agent until you delete it.
+
+## Prerequisites
+
+- **An API key.** Create one in the [dashboard](https://www.agent37.com/dashboard) and send it as a bearer token. Keep it server-side. Never ship it to a browser or end user.
+- **A funded balance.** A starter credit covers your first agent; top up in the dashboard for more.
+
+<Steps>
+  <Step title="Create an agent">
+    `POST /v1/instances` returns an instance that is ready to take a message the moment its `status` is `running`. Every field is optional, so a `POST` with no body works.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X POST https://api.agent37.com/v1/instances \
+      -H "Authorization: Bearer sk_live_..."
+    # -> { "id": "inst_x7", "status": "running", ... }
+    ```
+
+    ```python python
+    import requests
+
+    H = {"Authorization": "Bearer sk_live_..."}
+    inst = requests.post("https://api.agent37.com/v1/instances", headers=H).json()
+    ```
+
+    ```javascript node
+    const H = { "Authorization": "Bearer sk_live_..." };
+    const inst = await (await fetch("https://api.agent37.com/v1/instances", {
+      method: "POST",
+      headers: H,
+    })).json();
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Send it a message">
+    Send `input`, passing the instance's `id` as `instance_id`. Set `stream: true` to receive Server-Sent Events as the agent reasons, calls tools, and writes its answer.
+
+    <CodeGroup>
+    ```bash curl
+    curl -N https://api.agent37.com/v1/responses \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "instance_id": "inst_x7",
+        "input": "Research the top 3 EV makers, write a memo.",
+        "stream": true
+      }'
+    ```
+
+    ```python python
+    r = requests.post(
+        "https://api.agent37.com/v1/responses",
+        headers=H,
+        stream=True,
+        json={
+            "instance_id": inst["id"],
+            "input": "Summarize my inbox and draft replies.",
+            "stream": True,
+        },
+    )
+    for line in r.iter_lines():
+        print(line)
+    ```
+
+    ```javascript node
+    const res = await fetch("https://api.agent37.com/v1/responses", {
+      method: "POST",
+      headers: { ...H, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instance_id: inst.id,
+        input: "Build me a Next.js landing page.",
+        stream: true,
+      }),
+    });
+    // res.body is an SSE stream of events
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Continue the conversation">
+    The first reply returns a `session_id`. Reuse it to continue the same thread: the agent keeps the full history, so you send only the new input.
+
+    ```json
+    POST /v1/responses
+    { "session_id": "sess_1", "input": "Make it shorter, add a quote." }
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  Prefer not to stream? Send `stream: false` (the default) and the call returns the finished response as one JSON body.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Core concepts" icon="sitemap" href="/agents-api/concepts">
+    Instances, sessions, responses, and the agent-vs-model distinction.
+  </Card>
+  <Card title="Send a message" icon="send" href="/agents-api/messages">
+    Every field on the core call, plus the response shape.
+  </Card>
+  <Card title="Streaming events" icon="activity" href="/agents-api/streaming">
+    The full event list and a client parser.
+  </Card>
+  <Card title="Instances" icon="server" href="/agents-api/instances">
+    Size, manage, and delete the agent's computer.
+  </Card>
+</CardGroup>

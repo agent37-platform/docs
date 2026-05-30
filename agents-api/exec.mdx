@@ -1,0 +1,84 @@
+---
+title: "Run commands"
+description: "Run any shell command inside an instance from your backend. The escape hatch for anything the API does not wrap."
+---
+
+`POST /v1/instances/{id}/exec` runs a shell command inside the instance, straight from your backend. It is the escape hatch for anything the API does not wrap as its own call.
+
+The command runs inside the instance as the agent's own user, on the same box the agent works on, so it sees the agent's files, tools, and connected accounts. Anything you would do in a terminal, you do here without one: install a package, wire up a channel, run a script, or inspect state while debugging.
+
+<Warning>
+  `exec` takes your `sk_live_` key and runs arbitrary commands as the agent's user. Keep it server-side, behind your own checks. There is no end-user token for it, unlike an [embedded terminal](/agents-api/embeds).
+</Warning>
+
+## Request
+
+<ParamField body="command" type="string" required>
+  The shell command to run inside the instance.
+</ParamField>
+
+## Response
+
+A command that runs but exits nonzero is a normal result: you get `200` with its `exit_code`, `stdout`, and `stderr`. Only an instance that is unreachable or not running returns an error.
+
+<ResponseField name="exit_code" type="integer">
+  The command's exit code. Nonzero is still a `200`; read this to branch.
+</ResponseField>
+<ResponseField name="stdout" type="string">
+  Standard output. Combined `stdout` and `stderr` output is capped at 512 KB; see `truncated`.
+</ResponseField>
+<ResponseField name="stderr" type="string">
+  Standard error. Shares the 512 KB output cap with `stdout`.
+</ResponseField>
+<ResponseField name="truncated" type="boolean">
+  `true` when output spilled past the 512 KB cap and was cut.
+</ResponseField>
+
+<Note>
+  Output is capped at 512 KB, with `truncated` set when it spills, and a command runs for up to 300 seconds.
+</Note>
+
+## Example
+
+<CodeGroup>
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/inst_x7/exec \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "openclaw channels add --channel telegram --token 123:ABC" }'
+```
+
+```json response
+{
+  "exit_code": 0,
+  "stdout": "Telegram channel added.\n",
+  "stderr": "",
+  "truncated": false
+}
+```
+</CodeGroup>
+
+## Build on exec
+
+Anything the API does not wrap as its own endpoint, you build on `exec`. A "Connect Telegram" button, for example, is two commands: add the channel, then approve the pairing code your end user pasted in.
+
+```bash curl
+# step two of your "Connect Telegram" button
+curl -X POST https://api.agent37.com/v1/instances/inst_x7/exec \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "openclaw pairing approve telegram A1B2C3D4" }'
+```
+
+It is also how you [install a skill](/agents-api/skills) or edit the agent's config from your backend, with no terminal in the loop.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Terminal, desktop & files" icon="browser" href="/agents-api/embeds">
+    Hand an end user a live terminal instead of running commands yourself.
+  </Card>
+  <Card title="Skills & plugins" icon="puzzle" href="/agents-api/skills">
+    Install skills with `skills add` over exec.
+  </Card>
+</CardGroup>

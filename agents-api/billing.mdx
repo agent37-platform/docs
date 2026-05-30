@@ -1,0 +1,68 @@
+---
+title: "Billing"
+description: "Prepaid and managed in the dashboard: top up a balance that instances and usage draw down."
+---
+
+Billing is prepaid. You top up a balance in the dashboard, and instances and managed usage draw it down. There are no seats: you pay for the compute and usage your agents consume.
+
+## How the balance works
+
+- **Top up in the dashboard.** Add funds to a single shared balance for your account.
+- **Instances draw it down.** Each instance bills compute for as long as it exists, running or idle. Creating one pre-charges prorated compute against your balance.
+- **Managed usage draws it down.** Model calls, connected-app actions, and other metered usage are charged as the agent works.
+- **Delete to stop billing.** An instance bills compute until you delete it. See [Instances](/agents-api/instances) for how delete, restore, and proration work.
+
+<Note>
+  There is no balance API. Your balance and top-ups are managed entirely in the [dashboard](https://www.agent37.com/dashboard).
+</Note>
+
+## Per-instance spend caps
+
+Each instance has a hard cap on its managed usage, set with `managed_credit_cap_usd` when you create it (default `1.00`). The cap limits how much of your shared balance one instance can spend on managed usage.
+
+<ParamField body="managed_credit_cap_usd" type="number">
+  Hard cap on this instance's managed usage, drawn from your shared balance. Default `1.00`. Raise it with `PATCH /v1/instances/{id}`.
+</ParamField>
+
+An instance reports its cap and consumption in the `balance` object:
+
+```json
+{
+  "balance": { "managed_cap_usd": 1.00, "managed_used_usd": 0, "remaining_usd": 1.00 }
+}
+```
+
+When an instance reaches its cap, managed calls on it return `402 instance_cap_reached`. Raise `managed_credit_cap_usd` to let it keep working.
+
+## Running out of balance
+
+At zero balance, both creating instances and making managed calls return `402 insufficient_balance`. Add funds in the dashboard to resume.
+
+```json
+{
+  "error": {
+    "code": "insufficient_balance",
+    "message": "Balance cannot cover a new instance.",
+    "hint": "Add funds to your balance in the dashboard."
+  }
+}
+```
+
+<Tip>
+  Branch on the `code`, not the message. See [Errors](/agents-api/errors) for the full list and the response shape.
+</Tip>
+
+## Pricing
+
+Per-size compute prices and managed-usage rates live on the [pricing page](https://agent37.com/pricing).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Instances" icon="server" href="/agents-api/instances">
+    Size an instance, set its cap, and delete it to stop billing.
+  </Card>
+  <Card title="Errors" icon="alert-triangle" href="/agents-api/errors">
+    Every error code, including the 402s for balance and caps.
+  </Card>
+</CardGroup>

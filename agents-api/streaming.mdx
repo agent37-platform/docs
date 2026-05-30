@@ -1,0 +1,98 @@
+---
+title: "Streaming events"
+description: "Stream a response as named Server-Sent Events, and reconnect safely if the stream drops."
+---
+
+Send `stream: true` on [a message](/agents-api/messages) and the response comes back as Server-Sent Events. Each event is named, so you can render text, reasoning, and tool activity live. Events arrive in order, and the terminal `response.completed` event carries the final `output_text` and `usage`.
+
+## Events
+
+| Event | Payload |
+| --- | --- |
+| `response.created` | `{ id, instance_id, session_id }` |
+| `response.reasoning.delta` | `{ text }`, a chunk of the agent's thinking |
+| `response.output_text.delta` | `{ text }`, a chunk of the visible answer |
+| `response.tool_call.started` | `{ tool, label }` |
+| `response.tool_call.completed` | `{ tool, duration_ms }` |
+| `response.tool_call.failed` | `{ tool, error }`, the run continues |
+| `response.completed` | `{ output_text, usage }`, terminal success |
+| `response.failed` | `{ error: { code, message } }`, terminal error |
+
+<Info>
+  These events are the same whatever agent the instance runs (Hermes, Claude Code, Codex, OpenClaw). They are the streaming contract, not a per-agent detail, so your client code doesn't change when you switch agents.
+</Info>
+
+<Note>
+  **Reconnect safely.** If a stream drops, reconnect to `GET /v1/responses/{id}/stream`. It replays a snapshot of everything so far, then resumes live, so the answer is never lost.
+</Note>
+
+## Parse the stream
+
+Read the response body, split on the SSE frame boundary, and branch on each event's `event:` line. Stop when you see a terminal event.
+
+```javascript node
+const res = await fetch("https://api.agent37.com/v1/responses", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer sk_live_...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    instance_id: "inst_x7",
+    input: "Research the top 3 EV makers, write a memo.",
+    stream: true,
+  }),
+});
+
+const reader = res.body.getReader();
+const decoder = new TextDecoder();
+let buffer = "";
+
+while (true) {
+  const { value, done } = await reader.read();
+  if (done) break;
+  buffer += decoder.decode(value, { stream: true });
+
+  // SSE frames are separated by a blank line
+  const frames = buffer.split("\n\n");
+  buffer = frames.pop(); // keep the trailing partial frame
+
+  for (const frame of frames) {
+    const event = frame.match(/^event: (.+)$/m)?.[1];
+    const data = JSON.parse(frame.match(/^data: (.+)$/m)?.[1] ?? "{}");
+
+    switch (event) {
+      case "response.output_text.delta":
+        process.stdout.write(data.text); // stream the answer
+        break;
+      case "response.reasoning.delta":
+        // show the agent thinking, if you want
+        break;
+      case "response.tool_call.started":
+        console.log(`\n[${data.tool}] ${data.label}`);
+        break;
+      case "response.completed":
+        console.log("\nusage:", data.usage);
+        break;
+      case "response.failed":
+        console.error("\nerror:", data.error);
+        break;
+    }
+  }
+}
+```
+
+<Tip>
+  Prefer not to stream? Send `stream: false` (the default) and the call returns the finished response as one JSON body, with the agent's reply in `output_text`.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Send a message" icon="send" href="/agents-api/messages">
+    Every field on the core call, plus the response shape.
+  </Card>
+  <Card title="Build a chat app" icon="messages" href="/agents-api/chat-app">
+    Stream every reply into a per-user chat.
+  </Card>
+</CardGroup>

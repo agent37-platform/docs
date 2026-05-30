@@ -1,0 +1,110 @@
+---
+title: "Templates"
+description: "Choose which agents an instance installs when you create it."
+---
+
+A template is a prebuilt image that decides which agents an instance runs. Pass `template` when you create an [instance](/agents-api/instances), or omit it for the default.
+
+## Available templates
+
+| Template | Agents installed | Availability |
+| --- | --- | --- |
+| `hermes` | Hermes, general agent: browser, code, files. | Default, available today |
+| `claude-code` | Claude Code, for software work. | Coming soon |
+| `codex` | Codex, for software work. | Coming soon |
+| `openclaw` | OpenClaw. | Coming soon |
+| `all` | Hermes, Claude Code, Codex, and OpenClaw together. | Coming soon |
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "hermes" }'
+```
+
+Omit `template` and you get `hermes`.
+
+<Note>
+  **Multi-agent templates.** When a template installs more than one agent (like `all`), a session runs whichever you choose with the `agent` field on its [first message](/agents-api/messages). The choice is fixed for the session's life. Single-agent templates ignore it.
+</Note>
+
+## Custom templates
+
+<Info>
+  Custom templates are in preview. The flow below is the shape it takes: build an image `FROM` our base, push it to our registry, then create instances from your tag.
+</Info>
+
+A custom template is your own image, built on our base and published under a tag you choose. Use it to preinstall [skills, plugins, and packages](/agents-api/skills#preinstall-with-a-custom-image) so every instance you create from it starts ready.
+
+<Steps>
+  <Step title="Build on our base">
+    Write a Dockerfile that starts `FROM ghcr.io/agent37/base:latest` and layer your skills, plugins, and packages on top. The runtime, gateway, terminal, desktop, file browser, and managed auth all come from the base and keep working; the container has passwordless `sudo`, so you can install anything. See [Skills & plugins](/agents-api/skills#preinstall-with-a-custom-image) for the full Dockerfile.
+
+    ```bash
+    docker build --platform=linux/amd64 -t my-agent:v1 .
+    ```
+  </Step>
+
+  <Step title="Push it to our registry">
+    Log in once with your API key, then tag and push under your namespace. The push publishes the image; we validate that it builds on our base, and it appears in your templates as `building`, then `ready`.
+
+    ```bash
+    # your API key is the password; the username is "token"
+    docker login registry.agent37.com -u token -p sk_live_...
+
+    docker tag my-agent:v1 registry.agent37.com/your-namespace/my-agent:v1
+    docker push registry.agent37.com/your-namespace/my-agent:v1
+    ```
+  </Step>
+
+  <Step title="Create instances from your tag">
+    Once the template is `ready`, pass its tag as `template` when you create an [instance](/agents-api/instances).
+
+    ```bash
+    curl -X POST https://api.agent37.com/v1/instances \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{ "template": "my-agent:v1" }'
+    ```
+  </Step>
+</Steps>
+
+### Manage templates
+
+| Action | Endpoint |
+| --- | --- |
+| List built-in and custom templates | `GET /v1/templates` |
+| Get one, to poll build status | `GET /v1/templates/{id}` |
+| Register an image hosted in your own registry | `POST /v1/templates` |
+| Delete a custom template | `DELETE /v1/templates/{id}` |
+
+<ResponseField name="id" type="string">
+  The template id, prefixed `tmpl_`.
+</ResponseField>
+<ResponseField name="name" type="string">
+  The image name you pushed, e.g. `my-agent`.
+</ResponseField>
+<ResponseField name="tag" type="string">
+  What you pass as `template` when creating an instance, e.g. `my-agent:v1`.
+</ResponseField>
+<ResponseField name="status" type="string">
+  `building`, then `ready`, or `failed` if the image cannot be pulled or does not build on our base.
+</ResponseField>
+
+<Tip>
+  Already host your image elsewhere? Register it instead of pushing to us: `POST /v1/templates` with `{ "name": "my-agent", "image": "ghcr.io/you/my-agent:v1" }` and we pull it. An image that is not built `FROM` our base still runs, but as a plain container with no managed agent, chat, terminal, desktop, or files.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Instances" icon="server" href="/agents-api/instances">
+    Create an instance from a template, then size and manage it.
+  </Card>
+  <Card title="Send a message" icon="send" href="/agents-api/messages">
+    Pick an agent with the `agent` field on a multi-agent template.
+  </Card>
+  <Card title="Skills & plugins" icon="puzzle" href="/agents-api/skills">
+    Preinstall skills and tools so every instance boots with them.
+  </Card>
+</CardGroup>

@@ -1,0 +1,63 @@
+---
+title: "Build a chat app"
+description: "Give every user their own always-on agent. The simplest thing to build on the Agents API, and where most teams start."
+---
+
+The simplest thing to build on the Agents API is a chat app where every user has their own always-on agent. It holds their files, memory, and connected accounts for as long as it lives, and it is where most teams start.
+
+## The shape of it
+
+<Steps>
+  <Step title="One instance per user, on signup">
+    When a user signs up, create one [instance](/agents-api/instances) for them on the default `hermes` template, tagged with your own `user` id. That instance is their agent from then on.
+
+    ```javascript node
+    const inst = await api.post("/v1/instances", { user: "u_882" });
+    ```
+  </Step>
+
+  <Step title="A session per chat thread">
+    Each thread is a [session](/agents-api/messages). Send the first message with the `instance_id`, then reuse the returned `session_id` for every later turn, so you never resend history. Stream the reply to render tokens as they arrive.
+
+    ```javascript node
+    // new thread: first message, streamed
+    const { session_id } = await api.post("/v1/responses", {
+      instance_id: inst.id,
+      input: "Help me plan my week.",
+      stream: true,
+    });
+
+    // later turns: continue the same thread
+    await api.post("/v1/responses", {
+      session_id,
+      input: "Add a gym session Tuesday.",
+    });
+    ```
+  </Step>
+
+  <Step title="List threads for the sidebar">
+    List the instance's sessions to render every thread the user has open.
+
+    ```javascript node
+    const { data } = await api.get(`/v1/instances/${inst.id}/sessions`);
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  Stream every reply so the UI fills in as the agent works. See [Streaming events](/agents-api/streaming) for the event list and a client parser.
+</Tip>
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Send a message" icon="send" href="/agents-api/messages">
+    The core call, continuing a thread, and managing conversations.
+  </Card>
+  <Card title="Streaming events" icon="activity" href="/agents-api/streaming">
+    Render text, reasoning, and tool activity live.
+  </Card>
+  <Card title="Integrations" icon="plug" href="/agents-api/integrations">
+    Let users connect Gmail, Slack, Notion, and more to their agent.
+  </Card>
+</CardGroup>

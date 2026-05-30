@@ -1,0 +1,134 @@
+---
+title: "Terminal, desktop & files"
+description: "Mint short-lived signed URLs to embed an instance's terminal, desktop, or file browser in an iframe."
+---
+
+Every instance exposes three surfaces you can show your end user directly:
+
+| Surface | What it is |
+| --- | --- |
+| `terminal` | A live shell on the instance. |
+| `desktop` | A graphical desktop over noVNC, including a headed browser. |
+| `files` | A file browser for the instance's filesystem. |
+
+`POST /v1/instances/{id}/embeds` mints a short-lived signed URL for any of them. The URL is minted on demand, never stored, and you typically drop it into an iframe so the surface renders inside your own app.
+
+<Warning>
+  **Treat the URL like a password.** It carries its own token (not your API key) and anyone holding it has access to that surface until it expires. Don't log it, and don't put it on untrusted pages.
+</Warning>
+
+## Mint embed URLs
+
+Pass the `surfaces` you want and an `expires_in`. The response returns one `*_url` per requested surface, plus the `expires_at` they all share.
+
+<ParamField body="surfaces" type="string[]" required>
+  The surfaces to mint. Any of `terminal`, `desktop`, `files`.
+</ParamField>
+
+<ParamField body="expires_in" type="integer">
+  Seconds until the URLs expire. Maximum `86400` (24 hours).
+</ParamField>
+
+<CodeGroup>
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/inst_x7/embeds \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "surfaces": ["terminal", "files"],
+    "expires_in": 3600
+  }'
+```
+
+```python python
+import requests
+
+H = {
+    "Authorization": "Bearer sk_live_...",
+    "Content-Type": "application/json",
+}
+embeds = requests.post(
+    "https://api.agent37.com/v1/instances/inst_x7/embeds",
+    headers=H,
+    json={"surfaces": ["terminal", "files"], "expires_in": 3600},
+).json()
+```
+
+```javascript node
+const embeds = await (await fetch(
+  "https://api.agent37.com/v1/instances/inst_x7/embeds",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer sk_live_...",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      surfaces: ["terminal", "files"],
+      expires_in: 3600,
+    }),
+  },
+)).json();
+```
+</CodeGroup>
+
+## Response
+
+```json
+{
+  "terminal_url": "https://...#token=...",
+  "files_url": "https://...#token=...",
+  "expires_at": 1748403600
+}
+```
+
+<ResponseField name="terminal_url" type="string">
+  Signed URL for the terminal. Present only when `terminal` was requested.
+</ResponseField>
+
+<ResponseField name="desktop_url" type="string">
+  Signed URL for the noVNC desktop. Present only when `desktop` was requested.
+</ResponseField>
+
+<ResponseField name="files_url" type="string">
+  Signed URL for the file browser. Present only when `files` was requested.
+</ResponseField>
+
+<ResponseField name="expires_at" type="integer">
+  Unix seconds when all returned URLs expire.
+</ResponseField>
+
+## Embed in an iframe
+
+Render any returned URL inside an iframe in your app:
+
+```html html
+<iframe
+  src="https://...#token=..."
+  title="Agent terminal"
+  width="100%"
+  height="600"
+  allow="clipboard-read; clipboard-write"
+></iframe>
+```
+
+<Tip>
+  Mint fresh URLs per user session rather than reusing one long-lived link. A short `expires_in` limits the blast radius if a URL leaks. Re-call the endpoint when the URL expires.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Instances" icon="server" href="/agents-api/instances">
+    Create, size, and manage the computer behind every surface.
+  </Card>
+  <Card title="Files" icon="file-text" href="/agents-api/files">
+    Upload and read files the agent works with.
+  </Card>
+  <Card title="Integrations" icon="plug" href="/agents-api/integrations">
+    Connect Gmail, Slack, Notion, and more to an instance.
+  </Card>
+  <Card title="Core concepts" icon="sitemap" href="/agents-api/concepts">
+    Instances, sessions, and responses.
+  </Card>
+</CardGroup>

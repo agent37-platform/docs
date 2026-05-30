@@ -1,0 +1,123 @@
+---
+title: "Instances"
+description: "Create, size, and manage the persistent computer that runs your agent."
+---
+
+An instance is a persistent, isolated, always-on computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, it can take a message immediately. Creating an instance pre-charges prorated compute from your prepaid balance, but the agent does no work until you send it a message.
+
+## Create an instance
+
+`POST /v1/instances` returns an instance that is ready to take a message the moment its `status` is `running`. Every field is optional, so a `POST` with no body works.
+
+<ParamField body="template" type="string">
+  Which agents are installed. `hermes` is the default and available today; `claude-code`, `codex`, `openclaw`, and `all` are coming soon. See [Templates](/agents-api/templates).
+</ParamField>
+
+<ParamField body="vcpu" type="integer" default="1">
+  Size: `1`, `2`, `4`, or `8`. Sets CPU, memory, disk, and price.
+</ParamField>
+
+<ParamField body="user" type="string">
+  An opaque tag for your own attribution (your end user's id). Stored, never interpreted. Filter the list by it.
+</ParamField>
+
+<ParamField body="managed_credit_cap_usd" type="number" default="1.00">
+  Hard cap on this instance's managed usage, drawn from your shared balance.
+</ParamField>
+
+<ParamField body="name" type="string">
+  A label for the instance.
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Your own key/value pairs. Stored, never interpreted.
+</ParamField>
+
+<Info>
+  Today every instance runs the `hermes` template. The `claude-code`, `codex`, `openclaw`, and `all` templates, plus bring-your-own custom templates, are coming soon. See [Templates](/agents-api/templates).
+</Info>
+
+## Create body and instance object
+
+<CodeGroup>
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "hermes", "vcpu": 2, "user": "u_882" }'
+```
+
+```json instance object
+{
+  "id": "inst_x7",
+  "status": "running",
+  "template": "hermes",
+  "agents": ["hermes"],
+  "vcpu": 2,
+  "user": "u_882",
+  "balance": { "managed_cap_usd": 1.00, "managed_used_usd": 0, "remaining_usd": 1.00 },
+  "update_available": false,
+  "created": 1748400000
+}
+```
+</CodeGroup>
+
+<ResponseField name="id" type="string">
+  The instance id, prefixed `inst_`.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  `running` means it can take a message now.
+</ResponseField>
+
+<ResponseField name="template" type="string">
+  The template the instance was built from.
+</ResponseField>
+
+<ResponseField name="agents" type="string[]">
+  The agents the template installed (Hermes by default).
+</ResponseField>
+
+<ResponseField name="vcpu" type="integer">
+  The current size.
+</ResponseField>
+
+<ResponseField name="user" type="string">
+  Your attribution tag, echoed back.
+</ResponseField>
+
+<ResponseField name="balance" type="object">
+  Per-instance managed-usage tracking: `managed_cap_usd`, `managed_used_usd`, and `remaining_usd`.
+</ResponseField>
+
+<ResponseField name="update_available" type="boolean">
+  `true` when a newer template version exists. Apply it with the `/update` endpoint.
+</ResponseField>
+
+<ResponseField name="created" type="integer">
+  Creation time in unix seconds.
+</ResponseField>
+
+## Manage it
+
+| Action | Endpoint |
+| --- | --- |
+| Retrieve / list | `GET /v1/instances/{id}` · `GET /v1/instances?user=` |
+| Update (name, cap, resize `vcpu`) | `PATCH /v1/instances/{id}` |
+| Restart / update template | `POST /v1/instances/{id}/restart` · `/update` |
+| Delete / restore | `DELETE /v1/instances/{id}` · `POST /v1/instances/{id}/restore` |
+
+<Warning>
+  **Delete is how you stop billing.** An instance bills compute as long as it exists, running or idle, since it runs continuously (cron, heartbeats). Delete archives it, refunds the unused part of the month, and keeps the data recoverable with `restore`. Add `?permanent=true` to purge it.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Templates" icon="stack" href="/agents-api/templates">
+    Choose which agents an instance installs.
+  </Card>
+  <Card title="Billing" icon="credit-card" href="/agents-api/billing">
+    Prepaid balance, managed caps, and pricing.
+  </Card>
+</CardGroup>

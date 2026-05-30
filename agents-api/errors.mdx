@@ -1,0 +1,146 @@
+---
+title: "Errors"
+description: "Standard HTTP status codes plus a stable, machine-readable error body."
+---
+
+Every error uses a standard HTTP status code and returns the same JSON body. Branch on `code` (it's stable) and show `message` to a human.
+
+## Error body
+
+Failed requests return an `error` object. `code` and `message` are always present; `param` and `hint` appear when they help.
+
+```json
+{
+  "error": {
+    "code": "insufficient_balance",
+    "message": "Balance cannot cover a new instance.",
+    "hint": "Add funds to your balance in the dashboard."
+  }
+}
+```
+
+<ResponseField name="error.code" type="string">
+  A stable, machine-readable identifier. Branch on this, never on `message` or the HTTP status alone.
+</ResponseField>
+<ResponseField name="error.message" type="string">
+  A human-readable description. Safe to show, but don't parse it.
+</ResponseField>
+<ResponseField name="error.param" type="string">
+  The request field that was invalid. Present on `validation_error`.
+</ResponseField>
+<ResponseField name="error.hint" type="string">
+  A suggested next step, when one applies.
+</ResponseField>
+
+## Codes
+
+| Code | HTTP | Meaning |
+| --- | --- | --- |
+| `invalid_api_key` | 401 | Missing, malformed, or revoked key. |
+| `insufficient_balance` | 402 | Balance cannot cover this. Add funds to create instances or run managed calls. |
+| `instance_cap_reached` | 402 | This instance hit its managed-usage cap. Raise `managed_credit_cap_usd`. |
+| `instance_not_found` | 404 | No instance with that id on your account. |
+| `instance_not_running` | 409 | The instance is not running. Wait for `running`, then retry. |
+| `session_busy` | 409 | A response is already running on this session. Cancel first or use another. |
+| `insufficient_capacity` | 503 | No room to provision right now. Safe to retry. |
+| `rate_limited` | 429 | Too many requests. Retry after `Retry-After`. |
+| `validation_error` | 400 | A request field was invalid. See `param`. |
+
+## Handle them
+
+Read `code`, then act. Billing codes (`402`) point your end user to the dashboard; `429` and `503` are retryable.
+
+<CodeGroup>
+```javascript node
+const res = await fetch("https://api.agent37.com/v1/responses", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer sk_live_...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ instance_id: "inst_x7", input: "Draft a reply." }),
+});
+
+if (!res.ok) {
+  const { error } = await res.json();
+  switch (error.code) {
+    case "session_busy":
+      // a turn is already running: cancel it or open another session
+      break;
+    case "insufficient_balance":
+    case "instance_cap_reached":
+      // billing issue: send the user to the dashboard
+      break;
+    case "rate_limited":
+    case "insufficient_capacity":
+      // transient: back off and retry
+      break;
+    default:
+      throw new Error(error.message);
+  }
+}
+```
+
+```python python
+import requests
+
+r = requests.post(
+    "https://api.agent37.com/v1/responses",
+    headers={
+        "Authorization": "Bearer sk_live_...",
+        "Content-Type": "application/json",
+    },
+    json={"instance_id": "inst_x7", "input": "Draft a reply."},
+)
+
+if not r.ok:
+    error = r.json()["error"]
+    if error["code"] == "session_busy":
+        ...  # cancel the running turn or open another session
+    elif error["code"] in ("insufficient_balance", "instance_cap_reached"):
+        ...  # billing: send the user to the dashboard
+    elif error["code"] in ("rate_limited", "insufficient_capacity"):
+        ...  # transient: back off and retry
+    else:
+        raise RuntimeError(error["message"])
+```
+</CodeGroup>
+
+<Tip>
+  On `429`, wait for the `Retry-After` header before retrying. `insufficient_capacity` (503) is also safe to retry with backoff.
+</Tip>
+
+<Note>
+  `insufficient_balance` and `instance_cap_reached` are billing limits, not bugs. Balance and top-ups live in the dashboard. There is no balance API. See [Billing](/agents-api/billing) for how managed spend is capped.
+</Note>
+
+## Notes per code
+
+<AccordionGroup>
+  <Accordion title="invalid_api_key (401)" icon="key">
+    The `Authorization` header is missing, malformed, or the key was revoked. Send `Authorization: Bearer sk_live_...` and keep the key server-side. Rotate keys in the dashboard.
+  </Accordion>
+  <Accordion title="session_busy (409)" icon="clock">
+    A session runs one response at a time. Sending new input while one is in flight returns this. Cancel the running turn with `POST /v1/responses/{id}/cancel`, or open another [session](/agents-api/messages#continue-a-conversation).
+  </Accordion>
+  <Accordion title="validation_error (400)" icon="alert-triangle">
+    A request field was invalid. Read `param` to find which one, then check the field against [Send a message](/agents-api/messages) or [Instances](/agents-api/instances).
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Send a message" icon="send" href="/agents-api/messages">
+    The core call, its fields, and the response shape.
+  </Card>
+  <Card title="Billing" icon="credit-card" href="/agents-api/billing">
+    Prepaid balance and per-instance managed-usage caps.
+  </Card>
+  <Card title="Streaming events" icon="activity" href="/agents-api/streaming">
+    Render text, reasoning, and tool activity live.
+  </Card>
+  <Card title="Instances" icon="server" href="/agents-api/instances">
+    Create, size, and manage the agent's computer.
+  </Card>
+</CardGroup>

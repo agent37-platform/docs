@@ -1,86 +1,148 @@
 ---
-title: "Introduction"
-description: "Hosted OpenClaw docs for channels, models, and networking"
+title: "Agents API"
+description: "Launch a real AI agent with one API call: its own computer, tools, memory, and connected accounts."
 ---
 
-Agent 37 gives you a hosted OpenClaw environment so you can run bots, connect channels, configure model providers, and expose apps securely from one dashboard.
+Each agent is an **instance**: its own always-on computer with a filesystem, a terminal, a desktop, memory, and connected accounts. Send it a message and it browses, runs code, uses tools, and works on a schedule. There are no servers or containers for you to manage. You hold the key; your end users see only your product.
 
-## Channels
+## Get started in two calls
 
-Use these guides to connect OpenClaw to real messaging platforms.
+Create an agent, then send it a message. You are talking to it in two calls, and the returned `session_id` continues the conversation from there.
+
+<CodeGroup>
+```bash curl
+# 1. create an agent. it comes back running.
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..."
+# -> { "id": "inst_x7", "status": "running", ... }
+
+# 2. talk to it, streamed.
+curl -N https://api.agent37.com/v1/responses \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instance_id": "inst_x7",
+    "input": "Research the top 3 EV makers, write a memo.",
+    "stream": true
+  }'
+```
+
+```python python
+import requests
+
+H = {"Authorization": "Bearer sk_live_..."}
+
+# 1. create an agent. it comes back running.
+inst = requests.post("https://api.agent37.com/v1/instances", headers=H).json()
+
+# 2. talk to it, streamed.
+res = requests.post(
+    "https://api.agent37.com/v1/responses",
+    headers={**H, "Content-Type": "application/json"},
+    stream=True,
+    json={
+        "instance_id": inst["id"],
+        "input": "Research the top 3 EV makers, write a memo.",
+        "stream": True,
+    },
+)
+for line in res.iter_lines():
+    print(line)
+```
+
+```javascript node
+const H = { Authorization: "Bearer sk_live_..." };
+
+// 1. create an agent. it comes back running.
+const inst = await (await fetch("https://api.agent37.com/v1/instances", {
+  method: "POST",
+  headers: H,
+})).json();
+
+// 2. talk to it, streamed.
+const res = await fetch("https://api.agent37.com/v1/responses", {
+  method: "POST",
+  headers: { ...H, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    instance_id: inst.id,
+    input: "Research the top 3 EV makers, write a memo.",
+    stream: true,
+  }),
+});
+// res.body is a stream of Server-Sent Events
+```
+</CodeGroup>
 
 <CardGroup cols={2}>
-  <Card title="WhatsApp" icon="brand-whatsapp" href="/channels/how-to-setup-whatsapp-openclaw">
-    Link WhatsApp to OpenClaw from the Agent 37 dashboard and terminal flow.
+  <Card title="Quickstart" icon="bolt" href="/agents-api/quickstart">
+    The same two calls, step by step, with prerequisites.
   </Card>
-  <Card title="Telegram" icon="send" href="/channels/how-to-setup-telegram-openclaw">
-    Create a Telegram bot, add the token, and approve the pairing code.
-  </Card>
-  <Card title="Slack" icon="brand-slack" href="/channels/how-to-setup-slack-openclaw">
-    Configure Slack tokens and connect your workspace to OpenClaw.
-  </Card>
-  <Card title="Discord" icon="brand-discord" href="/channels/how-to-setup-discord-openclaw">
-    Create a Discord bot, invite it to a server, and pair it with OpenClaw.
+  <Card title="Core concepts" icon="sitemap" href="/agents-api/concepts">
+    Instances, sessions, and responses, and why the agent is not the model.
   </Card>
 </CardGroup>
 
-## Models
+## How it fits together
 
-Use these guides to choose, configure, and switch model providers.
+Three resources, and one distinction worth holding onto.
+
+| Resource | What it is |
+| --- | --- |
+| **Instance** `inst_` | The agent's own always-on computer. Built from a [template](/agents-api/templates), persistent until you delete it. Create one per end user. |
+| **Session** `sess_` | One conversation on an instance. A [message](/agents-api/messages) starts one; reuse its `session_id` to continue. An instance can hold many. |
+| **Response** `resp_` | One agentic turn: your input, the agent's work, its reply. [Stream](/agents-api/streaming) it live or fetch it by id. |
+
+<Info>
+  **The agent is not the model.** The *template* installs the agents (Hermes, Claude Code, Codex, OpenClaw, or a mix); a session runs one of them. The *model* is the LLM that agent runs on, chosen per message as `model` plus `provider`. They are separate dials.
+</Info>
+
+## Building blocks
+
+Snap these together to build your product. Every one acts on an instance.
 
 <CardGroup cols={2}>
-  <Card title="Change default model" icon="replace" href="/models/how-to-change-default-model-openclaw">
-    Switch the default AI model used by your OpenClaw instance.
+  <Card title="Send a message" icon="send" href="/agents-api/messages">
+    The core call: input in, an agentic reply out. Continue and manage conversations.
   </Card>
-  <Card title="Claude API" icon="key-round" href="/models/how-to-setup-openclaw-claude-api">
-    Configure OpenClaw to use Anthropic with a Claude API key.
+  <Card title="Streaming events" icon="activity" href="/agents-api/streaming">
+    Render text, reasoning, and tool activity live over Server-Sent Events.
   </Card>
-  <Card title="OpenAI API" icon="brand-openai" href="/models/how-to-setup-openclaw-openai-api">
-    Configure OpenClaw to use OpenAI with an API key.
+  <Card title="Skills & plugins" icon="puzzle" href="/agents-api/skills">
+    Preinstall skills and add new tools so the agent reaches for them on its own.
   </Card>
-  <Card title="Custom provider" icon="server" href="/models/how-to-setup-openclaw-custom-provider">
-    Connect a custom OpenAI-compatible or Anthropic-compatible endpoint.
+  <Card title="Files" icon="file" href="/agents-api/files">
+    Put files on the agent's filesystem, then ask about them by path.
   </Card>
-  <Card title="Kimi K2.5" icon="sparkles" href="/models/how-to-setup-openclaw-kimi-k2-5">
-    Configure OpenClaw to use the Kimi model from Moonshot AI.
+  <Card title="Run commands" icon="terminal-2" href="/agents-api/exec">
+    Run any shell command inside the instance from your backend.
   </Card>
-  <Card title="DeepSeek" icon="brain" href="/models/how-to-setup-openclaw-deepseek">
-    Configure OpenClaw to use DeepSeek with a hosted Agent 37 instance.
+  <Card title="Integrations" icon="plug" href="/agents-api/integrations">
+    Connect Gmail, Slack, Notion, and 1000+ apps. Routed and metered for you.
   </Card>
-  <Card title="Grok API" icon="bolt" href="/models/how-to-setup-openclaw-grok-api">
-    Configure OpenClaw to use xAI Grok with a hosted Agent 37 instance.
+  <Card title="Scheduled runs" icon="clock" href="/agents-api/scheduled-runs">
+    Give an agent a cron schedule; it runs unattended and you read the results.
+  </Card>
+  <Card title="Terminal, desktop & files" icon="browser" href="/agents-api/embeds">
+    Embed a live terminal, desktop, or file browser with signed URLs.
   </Card>
 </CardGroup>
 
-## Networking
-
-Use these guides when you need private access or public tunnels.
+## Guides
 
 <CardGroup cols={2}>
-  <Card title="Tailscale" icon="shield-check" href="/tailscale/how-to-setup-tailscale-with-openclaw">
-    Access OpenClaw Web Chat securely over your tailnet.
-  </Card>
-  <Card title="ngrok for localhost app" icon="globe" href="/networking/how-to-setup-ngrok-for-localhost-app">
-    Expose an app running in the Agent 37 terminal with a public ngrok URL.
+  <Card title="Build a chat app" icon="messages" href="/agents-api/chat-app">
+    Give every user their own always-on agent. Where most teams start.
   </Card>
 </CardGroup>
 
-## Runtime
+## Building with an AI coding agent
 
-Use these guides when you need your hosted OpenClaw container to restore custom setup after restarts or image updates.
+Point your coding agent at the machine-readable API map and it can scaffold a working client:
 
-<CardGroup cols={2}>
-  <Card title="OpenClaw runtime hooks" icon="settings" href="/runtime/openclaw-runtime-hooks">
-    Learn when to use runtime hooks and choose the right hook for your setup.
-  </Card>
-  <Card title="Post-image-update hook" icon="refresh" href="/runtime/post-image-update-hook">
-    Restore setup after the runtime image changes.
-  </Card>
-  <Card title="Post-restart hook" icon="rotate-clockwise" href="/runtime/post-restart-hook">
-    Restore setup every time your container starts.
-  </Card>
-</CardGroup>
+```bash
+https://api.agent37.com/llms.txt
+```
 
-<Tip>
-  Start with the channel or model guide you need most, then move to networking only if you need private access or a public tunnel.
-</Tip>
+<Note>
+  Looking for **OpenClaw**: channels, model providers, and self-hosting? Switch products in the selector at the top of the sidebar, or start at the [OpenClaw overview](/openclaw/overview).
+</Note>
