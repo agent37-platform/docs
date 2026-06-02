@@ -12,108 +12,71 @@
   },
   "favicon": "/favicon.svg",
   "navigation": {
-    "products": [
+    "groups": [
       {
-        "product": "Agents API",
-        "description": "Launch hosted AI agents over HTTP",
-        "icon": "cpu",
-        "groups": [
-          {
-            "group": "Get started",
-            "pages": [
-              "index",
-              "agents-api/quickstart",
-              "agents-api/concepts"
-            ]
-          },
-          {
-            "group": "Core API",
-            "pages": [
-              "agents-api/messages",
-              "agents-api/streaming",
-              "agents-api/instances"
-            ]
-          },
-          {
-            "group": "Building blocks",
-            "pages": [
-              "agents-api/templates",
-              "agents-api/skills",
-              "agents-api/files",
-              "agents-api/embeds",
-              "agents-api/exec",
-              "agents-api/integrations",
-              "agents-api/scheduled-runs"
-            ]
-          },
-          {
-            "group": "Guides",
-            "pages": [
-              "agents-api/chat-app"
-            ]
-          },
-          {
-            "group": "Reference",
-            "pages": [
-              "agents-api/errors",
-              "agents-api/billing"
-            ]
-          }
+        "group": "Get started",
+        "pages": [
+          "index",
+          "agents-api/quickstart",
+          "agents-api/concepts"
         ]
       },
       {
-        "product": "OpenClaw",
-        "description": "Self-hosted agent for channels and models",
-        "icon": "robot",
-        "groups": [
-          {
-            "group": "Get started",
-            "pages": [
-              "openclaw/overview"
-            ]
-          },
-          {
-            "group": "Channels",
-            "pages": [
-              "channels/how-to-setup-whatsapp-openclaw",
-              "channels/how-to-setup-telegram-openclaw",
-              "channels/how-to-setup-slack-openclaw",
-              "channels/how-to-setup-discord-openclaw"
-            ]
-          },
-          {
-            "group": "Models",
-            "pages": [
-              "models/how-to-change-default-model-openclaw",
-              "models/how-to-setup-openclaw-claude-api",
-              "models/how-to-setup-openclaw-openai-api",
-              "models/how-to-setup-openclaw-custom-provider",
-              "models/how-to-setup-openclaw-kimi-k2-5",
-              "models/how-to-setup-openclaw-deepseek",
-              "models/how-to-setup-openclaw-grok-api"
-            ]
-          },
-          {
-            "group": "Networking",
-            "pages": [
-              "tailscale/how-to-setup-tailscale-with-openclaw",
-              "networking/how-to-setup-ngrok-for-localhost-app"
-            ]
-          },
-          {
-            "group": "Runtime hooks",
-            "pages": [
-              "runtime/openclaw-runtime-hooks",
-              "runtime/post-image-update-hook",
-              "runtime/post-restart-hook"
-            ]
-          },
-          {
-            "group": "Dashboard",
-            "pages": [
-              "openclaw/deepgram-setup"
-            ]
-          }
+        "group": "Core API",
+        "pages": [
+          "agents-api/messages",
+          "agents-api/streaming",
+          "agents-api/instances"
+        ]
+      },
+      {
+        "group": "Building blocks",
+        "pages": [
+          "agents-api/templates",
+          "agents-api/skills",
+          "agents-api/files",
+          "agents-api/embeds",
+          "agents-api/exec",
+          "agents-api/integrations",
+          "agents-api/scheduled-runs"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "agents-api/chat-app"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "agents-api/errors",
+          "agents-api/billing"
+        ]
+      },
+      {
+        "group": "OpenClaw setup",
+        "hidden": true,
+        "searchable": true,
+        "pages": [
+          "openclaw/overview",
+          "channels/how-to-setup-whatsapp-openclaw",
+          "channels/how-to-setup-telegram-openclaw",
+          "channels/how-to-setup-slack-openclaw",
+          "channels/how-to-setup-discord-openclaw",
+          "models/how-to-change-default-model-openclaw",
+          "models/how-to-setup-openclaw-claude-api",
+          "models/how-to-setup-openclaw-openai-api",
+          "models/how-to-setup-openclaw-custom-provider",
+          "models/how-to-setup-openclaw-kimi-k2-5",
+          "models/how-to-setup-openclaw-deepseek",
+          "models/how-to-setup-openclaw-grok-api",
+          "tailscale/how-to-setup-tailscale-with-openclaw",
+          "networking/how-to-setup-ngrok-for-localhost-app",
+          "runtime/openclaw-runtime-hooks",
+          "runtime/post-image-update-hook",
+          "runtime/post-restart-hook",
+          "openclaw/deepgram-setup"
         ]
       }
     ]

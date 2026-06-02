@@ -1,9 +1,9 @@
 ---
-title: "Agents API"
-description: "Launch a real AI agent with one API call: its own computer, tools, memory, and connected accounts."
+title: "Agent37 Cloud"
+description: "Run Hermes, OpenClaw, Claude Code, and Codex on hosted agent computers through one API."
 ---
 
-Each agent is an **instance**: its own always-on computer with a filesystem, a terminal, a desktop, memory, and connected accounts. Send it a message and it browses, runs code, uses tools, and works on a schedule. There are no servers or containers for you to manage. You hold the key; your end users see only your product.
+Build agents into your product without provisioning VPSs, sandboxes, browsers, terminals, or background jobs. Agent37 Cloud runs Hermes, OpenClaw, Claude Code, and Codex on isolated, always-on computers that you control through a REST API.
 
 ## Get started in two calls
 
@@ -88,9 +88,9 @@ Three resources, and one distinction worth holding onto.
 
 | Resource | What it is |
 | --- | --- |
-| **Instance** `inst_` | The agent's own always-on computer. Built from a [template](/agents-api/templates), persistent until you delete it. Create one per end user. |
-| **Session** `sess_` | One conversation on an instance. A [message](/agents-api/messages) starts one; reuse its `session_id` to continue. An instance can hold many. |
-| **Response** `resp_` | One agentic turn: your input, the agent's work, its reply. [Stream](/agents-api/streaming) it live or fetch it by id. |
+| **Instance** | The agent's own always-on computer. Built from a [template](/agents-api/templates), persistent until you delete it. Create one per end user. |
+| **Session** | One conversation on an instance. A [message](/agents-api/messages) starts one; reuse its `session_id` to continue. An instance can hold many. |
+| **Response** | One agentic turn: your input, the agent's work, its reply. [Stream](/agents-api/streaming) it live or fetch it by id. |
 
 <Info>
   **The agent is not the model.** The *template* installs the agents (Hermes, Claude Code, Codex, OpenClaw, or a mix); a session runs one of them. The *model* is the LLM that agent runs on, chosen per message as `model` plus `provider`. They are separate dials.
@@ -144,5 +144,5 @@ https://api.agent37.com/llms.txt
 ```
 
 <Note>
-  Looking for **OpenClaw**: channels, model providers, and self-hosting? Switch products in the selector at the top of the sidebar, or start at the [OpenClaw overview](/openclaw/overview).
+  Looking for **OpenClaw** channel, model, or networking setup? Start at the [OpenClaw overview](/openclaw/overview).
 </Note>
