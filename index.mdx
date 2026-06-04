@@ -3,7 +3,9 @@ title: "Agent37 Cloud"
 description: "Run Hermes, OpenClaw, Claude Code, and Codex on hosted agent computers through one API."
 ---
 
-Build agents into your product without provisioning VPSs, sandboxes, browsers, terminals, or background jobs. Agent37 Cloud runs Hermes, OpenClaw, Claude Code, and Codex on isolated, always-on computers that you control through a REST API.
+![Agent 37 Cloud routes requests from your app to isolated agent instances.](/images/agent37-gateway-flow.svg)
+
+Create an instance once, then send tasks to `/v1/responses`. Agent 37 routes each user to their own persistent instance, where the selected agent runs.
 
 ## Get started in two calls
 
