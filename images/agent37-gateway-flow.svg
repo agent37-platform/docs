@@ -3,15 +3,17 @@
   <desc id="desc">Your app calls the Agent 37 Cloud API. Inside Agent 37 Cloud, a router provisions and runs isolated, persistent instances for users. Each instance can run Hermes, OpenClaw, or Claude Code.</desc>
 
   <defs>
-    <filter id="card-shadow" x="-20%" y="-25%" width="140%" height="170%" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0a0a0a" flood-opacity="0.08" />
-    </filter>
-    <filter id="panel-shadow" x="-10%" y="-12%" width="120%" height="128%" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#0a0a0a" flood-opacity="0.05" />
-    </filter>
-    <filter id="hub-shadow" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="13" stdDeviation="13" flood-color="#0a0a0a" flood-opacity="0.22" />
-    </filter>
+    <!-- NOTE: Do not use SVG <filter>/<feDropShadow> here. The docs image CDN
+         (mintcdn "auto=format") strips filter primitives during optimization,
+         which leaves empty <filter> elements and makes every filtered element
+         render as fully transparent (the center hub, panel, and cards vanished
+         in production while looking fine via `mint dev`). Shadows below are drawn
+         as gradient shapes instead, which survive CDN optimization. -->
+    <radialGradient id="hub-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0a0a0a" stop-opacity="0.30" />
+      <stop offset="55%" stop-color="#0a0a0a" stop-opacity="0.17" />
+      <stop offset="100%" stop-color="#0a0a0a" stop-opacity="0" />
+    </radialGradient>
 
     <radialGradient id="hub-fill" cx="32%" cy="24%" r="90%">
       <stop offset="0" stop-color="#33333a" />
@@ -72,7 +74,9 @@
 
   <rect width="1300" height="540" fill="#ffffff" />
 
-  <rect x="330" y="46" width="950" height="448" rx="24" fill="#f7f7f8" stroke="#e3e3e5" filter="url(#panel-shadow)" />
+  <!-- panel container (soft shadow drawn as an offset translucent rect) -->
+  <rect x="330" y="55" width="950" height="448" rx="24" fill="#0a0a0a" opacity="0.05" />
+  <rect x="330" y="46" width="950" height="448" rx="24" fill="#f7f7f8" stroke="#e3e3e5" />
   <rect x="330" y="46" width="950" height="448" fill="url(#dots)" clip-path="url(#panel-clip)" opacity="0.7" />
 
   <rect x="348" y="64" width="194" height="36" rx="11" fill="#ffffff" stroke="#e5e5e5" />
@@ -87,7 +91,8 @@
   </g>
 
   <g class="sans">
-    <rect x="20" y="225" width="224" height="150" rx="18" fill="#ffffff" stroke="#e5e5e5" filter="url(#card-shadow)" />
+    <rect x="20" y="232" width="224" height="150" rx="18" fill="#0a0a0a" opacity="0.07" />
+    <rect x="20" y="225" width="224" height="150" rx="18" fill="#ffffff" stroke="#e5e5e5" />
     <rect x="40" y="245" width="24" height="24" rx="7" fill="#121214" />
     <rect x="48" y="253" width="8" height="8" rx="2.2" fill="none" stroke="#ffffff" stroke-width="1.8" />
     <text x="74" y="262" font-size="15" font-weight="650" fill="#111111">Your app</text>
@@ -99,12 +104,15 @@
     <text class="mono endpoint" x="91" y="347.5">/v1/responses</text>
   </g>
 
-  <circle cx="476" cy="300" r="50" fill="url(#hub-fill)" filter="url(#hub-shadow)" />
+  <!-- central routing hub (soft shadow drawn as a radial-gradient ellipse) -->
+  <ellipse cx="476" cy="314" rx="60" ry="58" fill="url(#hub-shadow)" />
+  <circle cx="476" cy="300" r="50" fill="url(#hub-fill)" />
   <circle cx="476" cy="300" r="49.5" stroke="#ffffff" stroke-opacity="0.10" />
   <use href="#agent37-mark" x="444" y="268" width="64" height="64" color="#ffffff" />
 
   <g class="sans">
-    <rect x="860" y="122" width="384" height="104" rx="16" fill="#ffffff" stroke="#e5e5e5" filter="url(#card-shadow)" />
+    <rect x="860" y="129" width="384" height="104" rx="16" fill="#0a0a0a" opacity="0.06" />
+    <rect x="860" y="122" width="384" height="104" rx="16" fill="#ffffff" stroke="#e5e5e5" />
     <text class="label" x="882" y="155">Instance A</text>
     <circle cx="1176" cy="148" r="4" fill="#22c55e" />
     <circle cx="1176" cy="148" r="6.5" fill="#22c55e" opacity="0.16" />
@@ -118,7 +126,8 @@
   </g>
 
   <g class="sans">
-    <rect x="860" y="248" width="384" height="104" rx="16" fill="#ffffff" stroke="#e5e5e5" filter="url(#card-shadow)" />
+    <rect x="860" y="255" width="384" height="104" rx="16" fill="#0a0a0a" opacity="0.06" />
+    <rect x="860" y="248" width="384" height="104" rx="16" fill="#ffffff" stroke="#e5e5e5" />
     <text class="label" x="882" y="281">Instance B</text>
     <circle cx="1176" cy="274" r="4" fill="#22c55e" />
     <circle cx="1176" cy="274" r="6.5" fill="#22c55e" opacity="0.16" />
@@ -131,7 +140,8 @@
   </g>
 
   <g class="sans">
-    <rect x="860" y="374" width="384" height="104" rx="16" fill="#ffffff" stroke="#e5e5e5" filter="url(#card-shadow)" />
+    <rect x="860" y="381" width="384" height="104" rx="16" fill="#0a0a0a" opacity="0.06" />
+    <rect x="860" y="374" width="384" height="104" rx="16" fill="#ffffff" stroke="#e5e5e5" />
     <text class="label" x="882" y="407">Instance C</text>
     <circle cx="1176" cy="400" r="4" fill="#22c55e" />
     <circle cx="1176" cy="400" r="6.5" fill="#22c55e" opacity="0.16" />
