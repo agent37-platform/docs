@@ -3,7 +3,7 @@ title: "Templates"
 description: "Choose which agents an instance installs when you create it."
 ---
 
-A template is a prebuilt image that decides which agents an instance runs. Pass `template` when you create an [instance](/agents-api/instances), or omit it for the default.
+A template is a prebuilt image that decides which agents an instance installs and which agents the gateway can route sessions to. Pass `template` when you create an [instance](/agents-api/instances), or omit it for the default.
 
 ## Available templates
 
@@ -25,7 +25,7 @@ curl -X POST https://api.agent37.com/v1/instances \
 Omit `template` and you get `hermes`.
 
 <Note>
-  **Multi-agent templates.** When a template installs more than one agent (like `all`), a session runs whichever you choose with the `agent` field on its [first message](/agents-api/messages). The choice is fixed for the session's life. Single-agent templates ignore it.
+  **Multi-agent templates.** When a template installs more than one agent (like `all`), the gateway routes a new session to whichever agent you choose with the `agent` field on its [first message](/agents-api/messages). The choice is fixed for the session's life. Single-agent templates ignore it.
 </Note>
 
 ## Custom templates

@@ -3,7 +3,7 @@ title: "Send a message"
 description: "The core call: run your input through an agent, stream or fetch the result, and continue the thread."
 ---
 
-`POST /v1/responses` is the core call. It runs your input through an agent and returns the result. The call is agentic by default: the agent can browse, run code, use a terminal, read and write files, call connected tools, and reason across many steps before answering.
+`POST /v1/responses` is the core call. Agent37 Cloud forwards the turn to the instance's gateway, which runs it through the session's agent and returns the result. The call is agentic by default: the agent can browse, run code, use a terminal, read and write files, call connected tools, and reason across many steps before answering.
 
 Send an `instance_id` to start a conversation, or a `session_id` to continue one. The session keeps the full history, so you send only the new input.
 
@@ -22,7 +22,7 @@ Send an `instance_id` to start a conversation, or a `session_id` to continue one
 </ParamField>
 
 <ParamField body="agent" type="string">
-  For a multi-agent template, which agent this new conversation uses (e.g. `claude-code`). Defaults to the template's primary and is fixed once the session starts. Single-agent templates ignore it.
+  For a multi-agent template, which agent the gateway should route this new conversation to (e.g. `claude-code`). Defaults to the template's primary and is fixed once the session starts. Single-agent templates ignore it.
 </ParamField>
 
 <ParamField body="stream" type="boolean">
@@ -30,7 +30,7 @@ Send an `instance_id` to start a conversation, or a `session_id` to continue one
 </ParamField>
 
 <ParamField body="model" type="string">
-  The LLM the agent runs on. List what the agent can run with `GET /v1/models`. Defaults to the session's model.
+  The LLM the selected agent runs on. List what the agent can run with `GET /v1/models`. Defaults to the session's model.
 </ParamField>
 
 <ParamField body="provider" type="string">

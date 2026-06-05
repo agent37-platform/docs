@@ -5,6 +5,8 @@ description: "Instances, sessions, and responses, and why the agent is not the m
 
 Agent37 Cloud has three core resources. An **instance** is the agent's computer, a **session** is a conversation on it, and a **response** is a single turn.
 
+Each instance runs a gateway. It accepts Responses-style turns and routes them to the agent selected for the session.
+
 | Concept | What it is |
 | --- | --- |
 | **Instance** | An isolated, always-on computer that runs your agent. Built from a [template](/agents-api/templates) that installs one or more agents. Persistent until you delete it. Create one per end user. |
@@ -12,13 +14,13 @@ Agent37 Cloud has three core resources. An **instance** is the agent's computer,
 | **Response** | One agentic turn: your input, the agent's work, its reply. Stream it live or fetch it by id. |
 
 <Info>
-  **The agent is not the model.** The *template* installs the agents (Hermes, Claude Code, Codex, OpenClaw, or a mix); a session runs one of them. The *model* is the LLM that the agent runs on, chosen per message as `model` + `provider`. They are separate dials.
+  **The agent is not the model.** The *template* installs the agents (Hermes, Claude Code, Codex, OpenClaw, or a mix); the *gateway* routes a session to one of them. The *model* is the LLM that agent runs on, chosen per message as `model` + `provider`. They are separate dials.
 </Info>
 
 ## How they fit together
 
-- Create an **instance** once per end user. It keeps files, connected accounts, and memory across every session.
-- Start a **session** by sending a message with an `instance_id`. The reply returns a `session_id` you reuse to continue the thread.
+- Create an **instance** once per end user. It runs the gateway and keeps files, connected accounts, and memory across every session.
+- Start a **session** by sending a message with an `instance_id`. The gateway chooses the session's agent and the reply returns a `session_id` you reuse to continue the thread.
 - Each message produces a **response**: one agentic turn you can stream live or fetch later by id.
 
 <CardGroup cols={2}>
