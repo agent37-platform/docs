@@ -3,29 +3,31 @@ title: "Templates"
 description: "Choose which agents an instance installs when you create it."
 ---
 
-A template is a prebuilt image that decides which agents an instance installs and which agents the gateway can route sessions to. Pass `template` when you create an [instance](/agents-api/instances), or omit it for the default.
+A template is a prebuilt image that decides which agents an instance installs and which agents the gateway can route sessions to. Pass `template` (a template name) when you create an [instance](/agents-api/instances), or omit it for the default. Direct image references are not accepted on instance create; register a custom template first, then pass its name.
 
-## Available templates
+## Built-in templates
 
-| Template | Agents installed | Availability |
+Built-in templates are reserved under the `agent37-` prefix.
+
+| Template | Installs | Availability |
 | --- | --- | --- |
-| `hermes` | Hermes, general agent: browser, code, files. | Default, available today |
-| `claude-code` | Claude Code, for software work. | Coming soon |
-| `codex` | Codex, for software work. | Coming soon |
-| `openclaw` | OpenClaw. | Coming soon |
-| `all` | Hermes, Claude Code, Codex, and OpenClaw together. | Coming soon |
+| `agent37-hermes` | Hermes, general agent: browser, code, files. | Default, available today |
+| `agent37-openclaw` | OpenClaw gateway agent. | Available today |
+| `agent37-claude-code` | Claude Code, for software work. | Coming soon |
+| `agent37-codex` | Codex, for software work. | Coming soon |
+| `agent37-all` | Hermes, Claude Code, Codex, and OpenClaw together. | Coming soon |
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "template": "hermes" }'
+  -d '{ "template": "agent37-hermes" }'
 ```
 
-Omit `template` and you get `hermes`.
+Omit `template` and you get `agent37-hermes`.
 
 <Note>
-  **Multi-agent templates.** When a template installs more than one agent (like `all`), the gateway routes a new session to whichever agent you choose with the `agent` field on its [first message](/agents-api/messages). The choice is fixed for the session's life. Single-agent templates ignore it.
+  **Multi-agent templates.** When a template installs more than one agent (like `agent37-all`), the gateway routes a new session to whichever agent you choose with the `agent` field on its [first message](/agents-api/messages). The choice is fixed for the session's life. Single-agent templates ignore it.
 </Note>
 
 ## Custom templates
@@ -34,7 +36,7 @@ Omit `template` and you get `hermes`.
   Custom templates are in preview, and for now they start from a **public** image you host. Build an image `FROM` our base, push it to a public registry you already use, then register it with us and create instances from it. Private images and pushing straight to our own registry are coming soon.
 </Info>
 
-A custom template is your own image, built on our base and registered with us under a name you choose. Use it to preinstall [skills, plugins, and packages](/agents-api/skills#preinstall-with-a-custom-image) so every instance you create from it starts ready.
+A custom template is your own image, built on our base and registered under a name you choose. Use it to preinstall [skills, plugins, and packages](/agents-api/skills#preinstall-with-a-custom-image) so every instance you create from it starts ready. Custom templates are scoped to your workspace and are not visible to other workspaces.
 
 <Steps>
   <Step title="Build on our base">
@@ -57,18 +59,20 @@ A custom template is your own image, built on our base and registered with us un
   </Step>
 
   <Step title="Register it with us">
-    Tell us the image to pull and a name to call it. The template moves from `pending` to `ready`, or `failed` with a reason if we cannot pull it (a wrong reference, a missing tag, or a private image).
+    Tell us the image to pull and a name to call it. We check that `image_ref` is a fully qualified public reference and store the template as `active` right away. We pull the image the first time you create or update an instance from it, so a bad reference surfaces as a failed instance create, not here.
 
     ```bash curl
     curl -X POST https://api.agent37.com/v1/templates \
       -H "Authorization: Bearer sk_live_..." \
       -H "Content-Type: application/json" \
-      -d '{ "name": "my-agent", "image": "ghcr.io/your-name/my-agent:v1" }'
+      -d '{ "name": "my-agent", "image_ref": "ghcr.io/your-name/my-agent:v1", "description": "My agent" }'
     ```
+
+    The `name` is 2 to 63 characters, lowercase letters, numbers, and hyphens, starting with a letter. The `agent37-` prefix is reserved for built-in templates. Pin a tag on `image_ref`; do not rely on `latest`.
   </Step>
 
   <Step title="Create instances from it">
-    Once the template is `ready`, pass the name you registered (or its `tmpl_` id) as `template` when you create an [instance](/agents-api/instances).
+    Pass the name you registered as `template` when you create an [instance](/agents-api/instances).
 
     ```bash curl
     curl -X POST https://api.agent37.com/v1/instances \
@@ -83,22 +87,41 @@ A custom template is your own image, built on our base and registered with us un
 
 | Action | Endpoint |
 | --- | --- |
-| List built-in and custom templates | `GET /v1/templates` |
-| Get one, to poll status | `GET /v1/templates/{id}` |
+| List built-in and workspace templates | `GET /v1/templates` |
+| Get one | `GET /v1/templates/{name}` |
 | Register an image you host | `POST /v1/templates` |
-| Delete a custom template | `DELETE /v1/templates/{id}` |
+| Update name, image, description, or status | `PATCH /v1/templates/{name}` |
+| Deactivate a workspace template | `DELETE /v1/templates/{name}` |
 
-<ResponseField name="id" type="string">
-  The template id, prefixed `tmpl_`.
-</ResponseField>
+Built-in (`agent37-`) templates are read-only: `PATCH` and `DELETE` on them return `403`.
+
+`PATCH` changes any of `name`, `image_ref`, `description`, or `status` (`active` or `inactive`). Point `image_ref` at an older tag to roll back, or set `status` to `inactive` to stop new instances from resolving the template.
+
+`DELETE` deactivates the template (sets `status` to `inactive`) and acts once: the first call returns `200` with `{ "name": "my-agent", "deleted": true }`, and a repeat or already-inactive template returns `404`. Existing instances created from it keep running on the image they already pulled.
+
 <ResponseField name="name" type="string">
-  The name you chose, and what you pass as `template` when creating an instance, e.g. `my-agent`.
+  The name you pass as `template` when creating an instance, e.g. `my-agent`.
 </ResponseField>
-<ResponseField name="image" type="string">
+<ResponseField name="scope" type="string">
+  `system` for built-in `agent37-` templates, `workspace` for ones you register.
+</ResponseField>
+<ResponseField name="image_ref" type="string">
   The image we pull, e.g. `ghcr.io/your-name/my-agent:v1`. Pin a tag; do not rely on `latest`.
 </ResponseField>
+<ResponseField name="agents" type="string[]">
+  The agents the template installs.
+</ResponseField>
 <ResponseField name="status" type="string">
-  `pending` while we pull and check the image, then `ready`, or `failed` with a reason if we cannot pull it.
+  `active` (resolvable on create) or `inactive` (deactivated, or a built-in that is coming soon).
+</ResponseField>
+<ResponseField name="description" type="string">
+  Your optional description, or `null`.
+</ResponseField>
+<ResponseField name="created" type="integer">
+  Creation time in unix seconds, or `null` for built-in templates.
+</ResponseField>
+<ResponseField name="updated" type="integer">
+  Last update time in unix seconds, or `null` for built-in templates.
 </ResponseField>
 
 <Tip>

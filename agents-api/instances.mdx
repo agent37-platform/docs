@@ -10,7 +10,7 @@ An instance is a persistent, isolated, always-on computer running your agent. Cr
 `POST /v1/instances` returns an instance that is ready to take a message the moment its `status` is `running`. Every field is optional, so a `POST` with no body works.
 
 <ParamField body="template" type="string">
-  Which agents are installed. `hermes` is the default and available today; `claude-code`, `codex`, `openclaw`, and `all` are coming soon. See [Templates](/agents-api/templates).
+  A template name. `agent37-hermes` (the default) and `agent37-openclaw` are available today; `agent37-claude-code`, `agent37-codex`, and `agent37-all` are coming soon. Register your own under [custom templates](/agents-api/templates#custom-templates). See [Templates](/agents-api/templates).
 </ParamField>
 
 <ParamField body="vcpu" type="integer" default="1">
@@ -34,7 +34,7 @@ An instance is a persistent, isolated, always-on computer running your agent. Cr
 </ParamField>
 
 <Info>
-  Today every instance runs the `hermes` template. The `claude-code`, `codex`, `openclaw`, and `all` templates, plus bring-your-own custom templates, are coming soon. See [Templates](/agents-api/templates).
+  `agent37-hermes` and `agent37-openclaw` are available today, plus workspace custom templates in preview. The `agent37-claude-code`, `agent37-codex`, and `agent37-all` templates are coming soon. See [Templates](/agents-api/templates).
 </Info>
 
 ## Create body and instance object
@@ -44,14 +44,14 @@ An instance is a persistent, isolated, always-on computer running your agent. Cr
 curl -X POST https://api.agent37.com/v1/instances \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "template": "hermes", "vcpu": 2, "user": "u_882" }'
+  -d '{ "template": "agent37-hermes", "vcpu": 2, "user": "u_882" }'
 ```
 
 ```json instance object
 {
   "id": "inst_x7",
   "status": "running",
-  "template": "hermes",
+  "template": "agent37-hermes",
   "agents": ["hermes"],
   "vcpu": 2,
   "user": "u_882",
@@ -112,40 +112,50 @@ curl -X POST https://api.agent37.com/v1/instances \
 
 ## Lifecycle
 
-Three calls control whether the instance's computer is running and which version it runs. Each is a `POST` to a subpath, takes no body, and returns the instance with its new `status`. Everything on the instance (files, memory, connected accounts) survives all three.
+Four calls control whether the instance's computer is running and which version it runs. Each is a `POST` to a subpath and takes no body. They acknowledge the new state only, returning `{ id, status }` (`update` adds `image_ref`); `GET` the instance for its full representation. Everything on the instance (files, memory, connected accounts) survives them.
 
 ### Stop
 
-`POST /v1/instances/{id}/stop` halts the container. The agent stops doing work (no cron, no heartbeats, no responses) and `status` becomes `stopped`. The instance and its data stay intact; bring it back up with `restart`.
+`POST /v1/instances/{id}/stop` halts the container. The agent stops doing work (no cron, no heartbeats, no responses) and `status` becomes `stopped`. The instance and its data stay intact, and its CPU and memory are released back to the host while its disk stays reserved. Bring it back up with `start`.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/inst_x7/stop \
   -H "Authorization: Bearer sk_live_..."
-# -> { "id": "inst_x7", "status": "stopped", ... }
+# -> { "id": "inst_x7", "status": "stopped" }
 ```
 
 <Warning>
   **Stopping does not free the seat.** A stopped instance still occupies its pre-purchased seat, just like a running one. To open the seat for another instance, `delete` it (see above).
 </Warning>
 
+### Start
+
+`POST /v1/instances/{id}/start` brings a `stopped` instance back up on its pinned host, recreating the container from the image it already ran, and returns it to `running`. If the host no longer has room for the instance's CPU and memory, it returns `409 capacity_unavailable`.
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/inst_x7/start \
+  -H "Authorization: Bearer sk_live_..."
+# -> { "id": "inst_x7", "status": "running" }
+```
+
 ### Restart
 
-`POST /v1/instances/{id}/restart` recreates the container from the image already on the host (no download), then returns it to `running`. Use it to recover a wedged agent, to pick up changed settings, or to bring a `stopped` instance back up. Same template version, same data.
+`POST /v1/instances/{id}/restart` recreates the container from the image already on the host (no download) and returns it to `running`. Use it to recover a wedged agent or pick up changed settings. Same template version, same data. The instance must be `running`; use `start` to bring a `stopped` one back up.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/inst_x7/restart \
   -H "Authorization: Bearer sk_live_..."
-# -> { "id": "inst_x7", "status": "running", ... }
+# -> { "id": "inst_x7", "status": "running" }
 ```
 
 ### Update
 
-`POST /v1/instances/{id}/update` pulls the latest version of the instance's template, recreates the container on it, and preserves the data. The instance object's `update_available` is `true` whenever a newer version exists, and this call is how you apply it.
+`POST /v1/instances/{id}/update` pulls the template's current image, recreates the container on it, and preserves the data. Use it to move an instance onto a newer version after you point its template at a new tag. The response carries the `image_ref` now running.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/inst_x7/update \
   -H "Authorization: Bearer sk_live_..."
-# -> { "id": "inst_x7", "status": "running", "update_available": false, ... }
+# -> { "id": "inst_x7", "status": "running", "image_ref": "ghcr.io/your-name/my-agent:v2" }
 ```
 
 ## Next steps
