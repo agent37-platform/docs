@@ -118,11 +118,11 @@
     <circle cx="1176" cy="148" r="6.5" fill="#22c55e" opacity="0.16" />
     <text x="1188" y="152" font-size="12.5" fill="#737373">running</text>
     <text class="mono" x="882" y="177" font-size="13" fill="#52525b">ab12cd34ef.agent37.app</text>
-    <rect x="880" y="188" width="106" height="30" rx="15" fill="#fafafa" stroke="#e5e5e5" />
-    <rect x="887" y="191" width="24" height="24" rx="6" fill="#ffffff" stroke="#e5e5e5" />
-    <rect x="889" y="193" width="20" height="20" rx="5" fill="#111111" />
-    <text x="895" y="208" font-size="13" font-weight="750" fill="#ffffff">H</text>
-    <text class="tool" x="920" y="207">Hermes</text>
+    <rect x="880" y="188" width="110" height="30" rx="15" fill="#fafafa" stroke="#e5e5e5" />
+    <rect x="891" y="191" width="24" height="24" rx="6" fill="#ffffff" stroke="#e5e5e5" />
+    <rect x="893" y="193" width="20" height="20" rx="5" fill="#111111" />
+    <text x="903" y="208" text-anchor="middle" font-size="13" font-weight="750" fill="#ffffff">H</text>
+    <text class="tool" x="924" y="207">Hermes</text>
   </g>
 
   <g class="sans">
@@ -151,10 +151,10 @@
     <rect x="887" y="443" width="24" height="24" rx="6" fill="#ffffff" stroke="#e5e5e5" />
     <use href="#claude-mark" x="889" y="445" width="20" height="20" />
     <text class="tool" x="920" y="459">Claude Code</text>
-    <rect x="1026" y="440" width="106" height="30" rx="15" fill="#fafafa" stroke="#e5e5e5" />
-    <rect x="1033" y="443" width="24" height="24" rx="6" fill="#ffffff" stroke="#e5e5e5" />
-    <rect x="1035" y="445" width="20" height="20" rx="5" fill="#111111" />
-    <text x="1041" y="460" font-size="13" font-weight="750" fill="#ffffff">H</text>
-    <text class="tool" x="1066" y="459">Hermes</text>
+    <rect x="1026" y="440" width="110" height="30" rx="15" fill="#fafafa" stroke="#e5e5e5" />
+    <rect x="1037" y="443" width="24" height="24" rx="6" fill="#ffffff" stroke="#e5e5e5" />
+    <rect x="1039" y="445" width="20" height="20" rx="5" fill="#111111" />
+    <text x="1049" y="460" text-anchor="middle" font-size="13" font-weight="750" fill="#ffffff">H</text>
+    <text class="tool" x="1070" y="459">Hermes</text>
   </g>
 </svg>
