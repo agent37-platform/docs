@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1300" height="540" viewBox="0 0 1300 540" role="img" aria-labelledby="title desc" fill="none">
-  <title id="title">Agent 37 Cloud routes app requests to isolated agent instances</title>
-  <desc id="desc">Your app calls the Agent 37 Cloud API. Inside Agent 37 Cloud, a router provisions and runs isolated, persistent instances for users. Each instance can run Hermes, OpenClaw, or Claude Code.</desc>
+  <title id="title">Two calls: create an instance on the hosting API, then talk to it at its own URL</title>
+  <desc id="desc">Your app calls the hosting API at api.agent37.com to create and manage instances. Each instance is reachable directly at its own URL on agent37.app, where the agent gateway serves chat.</desc>
 
   <defs>
     <!-- NOTE: Do not use SVG <filter>/<feDropShadow> here. The docs image CDN
@@ -9,147 +9,75 @@
          render as fully transparent (the center hub, panel, and cards vanished
          in production while looking fine via `mint dev`). Shadows below are drawn
          as gradient shapes instead, which survive CDN optimization. -->
-    <radialGradient id="hub-shadow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#0a0a0a" stop-opacity="0.30" />
-      <stop offset="55%" stop-color="#0a0a0a" stop-opacity="0.17" />
+    <linearGradient id="card-shadow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0a0a" stop-opacity="0.10" />
       <stop offset="100%" stop-color="#0a0a0a" stop-opacity="0" />
-    </radialGradient>
-
-    <radialGradient id="hub-fill" cx="32%" cy="24%" r="90%">
-      <stop offset="0" stop-color="#33333a" />
-      <stop offset="0.58" stop-color="#1a1a1d" />
-      <stop offset="1" stop-color="#0c0c0e" />
-    </radialGradient>
-
-    <linearGradient id="openclaw-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ff4d4d" />
-      <stop offset="100%" stop-color="#991b1b" />
     </linearGradient>
-
-    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
-      <circle cx="1.1" cy="1.1" r="1.1" fill="#e7e7e9" />
-    </pattern>
-
-    <marker id="arrow" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" refX="8.5" refY="5.5" orient="auto">
-      <path d="M0,0.5 L10,5.5 L0,10.5 Z" fill="#9c9c9c" />
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#171717" />
     </marker>
-
-    <clipPath id="panel-clip">
-      <rect x="330" y="46" width="950" height="448" rx="24" />
-    </clipPath>
-
-    <symbol id="agent37-mark" viewBox="0 0 512 512">
-      <path fill="currentColor" fill-rule="evenodd" d="M223 63 H290 L449 222 V290 L290 449 H222 L63 290 V223 L223 63ZM238 102 L103 237 V273 L238 408 H274 L409 273 V237 L274 102 H238Z" />
-      <path fill="currentColor" fill-rule="evenodd" d="M256 116 L396 256 L256 396 L116 256 L256 116ZM256 170 L170 256 L256 342 L342 256 L256 170Z" />
-      <path fill="currentColor" d="M145 225 L225 145 H279 L367 233 L331 269 L267 205 H249 L181 273 Z" />
-      <path fill="currentColor" d="M367 287 L287 367 H233 L145 279 L181 243 L245 307 H263 L331 239 Z" />
-    </symbol>
-
-    <symbol id="openclaw-mark" viewBox="0 0 120 120">
-      <path d="M60 10 C30 10 15 35 15 55 C15 75 30 95 45 100 L45 110 L55 110 L55 100 C55 100 60 102 65 100 L65 110 L75 110 L75 100 C90 95 105 75 105 55 C105 35 90 10 60 10Z" fill="url(#openclaw-gradient)" />
-      <path d="M20 45 C5 40 0 50 5 60 C10 70 20 65 25 55 C28 48 25 45 20 45Z" fill="url(#openclaw-gradient)" />
-      <path d="M100 45 C115 40 120 50 115 60 C110 70 100 65 95 55 C92 48 95 45 100 45Z" fill="url(#openclaw-gradient)" />
-      <path d="M45 15 Q35 5 30 8" stroke="#ff4d4d" stroke-width="3" stroke-linecap="round" />
-      <path d="M75 15 Q85 5 90 8" stroke="#ff4d4d" stroke-width="3" stroke-linecap="round" />
-      <circle cx="45" cy="35" r="6" fill="#050810" />
-      <circle cx="75" cy="35" r="6" fill="#050810" />
-      <circle cx="46" cy="34" r="2.5" fill="#00e5cc" />
-      <circle cx="76" cy="34" r="2.5" fill="#00e5cc" />
-    </symbol>
-
-    <symbol id="claude-mark" viewBox="0 0 24 24">
-      <path fill="#D97757" d="m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z" />
-    </symbol>
-
+    <marker id="arrow-soft" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#9b9b9b" />
+    </marker>
     <style>
       .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
       .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-      .label { fill: #111111; font-size: 17px; font-weight: 670; }
-      .muted { fill: #737373; font-size: 13px; font-weight: 400; }
-      .tool { fill: #27272a; font-size: 14px; font-weight: 600; }
-      .endpoint { fill: #3f3f46; font-size: 13px; }
-      .method { fill: #16a34a; font-size: 13px; font-weight: 600; }
     </style>
   </defs>
 
-  <rect width="1300" height="540" fill="#ffffff" />
+  <!-- canvas panel -->
+  <rect x="8" y="8" width="1284" height="524" rx="24" fill="#ffffff" stroke="#e7e7e7" stroke-width="1.5" />
 
-  <!-- panel container (soft shadow drawn as an offset translucent rect) -->
-  <rect x="330" y="55" width="950" height="448" rx="24" fill="#0a0a0a" opacity="0.05" />
-  <rect x="330" y="46" width="950" height="448" rx="24" fill="#f7f7f8" stroke="#e3e3e5" />
-  <rect x="330" y="46" width="950" height="448" fill="url(#dots)" clip-path="url(#panel-clip)" opacity="0.7" />
+  <!-- ===== Your app ===== -->
+  <rect x="70" y="340" width="234" height="142" rx="16" fill="url(#card-shadow)" transform="translate(0 6)" />
+  <rect x="70" y="334" width="234" height="142" rx="16" fill="#171717" />
+  <text x="96" y="382" class="sans" font-size="24" font-weight="650" fill="#ffffff">Your app</text>
+  <text x="96" y="414" class="sans" font-size="15" fill="#b9b9b9">holds your sk_live_ key,</text>
+  <text x="96" y="436" class="sans" font-size="15" fill="#b9b9b9">server side</text>
 
-  <rect x="348" y="64" width="194" height="36" rx="11" fill="#ffffff" stroke="#e5e5e5" />
-  <use href="#agent37-mark" x="360" y="73" width="18" height="18" color="#525252" />
-  <text class="sans" x="386" y="87" font-size="14.5" font-weight="650" fill="#111111">Agent 37 Cloud</text>
+  <!-- ===== Hosting API card ===== -->
+  <rect x="450" y="70" width="372" height="138" rx="16" fill="url(#card-shadow)" transform="translate(0 6)" />
+  <rect x="450" y="64" width="372" height="138" rx="16" fill="#ffffff" stroke="#dcdcdc" stroke-width="1.5" />
+  <text x="478" y="106" class="sans" font-size="21" font-weight="650" fill="#171717">Hosting API</text>
+  <text x="478" y="136" class="mono" font-size="15" fill="#444444">api.agent37.com/v1</text>
+  <text x="478" y="166" class="sans" font-size="14.5" fill="#7a7a7a">instances, templates, budgets, exec</text>
 
-  <g stroke="#c6c6c6" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)">
-    <path d="M244,300 H418" />
-    <path d="M526,300 H690 Q710,300 710,285 V189 Q710,174 725,174 H852" />
-    <path d="M526,300 H852" />
-    <path d="M526,300 H690 Q710,300 710,315 V411 Q710,426 725,426 H852" />
-  </g>
+  <!-- ===== Instances column ===== -->
+  <!-- faded instance C -->
+  <rect x="960" y="58" width="292" height="92" rx="16" fill="#ffffff" stroke="#ececec" stroke-width="1.5" />
+  <text x="984" y="96" class="sans" font-size="16" font-weight="600" fill="#a9a9a9">Instance 9k3m7p2q1z</text>
+  <text x="984" y="122" class="sans" font-size="13.5" fill="#bdbdbd">Hermes &#183; running</text>
 
-  <g class="sans">
-    <rect x="20" y="232" width="224" height="150" rx="18" fill="#0a0a0a" opacity="0.07" />
-    <rect x="20" y="225" width="224" height="150" rx="18" fill="#ffffff" stroke="#e5e5e5" />
-    <rect x="40" y="245" width="24" height="24" rx="7" fill="#121214" />
-    <rect x="48" y="253" width="8" height="8" rx="2.2" fill="none" stroke="#ffffff" stroke-width="1.8" />
-    <text x="74" y="262" font-size="15" font-weight="650" fill="#111111">Your app</text>
-    <rect x="40" y="282" width="184" height="34" rx="9" fill="#f5f5f5" stroke="#ececec" />
-    <text class="mono method" x="52" y="303.5">POST</text>
-    <text class="mono endpoint" x="91" y="303.5">/v1/instances</text>
-    <rect x="40" y="326" width="184" height="34" rx="9" fill="#f5f5f5" stroke="#ececec" />
-    <text class="mono method" x="52" y="347.5">POST</text>
-    <text class="mono endpoint" x="91" y="347.5">/v1/responses</text>
-  </g>
+  <!-- faded instance B -->
+  <rect x="960" y="178" width="292" height="92" rx="16" fill="#ffffff" stroke="#e6e6e6" stroke-width="1.5" />
+  <text x="984" y="216" class="sans" font-size="16" font-weight="600" fill="#8d8d8d">Instance x4t8w6n0r5</text>
+  <text x="984" y="242" class="sans" font-size="13.5" fill="#ababab">Hermes &#183; running</text>
 
-  <!-- central routing hub (soft shadow drawn as a radial-gradient ellipse) -->
-  <ellipse cx="476" cy="314" rx="60" ry="58" fill="url(#hub-shadow)" />
-  <circle cx="476" cy="300" r="50" fill="url(#hub-fill)" />
-  <circle cx="476" cy="300" r="49.5" stroke="#ffffff" stroke-opacity="0.10" />
-  <use href="#agent37-mark" x="444" y="268" width="64" height="64" color="#ffffff" />
+  <!-- highlighted instance A -->
+  <rect x="960" y="324" width="292" height="158" rx="16" fill="url(#card-shadow)" transform="translate(0 6)" />
+  <rect x="960" y="318" width="292" height="158" rx="16" fill="#ffffff" stroke="#171717" stroke-width="2" />
+  <text x="984" y="356" class="sans" font-size="18" font-weight="650" fill="#171717">Instance ab12cd34ef</text>
+  <text x="984" y="386" class="mono" font-size="13.5" fill="#444444">ab12cd34ef.agent37.app</text>
+  <rect x="984" y="404" width="150" height="30" rx="15" fill="#f4f4f4" />
+  <circle cx="1002" cy="419" r="4.5" fill="#16a34a" />
+  <text x="1014" y="424" class="sans" font-size="13.5" fill="#444444">Hermes &#183; running</text>
+  <text x="984" y="458" class="sans" font-size="13" fill="#9b9b9b">files, memory, and tools persist</text>
 
-  <g class="sans">
-    <rect x="860" y="129" width="384" height="104" rx="16" fill="#0a0a0a" opacity="0.06" />
-    <rect x="860" y="122" width="384" height="104" rx="16" fill="#ffffff" stroke="#e5e5e5" />
-    <text class="label" x="882" y="155">Instance A</text>
-    <circle cx="1176" cy="148" r="4" fill="#22c55e" />
-    <circle cx="1176" cy="148" r="6.5" fill="#22c55e" opacity="0.16" />
-    <text x="1188" y="152" font-size="12.5" fill="#737373">running</text>
-    <text class="muted" x="882" y="177">Files, memory, and tools persist.</text>
-    <rect x="880" y="188" width="106" height="30" rx="15" fill="#fafafa" stroke="#e5e5e5" />
-    <rect x="887" y="191" width="24" height="24" rx="6" fill="#ffffff" stroke="#e5e5e5" />
-    <rect x="889" y="193" width="20" height="20" rx="5" fill="#111111" />
-    <text x="895" y="208" font-size="13" font-weight="750" fill="#ffffff">H</text>
-    <text class="tool" x="920" y="207">Hermes</text>
-  </g>
+  <!-- ===== Arrow 1: app -> hosting API (create & manage) ===== -->
+  <path d="M 187 330 C 187 218, 300 134, 442 134" stroke="#171717" stroke-width="2.5" marker-end="url(#arrow)" />
+  <rect x="226" y="170" width="216" height="56" rx="11" fill="#ffffff" stroke="#e4e4e4" stroke-width="1.25" />
+  <text x="246" y="194" class="sans" font-size="13" font-weight="650" fill="#171717">1 &#183; create &amp; manage</text>
+  <text x="246" y="215" class="mono" font-size="12.5" fill="#666666">POST /v1/instances</text>
 
-  <g class="sans">
-    <rect x="860" y="255" width="384" height="104" rx="16" fill="#0a0a0a" opacity="0.06" />
-    <rect x="860" y="248" width="384" height="104" rx="16" fill="#ffffff" stroke="#e5e5e5" />
-    <text class="label" x="882" y="281">Instance B</text>
-    <circle cx="1176" cy="274" r="4" fill="#22c55e" />
-    <circle cx="1176" cy="274" r="6.5" fill="#22c55e" opacity="0.16" />
-    <text x="1188" y="278" font-size="12.5" fill="#737373">running</text>
-    <text class="muted" x="882" y="303">Files, memory, and tools persist.</text>
-    <rect x="880" y="314" width="122" height="30" rx="15" fill="#fafafa" stroke="#e5e5e5" />
-    <rect x="887" y="317" width="24" height="24" rx="6" fill="#ffffff" stroke="#e5e5e5" />
-    <use href="#openclaw-mark" x="889" y="319" width="20" height="20" />
-    <text class="tool" x="920" y="333">OpenClaw</text>
-  </g>
+  <!-- ===== Provision lines: hosting API -> instances ===== -->
+  <path d="M 826 110 C 890 104, 906 104, 952 104" stroke="#bdbdbd" stroke-width="1.75" stroke-dasharray="5 5" marker-end="url(#arrow-soft)" />
+  <path d="M 826 152 C 890 178, 906 200, 952 218" stroke="#bdbdbd" stroke-width="1.75" stroke-dasharray="5 5" marker-end="url(#arrow-soft)" />
+  <path d="M 826 178 C 900 240, 900 330, 952 374" stroke="#bdbdbd" stroke-width="1.75" stroke-dasharray="5 5" marker-end="url(#arrow-soft)" />
+  <text x="858" y="86" class="sans" font-size="13" fill="#9b9b9b">provisions and routes</text>
 
-  <g class="sans">
-    <rect x="860" y="381" width="384" height="104" rx="16" fill="#0a0a0a" opacity="0.06" />
-    <rect x="860" y="374" width="384" height="104" rx="16" fill="#ffffff" stroke="#e5e5e5" />
-    <text class="label" x="882" y="407">Instance C</text>
-    <circle cx="1176" cy="400" r="4" fill="#22c55e" />
-    <circle cx="1176" cy="400" r="6.5" fill="#22c55e" opacity="0.16" />
-    <text x="1188" y="404" font-size="12.5" fill="#737373">running</text>
-    <text class="muted" x="882" y="429">Files, memory, and tools persist.</text>
-    <rect x="880" y="440" width="136" height="30" rx="15" fill="#fafafa" stroke="#e5e5e5" />
-    <rect x="887" y="443" width="24" height="24" rx="6" fill="#ffffff" stroke="#e5e5e5" />
-    <use href="#claude-mark" x="889" y="445" width="20" height="20" />
-    <text class="tool" x="920" y="459">Claude Code</text>
-  </g>
+  <!-- ===== Arrow 2: app -> instance A (chat, direct) ===== -->
+  <path d="M 308 412 C 560 412, 700 400, 952 398" stroke="#171717" stroke-width="2.5" marker-end="url(#arrow)" />
+  <rect x="448" y="430" width="372" height="56" rx="11" fill="#ffffff" stroke="#e4e4e4" stroke-width="1.25" />
+  <text x="468" y="454" class="sans" font-size="13" font-weight="650" fill="#171717">2 &#183; talk to it at its own URL</text>
+  <text x="468" y="475" class="mono" font-size="12.5" fill="#666666">POST https://ab12cd34ef.agent37.app/v1/responses</text>
 </svg>

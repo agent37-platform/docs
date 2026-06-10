@@ -1,39 +1,91 @@
 ---
 title: "Core concepts"
-description: "Instances, sessions, and responses, and why the agent is not the model."
+description: "The two planes, the resource model, and the money model behind every Agent37 Cloud call."
 ---
 
-Agent37 Cloud has three core resources. An **instance** is the agent's computer, a **session** is a conversation on it, and a **response** is a single turn.
+Agent37 Cloud is two APIs that share one key, and three resources that nest. An **instance** is the agent's computer, a **session** is a conversation on it, and a **response** is a single turn.
 
-Each instance runs a gateway. It accepts Responses-style turns and routes them to the agent selected for the session.
+## Two planes, one key
+
+| Plane | Base URL | What it serves |
+| --- | --- | --- |
+| **Hosting API** | `https://api.agent37.com/v1` | Manages the fleet: [instances](/agents-api/instances), [templates](/agents-api/templates), [budgets](/agents-api/budgets), [exec](/agents-api/exec). |
+| **Agent API** | `https://{instanceId}.agent37.app` | The agent itself. Every instance serves its own API: `POST /v1/responses` for [chat](/agents-api/chat), plus `/v1/sessions`, `/v1/models`, `/v1/health`, and `/v1/version`. |
+
+Both planes take the same `Authorization: Bearer sk_live_...` header. Mint keys in the [dashboard](https://www.agent37.com/dashboard/cloud/api-keys); each key is scoped to one workspace. On the hosting API the key selects your workspace. On an instance URL, the platform edge authenticates the key, verifies the instance belongs to your workspace, and forwards the request to the gateway running inside the instance.
+
+So you create an instance with one call to `api.agent37.com`, then talk to it at its own hostname:
+
+```bash
+curl https://ab12cd34ef.agent37.app/v1/responses \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "input": "Research the top 3 EV makers, write a memo." }'
+```
+
+<Note>
+  Instance URLs require the `Authorization` header on every request, so they are for server-side and programmatic use. You cannot open one in a plain browser tab.
+</Note>
+
+## The resource model
 
 | Concept | What it is |
 | --- | --- |
-| **Instance** | An isolated, always-on computer that runs your agent. Built from a [template](/agents-api/templates) that installs one or more agents. Persistent until you delete it. Create one per end user. |
-| **Session** | One conversation on an instance, running one of its agents. A message starts one; reuse its id to continue. An instance can hold many. |
+| **Instance** | An isolated, always-on computer that runs your agent. Built from a [template](/agents-api/templates). Persistent until you delete it, and billed monthly for as long as it exists. Create one per end user. |
+| **Session** | One conversation on an instance. A message starts one; reuse its `session_id` to continue. An instance can hold many. |
 | **Response** | One agentic turn: your input, the agent's work, its reply. Stream it live or fetch it by id. |
 
 <Info>
-  **The agent is not the model.** The *template* installs the agents (Hermes, Claude Code, Codex, OpenClaw, or a mix); the *gateway* routes a session to one of them. The *model* is the LLM that agent runs on, chosen per message as `model` + `provider`. They are separate dials.
+  **The agent is not the model.** The *template* installs the agent software, the *gateway* inside the instance runs your sessions on it (Hermes is the live agent today; OpenClaw, Claude Code, and Codex are coming soon), and the *model* is the LLM the agent thinks with, chosen per turn as `model` + `provider`. They are separate dials.
 </Info>
 
-## How they fit together
+### How they fit together
 
-- Create an **instance** once per end user. It runs the gateway and keeps files, connected accounts, and memory across every session.
-- Start a **session** by sending a message with an `instance_id`. The gateway chooses the session's agent and the reply returns a `session_id` you reuse to continue the thread.
-- Each message produces a **response**: one agentic turn you can stream live or fetch later by id.
+- Create an **instance** once per end user with `POST /v1/instances` on the hosting API. It keeps files, connected accounts, and memory across every session.
+- Start a **session** by sending a message to the instance's own URL: `POST https://{instanceId}.agent37.app/v1/responses`. Omit `session_id` and the gateway mints a new session; the reply carries the `session_id` you reuse to continue the thread. See [Sessions](/agents-api/sessions).
+- Each message produces a **response**. Stream it live with `stream: true` (see [Streaming](/agents-api/streaming)), fetch it later with `GET /v1/responses/{id}`, or reconnect a dropped stream with `GET /v1/responses/{id}/stream`.
+
+## Templates declare ports, instances snapshot them
+
+A template declares which ports its image listens on, with at most one marked `default`. When you create an instance, it snapshots the template's ports, and the instance object returns a URL per port:
+
+- The **default port** gets the instance's own URL, `https://{instanceId}.agent37.app`. The default template, `agent37-hermes`, serves the gateway there, so the default port URL is the chat URL.
+- **Non-default ports** each get an opaque handle URL like `https://q7w8e9r0t1y2u3i4o5p6a7s8.agent37.app`.
+
+See [Instance URLs](/agents-api/urls) for how routing works, and [Templates](/agents-api/templates) for declaring ports on your own images.
+
+## One wallet, per-instance caps
+
+Your workspace has exactly one pot of money: the wallet, funded by top-up from the [billing dashboard](https://www.agent37.com/dashboard/cloud/billing). Two things draw on it:
+
+- **Compute.** Each instance prepays one calendar month at create and renews on its own anniversary. See [Billing](/agents-api/billing).
+- **Managed usage.** Every instance gets managed LLM, Brave search, and Composio credentials, metered at cost as the agent uses them.
+
+Per-instance [budgets](/agents-api/budgets) are caps, not money. A budget bounds how much managed spend an instance may pull from the wallet: a monthly cap that resets each UTC month (default $0) plus one-time top-up headroom. Raising a cap moves no funds; an instance with a generous cap and an empty wallet still gets refused.
+
+## Conventions
+
+- **Instance ids** are bare 10-character lowercase alphanumerics, like `ab12cd34ef`. No prefixes. The id doubles as the DNS label in the instance URL.
+- **Session and response ids** are 32-character hex strings minted by the gateway, like `7f3e0b6c52a949d2b1c4a8e9d0f31726`.
+- **Money** is integer micros: USD x 1e6, in `*_micros` fields.
+- **Timestamps** are epoch seconds on the hosting API and epoch milliseconds on the agent API.
+- **Lists** wrap results in `{ "data": [...] }`. Instance and session lists are newest first.
+
+An instance's `status` is one of `provisioning`, `running`, `stopping`, `stopped`, `starting`, `restarting`, `updating`, `failed`, `deleting`, or `deleted`; a response's `status` is `in_progress`, `completed`, `failed`, or `cancelled`.
+
+## Next steps
 
 <CardGroup cols={2}>
   <Card title="Instances" icon="server" href="/agents-api/instances">
     Create, size, and manage the agent's computer.
   </Card>
-  <Card title="Streaming events" icon="activity" href="/agents-api/streaming">
-    Render text, reasoning, and tool activity live.
-  </Card>
-  <Card title="Send a message" icon="send" href="/agents-api/messages">
+  <Card title="Send a message" icon="send" href="/agents-api/chat">
     The core call and its response shape.
   </Card>
-  <Card title="Templates" icon="stack" href="/agents-api/templates">
-    Choose which agents an instance installs.
+  <Card title="Templates" icon="template" href="/agents-api/templates">
+    Pick a catalog agent or bring your own image.
+  </Card>
+  <Card title="Budgets" icon="wallet" href="/agents-api/budgets">
+    Cap each instance's managed spend.
   </Card>
 </CardGroup>

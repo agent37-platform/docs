@@ -1,146 +1,207 @@
 ---
 title: "Errors"
-description: "Standard HTTP status codes plus a stable, machine-readable error body."
+description: "Stable, machine-readable error codes on both planes: branch on the code, show the message."
 ---
 
-Every error uses a standard HTTP status code and returns the same JSON body. Branch on `code` (it's stable) and show `message` to a human.
+Every error uses a standard HTTP status code and returns a JSON `error` object with a stable `code`. Branch on `code`, never on `message` or the HTTP status alone. There are two catalogs because there are two planes.
 
-## Error body
+<Info>
+  The **Hosting API** (`https://api.agent37.com/v1/*`) manages instances, templates, and budgets. The **Agent API** is served by the gateway inside each instance at `https://{instanceId}.agent37.app` and handles chat, sessions, and models. Both take the same `sk_live_` Bearer key, but their error envelopes differ: the Agent API adds optional `param` and `hint` fields.
+</Info>
 
-Failed requests return an `error` object. `code` and `message` are always present; `param` and `hint` appear when they help.
+## Hosting API errors
+
+Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `message`. There is no `param` or `hint` on this plane.
 
 ```json
 {
   "error": {
     "code": "insufficient_balance",
-    "message": "Balance cannot cover a new instance.",
-    "hint": "Add funds to your balance in the dashboard."
+    "message": "This instance costs $4.99 per month, billed in advance. Add balance to your workspace and try again."
   }
 }
 ```
 
 <ResponseField name="error.code" type="string">
-  A stable, machine-readable identifier. Branch on this, never on `message` or the HTTP status alone.
+  A stable, machine-readable identifier. Branch on this.
 </ResponseField>
 <ResponseField name="error.message" type="string">
-  A human-readable description. Safe to show, but don't parse it.
+  A human-readable description. Safe to show, but do not parse it.
 </ResponseField>
+
+### Codes
+
+| Code | HTTP | When |
+| --- | --- | --- |
+| `invalid_api_key` | 401 | The `sk_live_` Bearer key is missing, malformed, or revoked, on any `/v1` path. |
+| `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, a lifecycle action in the wrong state, or a non-empty `update` body. |
+| `forbidden` | 403 | A write to a system template. System templates are read-only. |
+| `not_found` | 404 | No instance or template with that id or name in your workspace, or an unknown `/v1` path. |
+| `insufficient_balance` | 402 | The wallet cannot cover a month of compute: at create (billed in advance) or at `start` of a `past_due` instance. |
+| `instance_limit_reached` | 409 | The workspace is at its instance limit (default 25). |
+| `capacity_unavailable` | 409 | `start` only: the pinned host cannot re-reserve this instance's CPU and RAM right now. |
+| `template_conflict` | 409 | A template create or rename targets a name that already exists. |
+| `template_unavailable` | 409 | The template is coming soon or inactive. |
+| `no_capacity` | 503 | Create only: no host can fit the requested shape right now. Safe to retry. |
+| `provisioning_failed` | 502/500 | A container or host operation failed (image pull, container start, lifecycle action). Failed creates are fully refunded. |
+
+<Note>
+  Lookups are uniform: an id that belongs to another workspace returns the same 404 as an id that does not exist, and unknown `/v1` paths 404 only after your key is validated. Nothing about other workspaces leaks through error responses.
+</Note>
+
+## Agent API errors
+
+Errors from the gateway at `https://{instanceId}.agent37.app/v1/*` use the same envelope plus optional `param` and `hint`.
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "goal mode is not yet supported on this gateway.",
+    "param": "mode",
+    "hint": "Use mode \"chat\"."
+  }
+}
+```
+
 <ResponseField name="error.param" type="string">
-  The request field that was invalid. Present on `validation_error`.
+  The request field that was invalid. Present on `validation_error` when a specific field is at fault; a malformed JSON body has no `param`.
 </ResponseField>
 <ResponseField name="error.hint" type="string">
   A suggested next step, when one applies.
 </ResponseField>
 
-## Codes
+<Note>
+  Auth and instance lookup happen at the platform edge, before your request reaches the gateway, and edge rejections use a flat string instead of the envelope: a missing or invalid key returns 401 with `{"error": "invalid_api_key"}`, and an instance URL your key cannot see (unknown, deleted, or another workspace's) returns 404 with `{"error": "not_found"}`.
+</Note>
 
-| Code | HTTP | Meaning |
+### Codes
+
+| Code | HTTP | When |
 | --- | --- | --- |
-| `invalid_api_key` | 401 | Missing, malformed, or revoked key. |
-| `insufficient_balance` | 402 | Balance cannot cover this. Add funds to create instances or run managed calls. |
-| `instance_cap_reached` | 402 | This instance hit its managed-usage cap. Raise `managed_credit_cap_usd`. |
-| `instance_not_found` | 404 | No instance with that id on your account. |
-| `instance_not_running` | 409 | The instance is not running. Wait for `running`, then retry. |
-| `session_busy` | 409 | A response is already running on this session. Cancel first or use another. |
-| `insufficient_capacity` | 503 | No room to provision right now. Safe to retry. |
-| `rate_limited` | 429 | Too many requests. Retry after `Retry-After`. |
-| `validation_error` | 400 | A request field was invalid. See `param`. |
+| `validation_error` | 400 | A request field is invalid (`param` names it), the body is not valid JSON, or `mode` is `"goal"` (reserved). |
+| `session_not_found` | 404 | No session with that id. |
+| `response_not_found` | 404 | No response with that id. |
+| `not_found` | 404 | Unknown route on the instance URL. |
+| `session_busy` | 409 | A response is already running on this session. |
+| `payload_too_large` | 413 | The request body exceeds 2 MB. |
+| `rate_limited` | 429 | An upstream provider rate limit. Back off and retry. |
+| `agent_error` | 502 | The agent backend failed without a more specific code. |
+| `internal_error` | 500 | Unexpected gateway error. |
+
+<Note>
+  The Agent API catalog is open-ended past this table. Failures inside the agent can surface provider-specific codes at 502 or 503 (for example a provider auth or quota error passes its raw code through, and an agent that is still warming up returns 503 with its own code). Treat any code you do not recognize as an agent-side failure: log it and show `message`.
+</Note>
+
+<Note>
+  Not every failed turn is an HTTP error. `POST /v1/responses` never rejects because the agent failed mid-run: the call returns 200 with `status: "failed"` and the same error object in the response body's `error` field, and streams end with a `response.failed` event. Check `status`, not just the HTTP code. See [Send a message](/agents-api/chat) and [Streaming](/agents-api/streaming).
+</Note>
 
 ## Handle them
 
-Read `code`, then act. Billing codes (`402`) point your end user to the dashboard; `429` and `503` are retryable.
+Read `code`, then act by remedy: busy sessions get a cancel or a new session, transient codes get a retry with backoff, validation errors get fixed (read `param`), and anything unknown is agent-side.
 
 <CodeGroup>
+```python python
+import requests
+
+r = requests.post(
+    "https://ab12cd34ef.agent37.app/v1/responses",
+    headers={
+        "Authorization": "Bearer sk_live_...",
+        "Content-Type": "application/json",
+    },
+    json={
+        "input": "Research the top 3 EV makers, write a memo.",
+        "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+    },
+)
+
+if not r.ok:
+    error = r.json()["error"]
+    code = error["code"]
+    if code == "session_busy":
+        ...  # cancel the running response or start another session
+    elif code == "rate_limited":
+        ...  # transient: back off and retry
+    elif code == "validation_error":
+        raise ValueError(f"{error.get('param')}: {error['message']}")
+    else:
+        ...  # unknown codes are agent-side failures: log code, show message
+```
+
 ```javascript node
-const res = await fetch("https://api.agent37.com/v1/responses", {
+const res = await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
   method: "POST",
   headers: {
     "Authorization": "Bearer sk_live_...",
     "Content-Type": "application/json",
   },
-  body: JSON.stringify({ instance_id: "inst_x7", input: "Draft a reply." }),
+  body: JSON.stringify({
+    input: "Research the top 3 EV makers, write a memo.",
+    session_id: "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+  }),
 });
 
 if (!res.ok) {
   const { error } = await res.json();
   switch (error.code) {
     case "session_busy":
-      // a turn is already running: cancel it or open another session
-      break;
-    case "insufficient_balance":
-    case "instance_cap_reached":
-      // billing issue: send the user to the dashboard
+      // cancel the running response or start another session
       break;
     case "rate_limited":
-    case "insufficient_capacity":
       // transient: back off and retry
       break;
+    case "validation_error":
+      throw new Error(`${error.param}: ${error.message}`);
     default:
-      throw new Error(error.message);
+      // unknown codes are agent-side failures: log code, show message
+      console.error(error.code, error.message);
   }
 }
 ```
-
-```python python
-import requests
-
-r = requests.post(
-    "https://api.agent37.com/v1/responses",
-    headers={
-        "Authorization": "Bearer sk_live_...",
-        "Content-Type": "application/json",
-    },
-    json={"instance_id": "inst_x7", "input": "Draft a reply."},
-)
-
-if not r.ok:
-    error = r.json()["error"]
-    if error["code"] == "session_busy":
-        ...  # cancel the running turn or open another session
-    elif error["code"] in ("insufficient_balance", "instance_cap_reached"):
-        ...  # billing: send the user to the dashboard
-    elif error["code"] in ("rate_limited", "insufficient_capacity"):
-        ...  # transient: back off and retry
-    else:
-        raise RuntimeError(error["message"])
-```
 </CodeGroup>
 
+The same grouping works on the Hosting API: `insufficient_balance` sends your user to the billing dashboard, `no_capacity` is retryable, and `invalid_request` means fix the request before retrying.
+
 <Tip>
-  On `429`, wait for the `Retry-After` header before retrying. `insufficient_capacity` (503) is also safe to retry with backoff.
+  `no_capacity` (503, hosting) and `rate_limited` (429, agent) are safe to retry with backoff. So is a `provisioning_failed` create: failed creates are fully refunded, so retrying never double-bills.
 </Tip>
 
-<Note>
-  `insufficient_balance` and `instance_cap_reached` are billing limits, not bugs. Balance and top-ups live in the dashboard. There is no balance API. See [Billing](/agents-api/billing) for how managed spend is capped.
-</Note>
-
-## Notes per code
+## Codes worth a closer look
 
 <AccordionGroup>
-  <Accordion title="invalid_api_key (401)" icon="key">
-    The `Authorization` header is missing, malformed, or the key was revoked. Send `Authorization: Bearer sk_live_...` and keep the key server-side. Rotate keys in the dashboard.
+  <Accordion title="insufficient_balance (402): the workspace wallet is empty" icon="wallet">
+    The workspace wallet cannot cover a charge. You see it in three places: at create, when the first month (billed in advance) cannot be debited; at `start`, when a `past_due` instance's lapsed month cannot be re-debited; and inside agent behavior, when a managed call (LLM, Brave search, Composio) finds the wallet empty. The fix is the same everywhere: top up the wallet at `https://www.agent37.com/dashboard/cloud/billing` ($5 minimum, $1000 max per top-up). See [Billing](/agents-api/billing).
   </Accordion>
-  <Accordion title="session_busy (409)" icon="clock">
-    A session runs one response at a time. Sending new input while one is in flight returns this. Cancel the running turn with `POST /v1/responses/{id}/cancel`, or open another [session](/agents-api/messages#continue-a-conversation).
+  <Accordion title="instance_budget_exhausted (402): this instance hit its budget" icon="gauge">
+    The wallet has funds, but this instance has used up its own managed-spend budget: the monthly cap is consumed and no one-time top-up headroom remains. Only managed calls are refused; the instance keeps running and compute billing is unaffected. Raise the cap with `PATCH /v1/instances/{id}/budget` or add headroom with `POST /v1/instances/{id}/budget/top-up`. See [Budgets](/agents-api/budgets). You will not see this code on Hosting API calls: it surfaces when the agent's managed calls are refused mid-turn.
   </Accordion>
-  <Accordion title="validation_error (400)" icon="alert-triangle">
-    A request field was invalid. Read `param` to find which one, then check the field against [Send a message](/agents-api/messages) or [Instances](/agents-api/instances).
+  <Accordion title="session_busy (409): one response at a time" icon="clock">
+    A session runs one response at a time. Posting new input while a turn is in flight returns this, with a `hint` naming both ways out: cancel the running turn with `POST /v1/responses/{id}/cancel` (best effort; a finished response just returns its terminal state), or start a fresh session by omitting `session_id`. See [Sessions](/agents-api/sessions).
+  </Accordion>
+  <Accordion title="The capacity trio: instance_limit_reached, capacity_unavailable, no_capacity" icon="server">
+    Three different walls, three different fixes. `instance_limit_reached` (409, create): the workspace is at its instance limit (default 25); delete instances you no longer need. `no_capacity` (503, create): no host can fit the requested shape right now; retry with backoff or pick a smaller shape, and a create that fails this way does not keep your money. `capacity_unavailable` (409, start): a stopped instance stays pinned to the host that holds its disk, and that host cannot re-reserve the CPU and RAM right now; retry later. See [Instances](/agents-api/instances).
   </Accordion>
 </AccordionGroup>
+
+<Note>
+  Both 402 reasons are billing limits, not bugs. When a managed call is refused mid-turn, the refusal shows up in agent behavior (the turn fails or the agent reports it); the instance itself never goes down over managed spend.
+</Note>
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Send a message" icon="send" href="/agents-api/messages">
-    The core call, its fields, and the response shape.
-  </Card>
   <Card title="Billing" icon="credit-card" href="/agents-api/billing">
-    Prepaid balance and per-instance managed-usage caps.
+    The prepaid wallet, top-ups, and monthly compute billing.
   </Card>
-  <Card title="Streaming events" icon="activity" href="/agents-api/streaming">
-    Render text, reasoning, and tool activity live.
+  <Card title="Budgets" icon="wallet" href="/agents-api/budgets">
+    Cap each instance's managed spend with monthly caps and top-ups.
+  </Card>
+  <Card title="Send a message" icon="send" href="/agents-api/chat">
+    The core call, its fields, and the response object.
   </Card>
   <Card title="Instances" icon="server" href="/agents-api/instances">
-    Create, size, and manage the agent's computer.
+    Create, size, and manage your agent's computer.
   </Card>
 </CardGroup>

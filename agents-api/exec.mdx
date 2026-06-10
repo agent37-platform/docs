@@ -1,57 +1,89 @@
 ---
 title: "Run commands"
-description: "Run any shell command inside an instance from your backend. The escape hatch for anything the API does not wrap."
+description: "Run any shell command inside an instance from your backend, the escape hatch for anything the API does not wrap."
 ---
 
 `POST /v1/instances/{id}/exec` runs a shell command inside the instance, straight from your backend. It is the escape hatch for anything the API does not wrap as its own call.
 
-The command runs inside the instance as the agent's own user, on the same box the agent works on, so it sees the agent's files, tools, and connected accounts. Anything you would do in a terminal, you do here without one: install a package, wire up a channel, run a script, or inspect state while debugging.
+The command runs through `sh -c` as the image's default user, on the same box the agent works on, so it sees the agent's files, tools, and credentials. Anything you would do in a terminal, you do here without one: install a package, write a config file, run a script, or inspect state while debugging.
 
 <Warning>
-  `exec` takes your `sk_live_` key and runs arbitrary commands as the agent's user. Keep it server-side, behind your own checks. There is no end-user token for it, unlike an [embedded terminal](/agents-api/embeds).
+  `exec` takes your `sk_live_` key and runs arbitrary commands inside the instance. Keep it server-side, behind your own checks. There is no end-user token for it.
 </Warning>
 
 ## Request
 
 <ParamField body="command" type="string" required>
-  The shell command to run inside the instance.
+  The shell command to run inside the instance. It is passed to `sh -c`, so pipes, redirects, and `&&` chains all work.
 </ParamField>
+
+<Note>
+  Only `running` instances accept commands. Exec against any other status returns `400 invalid_request`. If the platform cannot reach the instance at all, you get `502 provisioning_failed`.
+</Note>
 
 ## Response
 
-A command that runs but exits nonzero is a normal result: you get `200` with its `exit_code`, `stdout`, and `stderr`. Only an instance that is unreachable or not running returns an error.
+A command that runs but exits nonzero is a normal result: you get `200` with its `exit_code`, `stdout`, and `stderr`. Errors are reserved for the platform, not your command.
 
 <ResponseField name="exit_code" type="integer">
   The command's exit code. Nonzero is still a `200`; read this to branch.
 </ResponseField>
 <ResponseField name="stdout" type="string">
-  Standard output. Combined `stdout` and `stderr` output is capped at 512 KB; see `truncated`.
+  Standard output, capped at 512 KB. See `truncated`.
 </ResponseField>
 <ResponseField name="stderr" type="string">
-  Standard error. Shares the 512 KB output cap with `stdout`.
+  Standard error, with its own separate 512 KB cap.
 </ResponseField>
 <ResponseField name="truncated" type="boolean">
-  `true` when output spilled past the 512 KB cap and was cut.
+  `true` when either stream spilled past its 512 KB cap. The middle of the output is cut and a truncation marker is left in its place.
 </ResponseField>
 
 <Note>
-  Output is capped at 512 KB, with `truncated` set when it spills, and a command runs for up to 300 seconds.
+  `exit_code` values 125, 126, and 127 may come from Docker rather than your command, for example 127 when the binary is not found. A command runs for up to 280 seconds, after which the call fails with `502 provisioning_failed`; start longer jobs in the background (`nohup ... &`) and poll with a second exec.
 </Note>
 
 ## Example
 
 <CodeGroup>
 ```bash curl
-curl -X POST https://api.agent37.com/v1/instances/inst_x7/exec \
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "command": "openclaw channels add --channel telegram --token 123:ABC" }'
+  -d '{ "command": "node --version" }'
+```
+
+```python python
+import requests
+
+resp = requests.post(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/exec",
+    headers={"Authorization": "Bearer sk_live_..."},
+    json={"command": "node --version"},
+)
+result = resp.json()
+print(result["exit_code"], result["stdout"])
+```
+
+```javascript node
+const resp = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/exec",
+  {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer sk_live_...",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ command: "node --version" }),
+  }
+);
+const result = await resp.json();
+console.log(result.exit_code, result.stdout);
 ```
 
 ```json response
 {
   "exit_code": 0,
-  "stdout": "Telegram channel added.\n",
+  "stdout": "v24.2.0\n",
   "stderr": "",
   "truncated": false
 }
@@ -60,25 +92,35 @@ curl -X POST https://api.agent37.com/v1/instances/inst_x7/exec \
 
 ## Build on exec
 
-Anything the API does not wrap as its own endpoint, you build on `exec`. A "Connect Telegram" button, for example, is two commands: add the channel, then approve the pairing code your end user pasted in.
+Anything the API does not wrap as its own endpoint, you build on `exec`. There is no separate file endpoint: files move through exec too. A "Download the report" button in your product is one exec call that reads the file the agent wrote:
 
 ```bash curl
-# step two of your "Connect Telegram" button
-curl -X POST https://api.agent37.com/v1/instances/inst_x7/exec \
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "command": "openclaw pairing approve telegram A1B2C3D4" }'
+  -d '{ "command": "cat ~/reports/ev-makers-memo.md" }'
 ```
 
-It is also how you [install a skill](/agents-api/skills) or edit the agent's config from your backend, with no terminal in the loop.
+Pushing a file in is the same trick in reverse. Encode it on your side and decode it inside the instance:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "mkdir -p ~/data && echo aGVsbG8sd29ybGQK | base64 -d > ~/data/ev-prices.csv" }'
+```
+
+For binary or large files, stage them at a URL your backend controls and `curl` them down from inside the instance instead; remember the 512 KB per-stream output cap applies on the way out.
+
+It is also how you edit the agent's config or bring your own provider keys from your backend, with no terminal in the loop.
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Terminal, desktop & files" icon="browser" href="/agents-api/embeds">
-    Hand an end user a live terminal instead of running commands yourself.
+  <Card title="Send a message" icon="send" href="/agents-api/chat">
+    Talk to the agent itself at `https://ab12cd34ef.agent37.app`.
   </Card>
-  <Card title="Skills & plugins" icon="puzzle" href="/agents-api/skills">
-    Install skills with `skills add` over exec.
+  <Card title="Instance URLs" icon="link" href="/agents-api/urls">
+    How every instance and port gets its own routed URL.
   </Card>
 </CardGroup>

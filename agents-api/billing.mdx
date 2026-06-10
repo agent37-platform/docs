@@ -1,68 +1,110 @@
 ---
 title: "Billing"
-description: "Prepaid and managed in the dashboard: top up a balance that instances and usage draw down."
+description: "Prepaid and managed in the dashboard: one workspace wallet funds compute and managed usage."
 ---
 
-Billing is prepaid. You top up a balance in the dashboard, and instances and managed usage draw it down. There are no seats: you pay for the compute and usage your agents consume.
+Billing is prepaid. You top up one workspace wallet in the dashboard, and everything draws from it: instance compute and managed usage. There are no seats and no end-of-month invoices. You pay for the compute and usage your agents consume.
 
 ## How the balance works
 
-- **Top up in the dashboard.** Add funds to a single shared balance for your account.
-- **Instances draw it down.** Each instance bills compute for as long as it exists, running or idle. Creating one pre-charges prorated compute against your balance.
-- **Managed usage draws it down.** Model calls, connected-app actions, and other metered usage are charged as the agent works.
-- **Delete to stop billing.** An instance bills compute until you delete it. See [Instances](/agents-api/instances) for how delete, restore, and proration work.
+- **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are $5 to $1000 each, paid through Stripe.
+- **Instances draw it down.** Each instance bills compute one calendar month in advance, for as long as it exists, stopped or running.
+- **Managed usage draws it down.** Managed LLM, Brave search, and Composio calls are metered at cost against the same wallet, gated by each instance's [budget](/agents-api/budgets).
+- **Delete to stop billing.** Deleting an instance refunds the unused remainder of its prepaid month, prorated to the exact time used.
 
 <Note>
-  There is no balance API. Your balance and top-ups are managed entirely in the [dashboard](https://www.agent37.com/dashboard).
+  There are no balance or billing endpoints on `/v1`. The wallet, top-ups, and the ledger are managed entirely in the [dashboard](https://www.agent37.com/dashboard/cloud/billing).
 </Note>
 
-## Per-instance spend caps
+## Compute pricing
 
-Each instance has a hard cap on its managed usage, set with `managed_credit_cap_usd` when you create it (default `1.00`). The cap limits how much of your shared balance one instance can spend on managed usage.
+Compute is priced from the instance's `resources`:
 
-<ParamField body="managed_credit_cap_usd" type="number">
-  Hard cap on this instance's managed usage, drawn from your shared balance. Default `1.00`. Raise it with `PATCH /v1/instances/{id}`.
-</ParamField>
+| Resource | Rate |
+| -------- | ---- |
+| vCPU | $0.795 per vCPU per month |
+| RAM | $0.650 per GB per month |
+| Disk | $0.100 per GB per month |
 
-An instance reports its cap and consumption in the `balance` object:
+Applied to the three valid shapes:
 
-```json
-{
-  "balance": { "managed_cap_usd": 1.00, "managed_used_usd": 0, "remaining_usd": 1.00 }
-}
-```
+| Shape | Price per month |
+| ----- | --------------- |
+| 2 vCPU / 4 GB RAM / 8 GB disk (default) | $4.99 |
+| 4 vCPU / 8 GB RAM / 20 GB disk | $10.38 |
+| 8 vCPU / 16 GB RAM / 40 GB disk | $20.76 |
 
-When an instance reaches its cap, managed calls on it return `402 instance_cap_reached`. Raise `managed_credit_cap_usd` to let it keep working.
+See [Instances](/agents-api/instances) for how to pick a shape with `resources` on create.
 
-## Running out of balance
+## The monthly cycle
 
-At zero balance, both creating instances and making managed calls return `402 insufficient_balance`. Add funds in the dashboard to resume.
+**Create debits the first month.** `POST /v1/instances` charges one full calendar month of compute up front. The debit is the create gate: if the wallet cannot cover it, the create returns `402 insufficient_balance` and nothing is provisioned.
 
 ```json
 {
   "error": {
     "code": "insufficient_balance",
-    "message": "Balance cannot cover a new instance.",
-    "hint": "Add funds to your balance in the dashboard."
+    "message": "This instance costs $4.99 per month, billed in advance. Add balance to your workspace and try again."
   }
 }
 ```
 
+If provisioning fails after the debit, for example a custom template's image cannot be pulled, the month is refunded in full.
+
+**Renewal on the instance's anniversary.** Each renewal extends the paid period by one calendar month from the previous `paid_through` date. When that day does not exist in the target month, the renewal clamps to the last day: an instance paid through January 31 renews through February 28, or February 29 in a leap year.
+
+**Stopped instances still bill.** An instance bills as long as it exists. Stopping releases its CPU and RAM but keeps its disk and host placement, so a stopped instance renews like a running one. Delete it to stop billing.
+
+**Delete refunds the remainder.** Deleting an instance refunds the unused part of the prepaid month, prorated to the exact time used, with a minimum of one hour billed.
+
+## Paid through and past due
+
+Every instance object reports its billing state in two fields:
+
+<ResponseField name="paid_through" type="integer | null">
+  Unix timestamp in epoch seconds. Compute is paid through this moment; the next renewal extends it by one calendar month.
+</ResponseField>
+
+<ResponseField name="past_due" type="boolean">
+  `true` when a renewal could not be covered and the instance was force-stopped. Cleared by a funded start.
+</ResponseField>
+
+```json
+{
+  "id": "ab12cd34ef",
+  "status": "stopped",
+  "paid_through": 1783641600,
+  "past_due": true
+}
+```
+
+If a renewal cannot be covered by the wallet, the instance is force-stopped and flagged `past_due: true`. Top up the wallet, then `POST /v1/instances/{id}/start`: a funded start re-debits the month and clears the flag. A start without funds returns `402 insufficient_balance`.
+
 <Tip>
-  Branch on the `code`, not the message. See [Errors](/agents-api/errors) for the full list and the response shape.
+  Branch on the error `code`, not the message. See [Errors](/agents-api/errors) for the full list and the response shape.
 </Tip>
 
-## Pricing
+## Managed usage
 
-Per-size compute prices and managed-usage rates live on the [pricing page](https://agent37.com/pricing).
+Managed LLM, Brave search, and Composio calls debit the same wallet at cost, but only within each instance's budget: a monthly cap that resets each UTC month plus optional one-time top-up headroom. The default cap is $0, so an instance spends nothing on managed services until you raise its cap or top it up. When a managed call is refused, the 402 reason tells you which pot ran dry: `insufficient_balance` means the wallet is empty, `instance_budget_exhausted` means the wallet has funds but the instance hit its cap. See [Budgets](/agents-api/budgets) for the endpoints, rates, and both 402 reasons.
+
+## Ledger and spend visibility
+
+Every wallet movement lands in an append-only ledger: top-ups, month debits, prorated refunds, and managed usage. Review the ledger, your balance, and a per-instance spend breakdown at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). For managed spend on a single instance, `GET /v1/instances/{id}/usage` returns a monthly rollup; compute prepay is dashboard-only and never appears there.
 
 ## Next steps
 
 <CardGroup cols={2}>
+  <Card title="Budgets" icon="wallet" href="/agents-api/budgets">
+    Cap and top up each instance's managed spend from the same wallet.
+  </Card>
   <Card title="Instances" icon="server" href="/agents-api/instances">
-    Size an instance, set its cap, and delete it to stop billing.
+    Pick a shape, manage the lifecycle, and delete to stop billing.
   </Card>
   <Card title="Errors" icon="alert-triangle" href="/agents-api/errors">
-    Every error code, including the 402s for balance and caps.
+    Every error code, including the 402s for balance and budgets.
+  </Card>
+  <Card title="Quickstart" icon="bolt" href="/agents-api/quickstart">
+    Fund the wallet, create an instance, and send your first message.
   </Card>
 </CardGroup>

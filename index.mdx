@@ -1,29 +1,30 @@
 ---
 title: "Agent37 Cloud"
-description: "Run Hermes, OpenClaw, Claude Code, and Codex on hosted agent computers through one API."
+description: "Run Hermes on hosted agent instances through one API: one call creates the computer, the next one talks to it."
 ---
 
-![Agent 37 Cloud routes requests from your app to isolated agent instances.](/images/agent37-gateway-flow.svg)
+![Agent37 Cloud routes requests from your app to isolated agent instances.](/images/agent37-gateway-flow.svg)
 
-Create an instance once, then send tasks to `/v1/responses`. Agent 37 routes each user to their own persistent instance, where the selected agent runs.
+Agent37 Cloud gives every user their own hosted agent computer. Create an instance and Hermes, the live agent, comes back running at its own URL. From there it chats, streams, browses, runs tools, and keeps state between conversations. You never touch a server.
 
 ## Get started in two calls
 
-Create an agent, then send it a message. You are talking to it in two calls, and the returned `session_id` continues the conversation from there.
+Create an instance, then send it a message. The first call returns a running computer with its own URL; the second is a streamed conversation with Hermes, and the returned `session_id` continues it from there.
 
 <CodeGroup>
 ```bash curl
-# 1. create an agent. it comes back running.
+# 1. create an instance. it comes back running.
 curl -X POST https://api.agent37.com/v1/instances \
-  -H "Authorization: Bearer sk_live_..."
-# -> { "id": "inst_x7", "status": "running", ... }
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "budget": { "topup_micros": 1000000 } }'
+# -> { "id": "ab12cd34ef", "status": "running", ... }
 
-# 2. talk to it, streamed.
-curl -N https://api.agent37.com/v1/responses \
+# 2. talk to it at its own URL, streamed.
+curl -N https://ab12cd34ef.agent37.app/v1/responses \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "instance_id": "inst_x7",
     "input": "Research the top 3 EV makers, write a memo.",
     "stream": true
   }'
@@ -34,39 +35,45 @@ import requests
 
 H = {"Authorization": "Bearer sk_live_..."}
 
-# 1. create an agent. it comes back running.
-inst = requests.post("https://api.agent37.com/v1/instances", headers=H).json()
+# 1. create an instance. it comes back running.
+inst = requests.post(
+    "https://api.agent37.com/v1/instances",
+    headers=H,
+    json={"budget": {"topup_micros": 1000000}},
+).json()
 
-# 2. talk to it, streamed.
+# 2. talk to it at its own URL, streamed.
 res = requests.post(
-    "https://api.agent37.com/v1/responses",
-    headers={**H, "Content-Type": "application/json"},
+    f"https://{inst['id']}.agent37.app/v1/responses",
+    headers=H,
     stream=True,
     json={
-        "instance_id": inst["id"],
         "input": "Research the top 3 EV makers, write a memo.",
         "stream": True,
     },
 )
 for line in res.iter_lines():
-    print(line)
+    print(line.decode())
 ```
 
 ```javascript node
-const H = { Authorization: "Bearer sk_live_..." };
+const H = {
+  Authorization: "Bearer sk_live_...",
+  "Content-Type": "application/json",
+};
 
-// 1. create an agent. it comes back running.
+// 1. create an instance. it comes back running.
 const inst = await (await fetch("https://api.agent37.com/v1/instances", {
   method: "POST",
   headers: H,
+  body: JSON.stringify({ budget: { topup_micros: 1000000 } }),
 })).json();
 
-// 2. talk to it, streamed.
-const res = await fetch("https://api.agent37.com/v1/responses", {
+// 2. talk to it at its own URL, streamed.
+const res = await fetch(`https://${inst.id}.agent37.app/v1/responses`, {
   method: "POST",
-  headers: { ...H, "Content-Type": "application/json" },
+  headers: H,
   body: JSON.stringify({
-    instance_id: inst.id,
     input: "Research the top 3 EV makers, write a memo.",
     stream: true,
   }),
@@ -75,14 +82,16 @@ const res = await fetch("https://api.agent37.com/v1/responses", {
 ```
 </CodeGroup>
 
-<CardGroup cols={2}>
-  <Card title="Quickstart" icon="bolt" href="/agents-api/quickstart">
-    The same two calls, step by step, with prerequisites.
-  </Card>
-  <Card title="Core concepts" icon="sitemap" href="/agents-api/concepts">
-    Instances, sessions, and responses, and why the agent is not the model.
-  </Card>
-</CardGroup>
+The `budget.topup_micros` of 1000000 gives the instance $1 of one-time managed-spend headroom, so the LLM credentials it ships with work on the first message. Keys come from the [dashboard](https://www.agent37.com/dashboard/cloud/api-keys), and the wallet that pays for all of this tops up at [dashboard billing](https://www.agent37.com/dashboard/cloud/billing).
+
+## One key, two planes
+
+Everything above used one `sk_live_` key against two different base URLs. That is the whole architecture:
+
+1. **The hosting API** at `https://api.agent37.com/v1` creates and manages instances: [templates](/agents-api/templates), lifecycle, [budgets](/agents-api/budgets), [exec](/agents-api/exec).
+2. **Your instance's agent API** at `https://ab12cd34ef.agent37.app` is served by the agent gateway running inside the instance: [chat](/agents-api/chat) at `POST /v1/responses`, [sessions](/agents-api/sessions), models, health. The platform edge authenticates the same Bearer key and routes the request; the gateway answers it.
+
+Send the `Authorization` header on every request to either plane. [Core concepts](/agents-api/concepts) walks through the split in full.
 
 ## How it fits together
 
@@ -90,42 +99,48 @@ Three resources, and one distinction worth holding onto.
 
 | Resource | What it is |
 | --- | --- |
-| **Instance** | The agent's own always-on computer. Built from a [template](/agents-api/templates), persistent until you delete it. Create one per end user. |
-| **Session** | One conversation on an instance. A [message](/agents-api/messages) starts one; reuse its `session_id` to continue. An instance can hold many. |
+| **Instance** | The agent's own always-on computer, reachable at its own URL. Built from a [template](/agents-api/templates), billed monthly, persistent until you delete it. Create one per end user. |
+| **Session** | One conversation on an instance. A [message](/agents-api/chat) starts one; reuse its `session_id` to continue. An instance holds many. |
 | **Response** | One agentic turn: your input, the agent's work, its reply. [Stream](/agents-api/streaming) it live or fetch it by id. |
 
 <Info>
-  **The agent is not the model.** The *template* installs the agents (Hermes, Claude Code, Codex, OpenClaw, or a mix); a session runs one of them. The *model* is the LLM that agent runs on, chosen per message as `model` plus `provider`. They are separate dials.
+  **The agent is not the model.** The *template* installs the agent: Hermes is live today, and OpenClaw, Claude Code, and Codex are coming soon. The *model* is the LLM the agent runs on, chosen per turn as `model` plus `provider`. They are separate dials.
 </Info>
 
 ## Building blocks
 
-Snap these together to build your product. Every one acts on an instance.
+Snap these together to build your product. Most act on an instance; templates and billing live at the workspace.
 
 <CardGroup cols={2}>
-  <Card title="Send a message" icon="send" href="/agents-api/messages">
-    The core call: input in, an agentic reply out. Continue and manage conversations.
+  <Card title="Send a message" icon="send" href="/agents-api/chat">
+    The core call: input in, an agentic reply out, on your instance's own URL.
   </Card>
-  <Card title="Streaming events" icon="activity" href="/agents-api/streaming">
+  <Card title="Streaming" icon="activity" href="/agents-api/streaming">
     Render text, reasoning, and tool activity live over Server-Sent Events.
   </Card>
-  <Card title="Skills & plugins" icon="puzzle" href="/agents-api/skills">
-    Preinstall skills and add new tools so the agent reaches for them on its own.
+  <Card title="Sessions" icon="history" href="/agents-api/sessions">
+    List conversations, fetch full history, continue or delete them.
   </Card>
-  <Card title="Files" icon="file" href="/agents-api/files">
-    Put files on the agent's filesystem, then ask about them by path.
+  <Card title="Instances" icon="server" href="/agents-api/instances">
+    Create, list, stop, start, restart, update, and delete agent computers.
+  </Card>
+  <Card title="Templates" icon="template" href="/agents-api/templates">
+    The system catalog plus your own templates from any public amd64 image.
+  </Card>
+  <Card title="Instance URLs" icon="link" href="/agents-api/urls">
+    Every instance answers at its own subdomain; extra ports get their own URLs.
   </Card>
   <Card title="Run commands" icon="terminal-2" href="/agents-api/exec">
     Run any shell command inside the instance from your backend.
   </Card>
-  <Card title="Integrations" icon="plug" href="/agents-api/integrations">
-    Connect Gmail, Slack, Notion, and 1000+ apps. Routed and metered for you.
+  <Card title="Budgets" icon="wallet" href="/agents-api/budgets">
+    Cap each instance's managed LLM, Brave search, and Composio spend.
   </Card>
-  <Card title="Scheduled runs" icon="clock" href="/agents-api/scheduled-runs">
-    Give an agent a cron schedule; it runs unattended and you read the results.
+  <Card title="Billing" icon="credit-card" href="/agents-api/billing">
+    A prepaid wallet, monthly compute per instance, managed usage at cost.
   </Card>
-  <Card title="Terminal, desktop & files" icon="browser" href="/agents-api/embeds">
-    Embed a live terminal, desktop, or file browser with signed URLs.
+  <Card title="Errors" icon="alert-triangle" href="/agents-api/errors">
+    Two error envelopes, one habit: branch on `code`, display `message`.
   </Card>
 </CardGroup>
 
@@ -139,12 +154,23 @@ Snap these together to build your product. Every one acts on an instance.
 
 ## Building with an AI coding agent
 
-Point your coding agent at the machine-readable API map and it can scaffold a working client:
+Point your coding agent at the full documentation in one file and it can scaffold a working client:
 
 ```bash
-https://api.agent37.com/llms.txt
+https://www.agent37.com/docs/llms-full.txt
 ```
 
 <Note>
   Looking for **OpenClaw** channel, model, or networking setup? Start at the [OpenClaw overview](/openclaw/overview).
 </Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="bolt" href="/agents-api/quickstart">
+    The same two calls, step by step, from API key to streamed reply.
+  </Card>
+  <Card title="Core concepts" icon="sitemap" href="/agents-api/concepts">
+    The two planes, instances, sessions, responses, and how money flows.
+  </Card>
+</CardGroup>

@@ -1,21 +1,9 @@
 ---
 title: "Templates"
-description: "Choose which agents an instance installs when you create it."
+description: "Name an image and the ports it serves once, then create every instance from that name."
 ---
 
-A template is a prebuilt image that decides which agents an instance installs and which agents the gateway can route sessions to. Pass `template` (a template name) when you create an [instance](/agents-api/instances), or omit it for the default. Direct image references are not accepted on instance create; register a custom template first, then pass its name.
-
-## Built-in templates
-
-Built-in templates are reserved under the `agent37-` prefix.
-
-| Template | Installs | Availability |
-| --- | --- | --- |
-| `agent37-hermes` | Hermes, general agent: browser, code, files. | Default, available today |
-| `agent37-openclaw` | OpenClaw gateway agent. | Coming soon |
-| `agent37-claude-code` | Claude Code, for software work. | Coming soon |
-| `agent37-codex` | Codex, for software work. | Coming soon |
-| `agent37-all` | Hermes, Claude Code, Codex, and OpenClaw together. | Coming soon |
+A template is a named image plus the ports it serves. Instances are always created from template names: pass `template` on [`POST /v1/instances`](/agents-api/instances), or omit it for the default `agent37-hermes`. Direct image references are rejected with `400 invalid_request`; register a template first, then pass its name.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances \
@@ -24,124 +12,219 @@ curl -X POST https://api.agent37.com/v1/instances \
   -d '{ "template": "agent37-hermes" }'
 ```
 
-Omit `template` and you get `agent37-hermes`.
+Templates come in two scopes. `system` templates are the built-in catalog, the same for every workspace and read-only. `workspace` templates are ones you register from your own public image, visible only to your workspace.
+
+## System catalog
+
+The `agent37-` prefix is reserved for system templates. The catalog has five entries:
+
+| Template | What it runs | Ports | Availability |
+| --- | --- | --- | --- |
+| `agent37-hermes` | Hermes, the general agent: chat, browsing, code, files. | `3737` (default), `9119`, `6969` | Available today, the default |
+| `agent37-openclaw` | OpenClaw gateway agent. | `3737` (default), `7681`, `8080`, `6080` | Coming soon |
+| `agent37-claude-code` | Claude Code, for software work. | None yet | Coming soon |
+| `agent37-codex` | Codex, for software work. | None yet | Coming soon |
+| `agent37-all` | Hermes, Claude Code, Codex, and OpenClaw together. | None yet | Coming soon |
 
 <Note>
-  **Multi-agent templates.** When a template installs more than one agent (like `agent37-all`), the gateway routes a new session to whichever agent you choose with the `agent` field on its [first message](/agents-api/messages). The choice is fixed for the session's life. Single-agent templates ignore it.
+  `GET /v1/templates` reports availability through `status`: `agent37-hermes` is `active`; coming-soon entries are `inactive` with `image_ref: null`. Creating an instance from a coming-soon template returns `409 template_unavailable`.
 </Note>
 
-## Custom templates
+On `agent37-hermes`, port `3737` is the gateway: the [chat API](/agents-api/chat) at `https://{instanceId}.agent37.app`. Every declared port becomes an authenticated URL on the instance object after create; see [Instance URLs](/agents-api/urls).
 
-<Info>
-  Custom templates are in preview, and for now they start from a **public** image you host. Build an image `FROM` our base, push it to a public registry you already use, then register it with us and create instances from it. Private images and pushing straight to our own registry are coming soon.
-</Info>
+## Endpoints
 
-A custom template is your own image, built on our base and registered under a name you choose. Use it to preinstall [skills, plugins, and packages](/agents-api/skills#preinstall-with-a-custom-image) so every instance you create from it starts ready. Custom templates are scoped to your workspace and are not visible to other workspaces.
+| Method | Path | Returns |
+| --- | --- | --- |
+| `GET` | `/v1/templates` | `200` `{ "data": [...] }`, system catalog first, then your workspace templates sorted by name |
+| `POST` | `/v1/templates` | `201` with the new workspace template |
+| `GET` | `/v1/templates/{name}` | `200` with one template, system or workspace |
+| `PATCH` | `/v1/templates/{name}` | `200` with the updated workspace template |
+| `DELETE` | `/v1/templates/{name}` | `200` `{ "name": "...", "deleted": true }` |
 
-<Steps>
-  <Step title="Build on our base">
-    Write a Dockerfile that starts `FROM ghcr.io/agent37/base:latest` and layer your skills, plugins, and packages on top. The runtime, gateway, terminal, desktop, file browser, and managed auth all come from the base and keep working; the container has passwordless `sudo`, so you can install anything. See [Skills & plugins](/agents-api/skills#preinstall-with-a-custom-image) for the full Dockerfile.
+```bash curl
+curl https://api.agent37.com/v1/templates \
+  -H "Authorization: Bearer sk_live_..."
+```
 
-    ```bash
-    docker build --platform=linux/amd64 -t my-agent:v1 .
-    ```
+## Register a workspace template
 
-    Build for `linux/amd64` even on an Apple Silicon Mac. Instances run on amd64, and an arm64 image will fail to start.
-  </Step>
+`POST /v1/templates` registers a public amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it.
 
-  <Step title="Push it to a public registry">
-    Push the image to any registry you already use, such as Docker Hub or GitHub Container Registry, and make sure it is public so we can pull it. You log in to your own registry the usual way; we never see your registry password.
+<Note>
+  Extending the built-in Hermes image with your own layers is coming soon. Today a workspace template runs your own public image as-is.
+</Note>
 
-    ```bash
-    docker tag my-agent:v1 ghcr.io/your-name/my-agent:v1
-    docker push ghcr.io/your-name/my-agent:v1
-    ```
-  </Step>
+<ParamField body="name" type="string" required>
+  2 to 63 characters: lowercase letters, digits, and hyphens, starting with a letter (`^[a-z][a-z0-9-]{1,62}$`). The `agent37-` prefix is reserved. A name that already exists returns `409 template_conflict`.
+</ParamField>
 
-  <Step title="Register it with us">
-    Tell us the image to pull and a name to call it. We check that `image_ref` is a fully qualified public reference and store the template as `active` right away. We pull the image the first time you create or update an instance from it, so a bad reference surfaces as a failed instance create, not here.
+<ParamField body="image_ref" type="string" required>
+  A fully qualified public image reference with a registry or namespace path, like `ghcr.io/acme/my-agent:v1`. Up to 255 characters. The image must be public and built for `linux/amd64`.
+</ParamField>
 
-    ```bash curl
-    curl -X POST https://api.agent37.com/v1/templates \
-      -H "Authorization: Bearer sk_live_..." \
-      -H "Content-Type: application/json" \
-      -d '{ "name": "my-agent", "image_ref": "ghcr.io/your-name/my-agent:v1", "description": "My agent" }'
-    ```
+<ParamField body="description" type="string">
+  Optional free-text description.
+</ParamField>
 
-    The `name` is 2 to 63 characters, lowercase letters, numbers, and hyphens, starting with a letter. The `agent37-` prefix is reserved for built-in templates. Pin a tag on `image_ref`; do not rely on `latest`.
-  </Step>
+<ParamField body="ports" type="array">
+  The ports the image serves, each `{ "port": <int>, "default": <bool> }`. At most 20 entries; ports are integers 1 to 65535; no duplicates; at most one entry may set `default: true`. The reserved set `3737`, `7681`, `8080`, `6080`, `7890`, `6969`, `9119` is rejected: those belong to the managed runtime. Omit `ports` or pass `[]` for a private sandbox with no routable URL; you can still reach it with [exec](/agents-api/exec).
+</ParamField>
 
-  <Step title="Create instances from it">
-    Pass the name you registered as `template` when you create an [instance](/agents-api/instances).
+<CodeGroup>
 
-    ```bash curl
-    curl -X POST https://api.agent37.com/v1/instances \
-      -H "Authorization: Bearer sk_live_..." \
-      -H "Content-Type: application/json" \
-      -d '{ "template": "my-agent" }'
-    ```
-  </Step>
-</Steps>
+```bash curl
+curl -X POST https://api.agent37.com/v1/templates \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-agent",
+    "image_ref": "ghcr.io/acme/my-agent:v1",
+    "description": "My agent",
+    "ports": [{ "port": 8000, "default": true }]
+  }'
+```
 
-### Manage templates
+```python python
+import requests
 
-| Action | Endpoint |
-| --- | --- |
-| List built-in and workspace templates | `GET /v1/templates` |
-| Get one | `GET /v1/templates/{name}` |
-| Register an image you host | `POST /v1/templates` |
-| Update name, image, description, or status | `PATCH /v1/templates/{name}` |
-| Deactivate a workspace template | `DELETE /v1/templates/{name}` |
+resp = requests.post(
+    "https://api.agent37.com/v1/templates",
+    headers={"Authorization": "Bearer sk_live_..."},
+    json={
+        "name": "my-agent",
+        "image_ref": "ghcr.io/acme/my-agent:v1",
+        "description": "My agent",
+        "ports": [{"port": 8000, "default": True}],
+    },
+)
+print(resp.json())
+```
 
-Built-in (`agent37-`) templates are read-only: `PATCH` and `DELETE` on them return `403`.
+```javascript node
+const resp = await fetch("https://api.agent37.com/v1/templates", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer sk_live_...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    name: "my-agent",
+    image_ref: "ghcr.io/acme/my-agent:v1",
+    description: "My agent",
+    ports: [{ port: 8000, default: true }],
+  }),
+});
+console.log(await resp.json());
+```
 
-`PATCH` changes any of `name`, `image_ref`, `description`, or `status` (`active` or `inactive`). Point `image_ref` at an older tag to roll back, or set `status` to `inactive` to stop new instances from resolving the template.
+</CodeGroup>
 
-`DELETE` deactivates the template (sets `status` to `inactive`) and acts once: the first call returns `200` with `{ "name": "my-agent", "deleted": true }`, and a repeat or already-inactive template returns `404`. Existing instances created from it keep running on the image they already pulled.
+Registration validates the reference's shape and stores the template as `active` right away. The image is pulled lazily, the first time you create or update an instance from the template. A bad reference surfaces there as a failed create: the create returns `502 provisioning_failed` and the prepaid month is refunded in full.
+
+<Tip>
+  Pin a tag on `image_ref`; do not rely on `latest`. A pinned tag makes rollback a one-field `PATCH` and keeps every instance you create reproducible.
+</Tip>
+
+<Note>
+  Build for `linux/amd64` even on an Apple Silicon Mac (`docker build --platform=linux/amd64 ...`). Instances run on amd64, and an arm64 image will fail to start.
+</Note>
+
+## Update a template
+
+`PATCH /v1/templates/{name}` changes any of `name`, `image_ref`, `description`, `status` (`active` or `inactive`), or `ports`. Send at least one field. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
+
+```bash curl
+curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "image_ref": "ghcr.io/acme/my-agent:v2" }'
+```
+
+Point `image_ref` at an older tag to roll back, or set `status` to `inactive` to stop new instances from resolving the template (instance create against an inactive template returns `409 template_unavailable`). Existing instances keep running on the image they already pulled; [update each instance](/agents-api/instances) to recreate it from the template's current `image_ref`.
+
+## Deactivate a template
+
+`DELETE /v1/templates/{name}` deactivates the template (sets `status` to `inactive`) and acts once: the first call returns `200` with `{ "name": "my-agent", "deleted": true }`, and a repeat or an already-inactive template returns `404`. System templates return `403`. Existing instances created from it keep running.
+
+```bash curl
+curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+## The template object
+
+```json response
+{
+  "name": "agent37-hermes",
+  "scope": "system",
+  "agents": ["hermes"],
+  "status": "active",
+  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.09",
+  "description": "Hermes general agent: browser, code, files.",
+  "ports": [
+    { "port": 3737, "default": true },
+    { "port": 9119, "default": false },
+    { "port": 6969, "default": false }
+  ],
+  "created": null,
+  "updated": null
+}
+```
 
 <ResponseField name="name" type="string">
-  The name you pass as `template` when creating an instance, e.g. `my-agent`.
+  The name you pass as `template` when creating an instance.
 </ResponseField>
 <ResponseField name="scope" type="string">
   `system` for built-in `agent37-` templates, `workspace` for ones you register.
 </ResponseField>
-<ResponseField name="image_ref" type="string">
-  The image we pull, e.g. `ghcr.io/your-name/my-agent:v1`. Pin a tag; do not rely on `latest`.
-</ResponseField>
 <ResponseField name="agents" type="string[]">
-  The agents the template installs.
+  The agents the template installs, for example `["hermes"]` on the system catalog.
 </ResponseField>
 <ResponseField name="status" type="string">
-  `active` (resolvable on create) or `inactive` (deactivated, or a built-in that is coming soon).
+  `active` (resolvable on instance create) or `inactive` (deactivated, or a catalog entry that is coming soon).
 </ResponseField>
-<ResponseField name="description" type="string">
-  Your optional description, or `null`.
+<ResponseField name="image_ref" type="string | null">
+  The image the platform pulls. `null` on coming-soon catalog templates.
 </ResponseField>
-<ResponseField name="created" type="integer">
-  Creation time in unix seconds, or `null` for built-in templates.
+<ResponseField name="description" type="string | null">
+  Your optional description.
 </ResponseField>
-<ResponseField name="updated" type="integer">
-  Last update time in unix seconds, or `null` for built-in templates.
+<ResponseField name="ports" type="array">
+  The declared ports, each `{ "port": <int>, "default": <bool> }`. Template ports carry no URL; URLs are minted per instance and returned in the instance object's `ports`. See [Instance URLs](/agents-api/urls).
+</ResponseField>
+<ResponseField name="created" type="integer | null">
+  Creation time in epoch seconds. `null` for system templates.
+</ResponseField>
+<ResponseField name="updated" type="integer | null">
+  Last update time in epoch seconds. `null` for system templates.
 </ResponseField>
 
-<Tip>
-  Building `FROM` our base is what gives an instance the managed agent, chat, terminal, desktop, and files. An image that is not built from our base still runs, but as a plain container without them.
-</Tip>
+## Errors
 
-<Note>
-  **Coming soon.** Registering a **private** image (you give us a read-only pull token for your registry) and pushing an image **straight to our registry** at `registry.agent37.com`, so you can skip hosting it yourself. For now, use a public image.
-</Note>
+| Status | Code | When |
+| --- | --- | --- |
+| `400` | `invalid_request` | Bad `name`, `image_ref`, `ports`, or `status`; a direct image reference passed as `template` on instance create |
+| `403` | `forbidden` | `PATCH` or `DELETE` on a system template: they are read-only |
+| `404` | `not_found` | Unknown template name; `DELETE` on an already-inactive template |
+| `409` | `template_conflict` | Create or rename onto a name that already exists |
+| `409` | `template_unavailable` | Instance create against a coming-soon catalog template or an inactive workspace template |
+
+See [Errors](/agents-api/errors) for the envelope and the full catalog.
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="Instances" icon="server" href="/agents-api/instances">
-    Create an instance from a template, then size and manage it.
+    Create an instance from your template, then size and manage it.
   </Card>
-  <Card title="Send a message" icon="send" href="/agents-api/messages">
-    Pick an agent with the `agent` field on a multi-agent template.
+  <Card title="Instance URLs" icon="link" href="/agents-api/urls">
+    Where each declared port becomes an authenticated URL.
   </Card>
-  <Card title="Skills & plugins" icon="puzzle" href="/agents-api/skills">
-    Preinstall skills and tools so every instance boots with them.
+  <Card title="Run commands" icon="terminal-2" href="/agents-api/exec">
+    Reach any instance, including private sandboxes, with exec.
+  </Card>
+  <Card title="Errors" icon="alert-triangle" href="/agents-api/errors">
+    Every code the API returns and how to branch on it.
   </Card>
 </CardGroup>

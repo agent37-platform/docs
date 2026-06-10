@@ -5,59 +5,151 @@ description: "Give every user their own always-on agent. The simplest thing to b
 
 The simplest thing to build on the Agents API is a chat app where every user has their own always-on agent. It holds their files, memory, and connected accounts for as long as it lives, and it is where most teams start.
 
+The pattern is four calls: create one instance per user at signup, start one session per chat thread, list sessions for the sidebar, and fetch one session for the open thread.
+
+## One key, two base URLs
+
+<Info>
+  You talk to two base URLs. `https://api.agent37.com` creates and manages instances. Each instance then serves its own chat API at `https://{instanceId}.agent37.app`: the instance id is the hostname. The same `sk_live_` key authenticates both. See [Instance URLs](/agents-api/urls).
+</Info>
+
+The snippets below use a small shorthand client so the calls stay readable. `api` is the hosting API; `agentOf(id)` is one user's agent.
+
+```javascript node
+const HEADERS = {
+  Authorization: `Bearer ${process.env.AGENT37_API_KEY}`, // sk_live_..., server-side only
+  "Content-Type": "application/json",
+};
+
+function makeClient(base) {
+  return {
+    get: (path) => fetch(base + path, { headers: HEADERS }).then((r) => r.json()),
+    post: (path, body) =>
+      fetch(base + path, {
+        method: "POST",
+        headers: HEADERS,
+        body: JSON.stringify(body ?? {}),
+      }).then((r) => r.json()),
+  };
+}
+
+const api = makeClient("https://api.agent37.com");
+const agentOf = (id) => makeClient(`https://${id}.agent37.app`);
+```
+
+<Warning>
+  Route every call through your server. The `sk_live_` key is workspace-scoped: it can read and manage every instance and session in your workspace, not just one user's. It must never reach the browser. Your frontend talks to your backend; your backend holds the key and calls both base URLs.
+</Warning>
+
 ## The shape of it
 
 <Steps>
   <Step title="One instance per user, on signup">
-    When a user signs up, create one [instance](/agents-api/instances) for them on the default `hermes` template, tagged with your own `user` id. That instance is their agent from then on.
+    When a user signs up, create one [instance](/agents-api/instances) for them, tagged with your own user id. That instance is their agent from then on.
 
     ```javascript node
-    const inst = await api.post("/v1/instances", { user: "u_882" });
+    const inst = await api.post("/v1/instances", {
+      user: "u_882",
+      name: "chat-u_882",
+      budget: { topup_micros: 1000000 },
+    });
+
+    await db.users.update("u_882", { instanceId: inst.id });
+    // inst.id is bare, e.g. "ab12cd34ef", and doubles as the hostname:
+    // https://ab12cd34ef.agent37.app
     ```
+
+    Omitting `template` gives you `agent37-hermes`, the default, on the default 2 vCPU / 4 GB RAM / 8 GB disk shape, billed at $4.99 per month from your workspace wallet (see [Billing](/agents-api/billing)). The $1 `budget.topup_micros` grants one-time managed-spend headroom so the agent's LLM calls work from the first message; without it the per-instance [budget](/agents-api/budgets) defaults to $0.
+
+    The call is synchronous and returns `201` with `status: "running"`, so the agent is ready the moment the call comes back. Store `inst.id` on the user row.
   </Step>
 
   <Step title="A session per chat thread">
-    Each thread is a [session](/agents-api/messages). Send the first message with the `instance_id`, then reuse the returned `session_id` for every later turn, so you never resend history. Stream the reply to render tokens as they arrive.
+    Each thread is a session on the user's instance. Send the first turn to the instance URL with no `session_id`; the reply mints one. Store it on your thread row, then send `session_id` plus the new `input` on every later turn. The session keeps the full history, so you never resend a transcript.
 
     ```javascript node
-    // new thread: first message, streamed
-    const { session_id } = await api.post("/v1/responses", {
-      instance_id: inst.id,
-      input: "Help me plan my week.",
-      stream: true,
-    });
+    const agent = agentOf(user.instanceId);
 
-    // later turns: continue the same thread
-    await api.post("/v1/responses", {
-      session_id,
-      input: "Add a gym session Tuesday.",
+    // new thread: first turn, no session_id
+    const first = await agent.post("/v1/responses", {
+      input: "Research the top 3 EV makers, write a memo.",
     });
+    await db.threads.create({ userId: "u_882", sessionId: first.session_id });
+    // first.session_id, e.g. "7f3e0b6c52a949d2b1c4a8e9d0f31726"
+
+    // later turns: session_id and the new input only
+    const reply = await agent.post("/v1/responses", {
+      session_id: thread.sessionId,
+      input: "Make it shorter, add a quote.",
+    });
+    render(reply.output_text);
     ```
+
+    <Tip>
+      Stream every reply so the UI fills in as the agent reasons, calls tools, and writes. Set `stream: true` and read the Server-Sent Events; see [Streaming](/agents-api/streaming) for the full event list and a client parser.
+    </Tip>
   </Step>
 
   <Step title="List threads for the sidebar">
-    List the instance's sessions to render every thread the user has open.
+    `GET /v1/sessions` on the instance URL lists every session, newest first, without history.
 
     ```javascript node
-    const { data } = await api.get(`/v1/instances/${inst.id}/sessions`);
+    const { data } = await agentOf(user.instanceId).get("/v1/sessions");
+    // [{ id, agent, model, provider, created, last_response_at }]
+    // timestamps are epoch milliseconds
     ```
+
+    The list carries no titles, so keep thread titles in your own database, keyed by `session_id`. The first user message usually makes a good default title.
+  </Step>
+
+  <Step title="Load a thread when it opens">
+    `GET /v1/sessions/{id}` returns the session with its full transcript in `history`, in order.
+
+    ```javascript node
+    const session = await agentOf(user.instanceId).get(
+      `/v1/sessions/${thread.sessionId}`
+    );
+    // session.history: [{ id, session_id, role, content, thinking?, created_at }]
+    ```
+
+    Render each message by `role` (`user`, `assistant`, or `system`). When a user deletes a thread, `DELETE /v1/sessions/{id}` removes it; see [Sessions](/agents-api/sessions).
   </Step>
 </Steps>
 
-<Tip>
-  Stream every reply so the UI fills in as the agent works. See [Streaming events](/agents-api/streaming) for the event list and a client parser.
-</Tip>
+## Handle a busy session
 
-## Where to go next
+A session runs one response at a time. Posting a new turn while one is in flight returns `409`:
+
+```json
+{
+  "error": {
+    "code": "session_busy",
+    "message": "A response is already running on this session.",
+    "hint": "Cancel the running response, or start another session."
+  }
+}
+```
+
+Two good ways to handle it in a chat UI:
+
+- **Disable the composer** while a turn runs, and re-enable it when the reply arrives (the non-streaming call returning, or the terminal streaming event).
+- **Offer a stop button** that calls `POST /v1/responses/{id}/cancel` on the instance URL. With `stream: true` the first event, `response.created`, hands you the response id immediately, which is what makes the button possible. Cancel is best effort: the response ends with `status: "cancelled"`, and whatever the agent already did is not undone.
+
+Other threads are unaffected: each session has its own lock, so one user can run turns in several threads at once.
+
+## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Send a message" icon="send" href="/agents-api/messages">
-    The core call, continuing a thread, and managing conversations.
+  <Card title="Send a message" icon="send" href="/agents-api/chat">
+    The full `POST /v1/responses` contract: fields, the response object, and models.
   </Card>
-  <Card title="Streaming events" icon="activity" href="/agents-api/streaming">
-    Render text, reasoning, and tool activity live.
+  <Card title="Streaming" icon="activity" href="/agents-api/streaming">
+    Render text, reasoning, and tool activity live, and reconnect dropped streams.
   </Card>
-  <Card title="Integrations" icon="plug" href="/agents-api/integrations">
-    Let users connect Gmail, Slack, Notion, and more to their agent.
+  <Card title="Sessions" icon="history" href="/agents-api/sessions">
+    List, retrieve with history, and delete the threads on an instance.
+  </Card>
+  <Card title="Budgets" icon="wallet" href="/agents-api/budgets">
+    Cap each user's managed spend with a monthly cap and one-time top-ups.
   </Card>
 </CardGroup>

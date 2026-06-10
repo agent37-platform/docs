@@ -1,0 +1,127 @@
+---
+title: "Instance URLs"
+description: "Reach the software running inside an instance over HTTPS, at a URL you can derive from the instance id."
+---
+
+Every instance with a default port is reachable at `https://{instanceId}.agent37.app`. The instance id is the DNS label, so instance `ab12cd34ef` lives at `https://ab12cd34ef.agent37.app`: you can construct the URL from the id alone, with no lookup step.
+
+<Info>
+  **Two planes, one key.** You manage instances on the hosting API at `https://api.agent37.com` (create, stop, delete). You talk to what runs inside an instance at its instance URL on `*.agent37.app`. The same `sk_live_` key authenticates both.
+</Info>
+
+## One URL per port
+
+A template declares which container ports an instance exposes, and every exposed port gets its own HTTPS URL in the instance object's `ports` array:
+
+```json instance ports
+"ports": [
+  { "port": 3737, "default": true,  "url": "https://ab12cd34ef.agent37.app" },
+  { "port": 9119, "default": false, "url": "https://q7w8e9r0t1y2u3i4o5p6a7s8.agent37.app" },
+  { "port": 6969, "default": false, "url": "https://z1x2c3v4b5n6m7k8j9h0g1f2.agent37.app" }
+]
+```
+
+The default port owns the bare instance URL. Every non-default port gets an opaque handle URL: a 24 character lowercase alphanumeric label that is not derivable from the id.
+
+<ResponseField name="port" type="integer">
+  The container port inside the instance.
+</ResponseField>
+<ResponseField name="default" type="boolean">
+  At most one port per template is the default. It is served at `https://{instanceId}.agent37.app`.
+</ResponseField>
+<ResponseField name="url" type="string">
+  The HTTPS URL that routes to this port.
+</ResponseField>
+
+<Tip>
+  Construct the default URL from the id whenever you like; that is the point of the scheme. For non-default ports, read `url` from the `ports` array instead of guessing: the handles are opaque on purpose.
+</Tip>
+
+### What `agent37-hermes` exposes
+
+| Port | URL | Serves |
+| --- | --- | --- |
+| `3737` | `https://ab12cd34ef.agent37.app` (default) | The gateway: [chat](/agents-api/chat) at `/v1/responses`, plus sessions, models, health |
+| `9119` | Opaque handle URL | Hermes dashboard |
+| `6969` | Opaque handle URL | Mission Control |
+
+So for the default [template](/agents-api/templates), chat is just the bare URL plus a path: `POST https://ab12cd34ef.agent37.app/v1/responses`.
+
+## Authentication
+
+Every request to an instance URL carries the same workspace API key as the hosting API:
+
+```
+Authorization: Bearer sk_live_...
+```
+
+The platform edge authenticates the key, checks that the instance belongs to your workspace, and forwards the request to the instance's port. A request without the header gets `401`; a key from another workspace gets `404`.
+
+Auth is header based with no cookies, so instance URLs are for server side and programmatic use. You cannot open one in a plain browser tab: the tab has no way to send the header. That includes browser surfaces like the Hermes dashboard; reach those through a server side proxy that adds the header. Time boxed share links you can hand to a browser are coming soon.
+
+<Warning>
+  The Bearer token is your workspace API key. Never embed an instance URL plus the key in client side code; anyone holding the key can call every instance in the workspace.
+</Warning>
+
+## Call an instance
+
+Hit the bare URL directly. The gateway's health endpoint is a quick reachability check:
+
+<CodeGroup>
+
+```bash curl
+curl https://ab12cd34ef.agent37.app/v1/health \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python python
+import requests
+
+r = requests.get(
+    "https://ab12cd34ef.agent37.app/v1/health",
+    headers={"Authorization": "Bearer sk_live_..."},
+)
+print(r.json())
+```
+
+```javascript node
+const res = await fetch("https://ab12cd34ef.agent37.app/v1/health", {
+  headers: { Authorization: "Bearer sk_live_..." },
+});
+console.log(await res.json());
+```
+
+```json response
+{ "ok": true, "hermes": true }
+```
+
+</CodeGroup>
+
+## HTTP and SSE, not WebSocket
+
+Plain HTTP requests and SSE streams pass end to end: [streaming chat](/agents-api/streaming) with `stream: true` works on the bare URL, and the connection stays open until the server closes it after the terminal event.
+
+<Note>
+  WebSocket upgrades are not supported through instance URLs yet. A request that asks to upgrade the connection is refused. Build on HTTP and SSE.
+</Note>
+
+## Templates with no ports
+
+A [template](/agents-api/templates) that declares no ports produces a private sandbox: the instance runs, but nothing is routable and it has no URL at all (`ports` is empty). You can still drive it from the hosting API with [exec](/agents-api/exec), which runs shell commands inside the instance without any exposed port.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Send a message" icon="send" href="/agents-api/chat">
+    Call `POST /v1/responses` on the bare instance URL.
+  </Card>
+  <Card title="Streaming" icon="activity" href="/agents-api/streaming">
+    Stream tokens over SSE from the same URL.
+  </Card>
+  <Card title="Templates" icon="template" href="/agents-api/templates">
+    Control which ports your instances expose.
+  </Card>
+  <Card title="Run commands" icon="terminal-2" href="/agents-api/exec">
+    Reach an instance with no ports at all.
+  </Card>
+</CardGroup>

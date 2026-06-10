@@ -1,0 +1,304 @@
+---
+title: "Managed services & budgets"
+description: "Every instance ships with managed LLM, Brave search, and Composio credentials: metered at cost, gated by a per-instance budget you control."
+---
+
+Every instance is created with managed credentials for three services: LLM calls, web search (Brave), and app integrations (Composio). The agent uses them out of the box. Managed calls route and meter through Agent37, so there are no provider or integration keys for you to manage.
+
+Each managed call is metered at cost against your workspace wallet, and a per-instance budget caps how much each instance can spend.
+
+## Rates
+
+| Service | Rate |
+| --- | --- |
+| Managed LLM | Provider cost, passed through with no markup |
+| Web search (Brave) | $0.005 per call (5,000 micros) |
+| Composio | $0.000114 per call (114 micros) |
+
+All money fields are integer micros: USD x 1,000,000, so $1.00 is `1000000`. Managed spend debits the workspace wallet, the same wallet that pays for compute. Top it up at [agent37.com/dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing).
+
+## How budgets work
+
+A budget has two parts:
+
+- **Monthly cap.** A spending ceiling that resets at the start of each UTC month. It defaults to $0, so managed calls are refused until you grant headroom.
+- **One-time top-up headroom.** A ceiling that persists across months and is consumed only after the monthly portion is exhausted.
+
+<Info>
+  Budget figures are ceilings, not money. The workspace wallet is the only pot of dollars; raising a cap or topping up an instance moves no funds. The sum of caps across your instances can exceed the wallet balance, which is fine: caps bound each instance, the wallet bounds the total.
+</Info>
+
+## Set a budget at create
+
+Pass `budget` in the create body to grant headroom from the first call.
+
+<ParamField body="budget.monthly_cap_micros" type="integer" default="0">
+  Monthly managed-spend cap in micros. Resets each UTC month.
+</ParamField>
+
+<ParamField body="budget.topup_micros" type="integer" default="0">
+  One-time headroom in micros. Persists until consumed.
+</ParamField>
+
+<CodeGroup>
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "research-bot",
+    "budget": { "monthly_cap_micros": 5000000, "topup_micros": 1000000 }
+  }'
+```
+
+```python python
+import requests
+
+H = {"Authorization": "Bearer sk_live_...", "Content-Type": "application/json"}
+instance = requests.post(
+    "https://api.agent37.com/v1/instances",
+    headers=H,
+    json={
+        "name": "research-bot",
+        "budget": {"monthly_cap_micros": 5000000, "topup_micros": 1000000},
+    },
+).json()
+```
+
+```javascript node
+const H = {
+  "Authorization": "Bearer sk_live_...",
+  "Content-Type": "application/json",
+};
+const instance = await (await fetch("https://api.agent37.com/v1/instances", {
+  method: "POST",
+  headers: H,
+  body: JSON.stringify({
+    name: "research-bot",
+    budget: { monthly_cap_micros: 5000000, topup_micros: 1000000 },
+  }),
+})).json();
+```
+</CodeGroup>
+
+## Endpoints
+
+| Action | Endpoint |
+| --- | --- |
+| Read the budget | `GET /v1/instances/{id}/budget` |
+| Set the monthly cap | `PATCH /v1/instances/{id}/budget` |
+| Add one-time headroom | `POST /v1/instances/{id}/budget/top-up` |
+| Read managed spend | `GET /v1/instances/{id}/usage` |
+
+All three budget endpoints return the same budget object.
+
+## The budget object
+
+<ResponseField name="monthly_cap_micros" type="integer">
+  The monthly spending ceiling.
+</ResponseField>
+
+<ResponseField name="monthly_consumed_micros" type="integer">
+  Managed spend counted against the cap this month.
+</ResponseField>
+
+<ResponseField name="monthly_remaining_micros" type="integer">
+  `monthly_cap_micros` minus `monthly_consumed_micros`, floored at 0.
+</ResponseField>
+
+<ResponseField name="monthly_period" type="string">
+  The UTC month the counters cover, formatted `YYYY-MM`.
+</ResponseField>
+
+<ResponseField name="topup_remaining_micros" type="integer">
+  One-time headroom left. Consumed only after the monthly portion is exhausted.
+</ResponseField>
+
+<ResponseField name="updated_at" type="integer | null">
+  Epoch seconds of the last budget write. Cap changes, top-ups, and managed spend all update it; `null` if the budget has never been written.
+</ResponseField>
+
+<CodeGroup>
+```bash curl
+curl https://api.agent37.com/v1/instances/ab12cd34ef/budget \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```json response
+{
+  "monthly_cap_micros": 5000000,
+  "monthly_consumed_micros": 412380,
+  "monthly_remaining_micros": 4587620,
+  "monthly_period": "2026-06",
+  "topup_remaining_micros": 1000000,
+  "updated_at": 1781136000
+}
+```
+</CodeGroup>
+
+## Set the monthly cap
+
+`PATCH /v1/instances/{id}/budget` sets the cap for the current and future months. It takes effect immediately.
+
+<ParamField body="monthly_cap_micros" type="integer" required>
+  The new monthly cap in micros. Must be a non-negative integer.
+</ParamField>
+
+<CodeGroup>
+```bash curl
+curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef/budget \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "monthly_cap_micros": 20000000 }'
+```
+
+```python python
+budget = requests.patch(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/budget",
+    headers=H,
+    json={"monthly_cap_micros": 20000000},
+).json()
+```
+
+```javascript node
+const budget = await (await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/budget",
+  {
+    method: "PATCH",
+    headers: H,
+    body: JSON.stringify({ monthly_cap_micros: 20000000 }),
+  },
+)).json();
+```
+</CodeGroup>
+
+Setting the cap to `0` turns managed services off for the instance once any remaining top-up headroom is consumed.
+
+## Add one-time headroom
+
+`POST /v1/instances/{id}/budget/top-up` adds to `topup_remaining_micros`. Use it for a burst of work you don't want to bake into the monthly cap.
+
+<ParamField body="amount_micros" type="integer" required>
+  Headroom to add, in micros. Must be a positive integer.
+</ParamField>
+
+<ParamField body="idempotency_key" type="string">
+  Up to 64 characters matching `^[A-Za-z0-9_-]{1,64}$`. Repeating a request with the same key returns the current budget without adding again, so retries are safe.
+</ParamField>
+
+<CodeGroup>
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/budget/top-up \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "amount_micros": 10000000, "idempotency_key": "june-burst-1" }'
+```
+
+```python python
+budget = requests.post(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/budget/top-up",
+    headers=H,
+    json={"amount_micros": 10000000, "idempotency_key": "june-burst-1"},
+).json()
+```
+
+```javascript node
+const budget = await (await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/budget/top-up",
+  {
+    method: "POST",
+    headers: H,
+    body: JSON.stringify({
+      amount_micros: 10000000,
+      idempotency_key: "june-burst-1",
+    }),
+  },
+)).json();
+```
+</CodeGroup>
+
+<Note>
+  An instance top-up raises a ceiling; it does not move money. Funding the wallet itself happens in the dashboard at [agent37.com/dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). See [Billing](/agents-api/billing).
+</Note>
+
+## Read managed spend
+
+`GET /v1/instances/{id}/usage?month=YYYY-MM` returns the instance's managed-spend rollup for one UTC month. Omit `month` for the current month; an invalid value returns 400.
+
+<ResponseField name="period" type="string">
+  The UTC month covered, formatted `YYYY-MM`.
+</ResponseField>
+
+<ResponseField name="total_micros" type="integer">
+  Total managed spend for the month.
+</ResponseField>
+
+<ResponseField name="by_integration" type="object">
+  Per-service breakdown. `llm` carries `cost_micros`, `calls`, `input_tokens`, and `output_tokens`; `brave` and `composio` carry `cost_micros` and `calls`.
+</ResponseField>
+
+<CodeGroup>
+```bash curl
+curl "https://api.agent37.com/v1/instances/ab12cd34ef/usage?month=2026-06" \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```json response
+{
+  "period": "2026-06",
+  "total_micros": 412380,
+  "by_integration": {
+    "llm": {
+      "cost_micros": 391582,
+      "calls": 42,
+      "input_tokens": 184032,
+      "output_tokens": 96110
+    },
+    "brave": { "cost_micros": 20000, "calls": 4 },
+    "composio": { "cost_micros": 798, "calls": 7 }
+  }
+}
+```
+</CodeGroup>
+
+<Note>
+  Usage covers managed spend only. Compute prepay never appears here; the full billing ledger lives in the dashboard, not on `/v1`. See [Billing](/agents-api/billing).
+</Note>
+
+## When a managed call is refused
+
+A managed call that can't be covered fails with a 402 carrying one of two reasons. The instance keeps running either way; only managed calls are refused, and the refusal surfaces inside the instance on the call the agent was making, so the agent typically reports it in its reply.
+
+| Reason | What happened | Fix |
+| --- | --- | --- |
+| `insufficient_balance` | The workspace wallet is empty. | Top up the wallet at [agent37.com/dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). |
+| `instance_budget_exhausted` | The wallet has funds, but this instance hit its budget. | Raise the monthly cap with `PATCH .../budget`, or add headroom with `POST .../budget/top-up`. |
+
+For the hosting API error catalog, see [Errors](/agents-api/errors).
+
+## Connecting apps
+
+The agent connects apps in conversation; there are no integration endpoints to call. Ask it to connect Gmail, Slack, Notion, or any other Composio-supported app, and it replies with an authorization link. Your user opens the link and grants access; Composio handles the OAuth. From the next turn on, the agent can use the app.
+
+Composio calls meter at $0.000114 each, counted against the instance's budget like any other managed call.
+
+## Bring your own keys
+
+Managed credentials are a convenience, not a requirement. To run a service on your own account, put your own provider key inside the instance with [exec](/agents-api/exec) or the agent's in-instance config. Calls made with your own keys go straight to the provider and never touch the managed meter or the budget.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Billing" icon="credit-card" href="/agents-api/billing">
+    The workspace wallet, compute prepay, and top-ups.
+  </Card>
+  <Card title="Send a message" icon="send" href="/agents-api/chat">
+    Put the managed LLM to work through the instance's chat API.
+  </Card>
+  <Card title="Run commands" icon="terminal-2" href="/agents-api/exec">
+    Set your own provider keys or inspect the instance.
+  </Card>
+  <Card title="Errors" icon="alert-triangle" href="/agents-api/errors">
+    Every error code and how to handle it.
+  </Card>
+</CardGroup>

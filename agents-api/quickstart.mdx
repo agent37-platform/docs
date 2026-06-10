@@ -5,55 +5,84 @@ description: "Create an agent and stream its first reply in two API calls."
 
 You create an agent with one call, then talk to it with the next. Files, connected accounts, and memory stay on the agent until you delete it.
 
-![Agent 37 Cloud routes requests from your app to isolated agent instances.](/images/agent37-gateway-flow.svg)
-
-<Note>
-  The Agents API is in a private beta with a small group of design partners. [Book a call](https://cal.com/vishnukool/30min) to see if it's a fit and we'll get you set up with access.
-</Note>
-
-## Prerequisites
-
-- **An API key** from the private beta (see above). Send it as a bearer token. Keep it server-side. Never ship it to a browser or end user.
-- **A funded balance.** Your starter credit covers your first agent; once you are onboarded you can top up in the dashboard for more.
+![Agent37 Cloud routes requests from your app to isolated agent instances.](/images/agent37-gateway-flow.svg)
 
 <Steps>
-  <Step title="Create an agent">
-    `POST /v1/instances` returns an instance that is ready to take a message the moment its `status` is `running`. Every field is optional, so a `POST` with no body works.
+  <Step title="Get a key and fund your wallet">
+    Mint an API key at [www.agent37.com/dashboard/cloud/api-keys](https://www.agent37.com/dashboard/cloud/api-keys). The full `sk_live_...` key is shown once, at creation. Send it as a Bearer token on every request.
+
+    Then top up your workspace wallet at [www.agent37.com/dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). The smallest instance bills $4.99 for its first month the moment you create it, so add at least $10 to leave room for managed LLM calls. Top-ups are $5 to $1000.
+
+    <Warning>
+      Keep the key server-side. Never ship it to a browser or end user: it controls every instance in your workspace.
+    </Warning>
+  </Step>
+
+  <Step title="Create an instance">
+    `POST /v1/instances` provisions a computer running the default `agent37-hermes` template and returns `201` once its `status` is `running`. Every field is optional, but include a small budget top-up: managed LLM calls are off until you give the instance spending headroom, and $1 (`1000000` micros) is plenty to start.
 
     <CodeGroup>
     ```bash curl
     curl -X POST https://api.agent37.com/v1/instances \
-      -H "Authorization: Bearer sk_live_..."
-    # -> { "id": "inst_x7", "status": "running", ... }
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{ "budget": { "topup_micros": 1000000 } }'
     ```
 
     ```python python
     import requests
 
     H = {"Authorization": "Bearer sk_live_..."}
-    inst = requests.post("https://api.agent37.com/v1/instances", headers=H).json()
+    inst = requests.post(
+        "https://api.agent37.com/v1/instances",
+        headers=H,
+        json={"budget": {"topup_micros": 1_000_000}},
+    ).json()
     ```
 
     ```javascript node
-    const H = { "Authorization": "Bearer sk_live_..." };
+    const H = { Authorization: "Bearer sk_live_..." };
     const inst = await (await fetch("https://api.agent37.com/v1/instances", {
       method: "POST",
-      headers: H,
+      headers: { ...H, "Content-Type": "application/json" },
+      body: JSON.stringify({ budget: { topup_micros: 1_000_000 } }),
     })).json();
     ```
+
+    ```json response
+    {
+      "id": "ab12cd34ef",
+      "status": "running",
+      "template": "agent37-hermes",
+      "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.09",
+      "resources": { "cpu": 2, "memory": 4, "disk": 8 },
+      "ports": [
+        { "port": 3737, "default": true, "url": "https://ab12cd34ef.agent37.app" },
+        { "port": 9119, "default": false, "url": "https://q7w8e9r0t1y2u3i4o5p6a7s8.agent37.app" },
+        { "port": 6969, "default": false, "url": "https://z1x2c3v4b5n6m7k8j9h0g1f2.agent37.app" }
+      ],
+      "user": null,
+      "name": null,
+      "metadata": null,
+      "paid_through": 1783641600,
+      "past_due": false,
+      "created": 1781049600
+    }
+    ```
     </CodeGroup>
+
+    The default port's `url` is the instance's own API: the instance id is the DNS label, so `ab12cd34ef` answers at `https://ab12cd34ef.agent37.app`. That is the address you talk to next.
   </Step>
 
-  <Step title="Send it a message">
-    Send `input`, passing the instance's `id` as `instance_id`. Set `stream: true` to receive Server-Sent Events as the agent reasons, calls tools, and writes its answer.
+  <Step title="Send it a streamed message">
+    `POST /v1/responses` on the instance URL runs a turn. Set `stream: true` to receive Server-Sent Events as the agent reasons, calls tools, and writes its answer. Same `sk_live_` key.
 
     <CodeGroup>
     ```bash curl
-    curl -N https://api.agent37.com/v1/responses \
+    curl -N https://ab12cd34ef.agent37.app/v1/responses \
       -H "Authorization: Bearer sk_live_..." \
       -H "Content-Type: application/json" \
       -d '{
-        "instance_id": "inst_x7",
         "input": "Research the top 3 EV makers, write a memo.",
         "stream": true
       }'
@@ -61,47 +90,67 @@ You create an agent with one call, then talk to it with the next. Files, connect
 
     ```python python
     r = requests.post(
-        "https://api.agent37.com/v1/responses",
+        "https://ab12cd34ef.agent37.app/v1/responses",
         headers=H,
         stream=True,
         json={
-            "instance_id": inst["id"],
-            "input": "Summarize my inbox and draft replies.",
+            "input": "Research the top 3 EV makers, write a memo.",
             "stream": True,
         },
     )
     for line in r.iter_lines():
-        print(line)
+        print(line.decode())
     ```
 
     ```javascript node
-    const res = await fetch("https://api.agent37.com/v1/responses", {
+    const res = await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
       method: "POST",
       headers: { ...H, "Content-Type": "application/json" },
       body: JSON.stringify({
-        instance_id: inst.id,
-        input: "Build me a Next.js landing page.",
+        input: "Research the top 3 EV makers, write a memo.",
         stream: true,
       }),
     });
-    // res.body is an SSE stream of events
+    // res.body is an SSE stream of named events
     ```
     </CodeGroup>
+
+    The stream opens with `response.created`, which carries the ids you need, and ends with a terminal event after which the server closes the connection:
+
+    ```text events
+    event: response.created
+    data: {"id":"c91d2a7e84f04b6f9a3d5e1c0b87f4a2","session_id":"7f3e0b6c52a949d2b1c4a8e9d0f31726"}
+
+    event: response.output_text.delta
+    data: {"text":"Here is the memo. Tesla still leads on"}
+
+    event: response.completed
+    data: {"output_text":"Here is the memo...","usage":{"input_tokens":1840,"output_tokens":920,"cost_usd":0.0137}}
+    ```
+
+    <Tip>
+      Prefer not to stream? Leave `stream` off (the default is `false`) and the call returns the finished response as one JSON body.
+    </Tip>
   </Step>
 
   <Step title="Continue the conversation">
-    The first reply returns a `session_id`. Reuse it to continue the same thread: the agent keeps the full history, so you send only the new input.
+    Reuse the `session_id` to continue the same thread. The agent keeps the full history on the instance, so you send only the new input.
 
-    ```json
-    POST /v1/responses
-    { "session_id": "sess_1", "input": "Make it shorter, add a quote." }
+    ```bash curl
+    curl https://ab12cd34ef.agent37.app/v1/responses \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+        "input": "Make it shorter, add a quote."
+      }'
     ```
   </Step>
 </Steps>
 
-<Tip>
-  Prefer not to stream? Send `stream: false` (the default) and the call returns the finished response as one JSON body.
-</Tip>
+<Note>
+  Done experimenting? `DELETE /v1/instances/{id}` refunds the unused remainder of the month to your wallet, prorated to the exact time used. See [Billing](/agents-api/billing).
+</Note>
 
 ## Next steps
 
@@ -109,13 +158,13 @@ You create an agent with one call, then talk to it with the next. Files, connect
   <Card title="Core concepts" icon="sitemap" href="/agents-api/concepts">
     Instances, sessions, responses, and the agent-vs-model distinction.
   </Card>
-  <Card title="Send a message" icon="send" href="/agents-api/messages">
+  <Card title="Send a message" icon="send" href="/agents-api/chat">
     Every field on the core call, plus the response shape.
   </Card>
-  <Card title="Streaming events" icon="activity" href="/agents-api/streaming">
+  <Card title="Streaming" icon="activity" href="/agents-api/streaming">
     The full event list and a client parser.
   </Card>
-  <Card title="Instances" icon="server" href="/agents-api/instances">
-    Size, manage, and delete the agent's computer.
+  <Card title="Budgets" icon="wallet" href="/agents-api/budgets">
+    Caps and top-ups that gate each instance's managed spend.
   </Card>
 </CardGroup>

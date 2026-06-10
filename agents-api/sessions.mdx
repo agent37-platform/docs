@@ -1,0 +1,255 @@
+---
+title: "Sessions & models"
+description: "List, read, and delete conversations on an instance, and see which models its agent can run."
+---
+
+A session is one conversation on an instance. An instance holds many sessions, one per thread, and each session keeps its own full history, so you only ever send the new input. These endpoints are served by the gateway running inside the instance.
+
+Everything on this page lives on the instance URL, not the hosting API: the base is `https://{instanceId}.agent37.app`, with the same `Authorization: Bearer sk_live_...` header. The platform edge authenticates the key and checks the instance belongs to your workspace, then the gateway answers. See [Instance URLs](/agents-api/urls).
+
+| Action | Endpoint |
+| --- | --- |
+| List sessions | `GET /v1/sessions` |
+| Retrieve, with history | `GET /v1/sessions/{id}` |
+| Delete | `DELETE /v1/sessions/{id}` |
+| List models | `GET /v1/models` |
+| Health and version | `GET /v1/health` · `GET /v1/version` |
+
+<Note>
+  You never create a session directly. The first [`POST /v1/responses`](/agents-api/chat) without a `session_id` mints one and returns its id; reuse that id to continue the thread.
+</Note>
+
+## The session object
+
+<ResponseField name="id" type="string">
+  The session id: 32 hex characters, no prefix. Every response in the conversation carries it as `session_id`.
+</ResponseField>
+
+<ResponseField name="agent" type="string">
+  The agent the session runs. `hermes` today.
+</ResponseField>
+
+<ResponseField name="model" type="string | null">
+  The session's current model. Sending `model` on a turn updates it; `null` until a turn sets one.
+</ResponseField>
+
+<ResponseField name="provider" type="string | null">
+  The current model's provider, e.g. `anthropic`.
+</ResponseField>
+
+<ResponseField name="created" type="number">
+  When the session started, in epoch milliseconds.
+</ResponseField>
+
+<ResponseField name="last_response_at" type="number | null">
+  When the last turn finished, in epoch milliseconds. Failed turns do not update it; `null` until the first turn completes.
+</ResponseField>
+
+<Note>
+  Gateway timestamps are epoch **milliseconds**. The hosting API at `api.agent37.com` uses epoch seconds.
+</Note>
+
+## List sessions
+
+`GET /v1/sessions` returns every session on the instance, newest first, wrapped in `{ "data": [...] }`. The list carries session metadata only, never history, so it stays cheap to poll for a sidebar.
+
+<CodeGroup>
+```bash curl
+curl https://ab12cd34ef.agent37.app/v1/sessions \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python python
+import requests
+
+sessions = requests.get(
+    "https://ab12cd34ef.agent37.app/v1/sessions",
+    headers={"Authorization": "Bearer sk_live_..."},
+).json()["data"]
+```
+
+```javascript node
+const { data: sessions } = await (await fetch(
+  "https://ab12cd34ef.agent37.app/v1/sessions",
+  { headers: { Authorization: "Bearer sk_live_..." } },
+)).json();
+```
+
+```json response
+{
+  "data": [
+    {
+      "id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+      "agent": "hermes",
+      "model": "claude-sonnet-4-5",
+      "provider": "anthropic",
+      "created": 1781049600000,
+      "last_response_at": 1781049642000
+    }
+  ]
+}
+```
+</CodeGroup>
+
+## Retrieve a session with history
+
+`GET /v1/sessions/{id}` returns the session object plus `history`: the full transcript, in order. You read it for display or audit; you never resend it, because the session already holds it. A session with no completed turns returns `history: []`. An unknown id returns `404 session_not_found`.
+
+Each entry in `history` is a message:
+
+<ResponseField name="id" type="string">
+  The message id. Treat it as opaque; it uses a different format from session and response ids.
+</ResponseField>
+
+<ResponseField name="session_id" type="string">
+  The session the message belongs to.
+</ResponseField>
+
+<ResponseField name="role" type="string">
+  `user`, `assistant`, or `system`.
+</ResponseField>
+
+<ResponseField name="content" type="string">
+  The message text.
+</ResponseField>
+
+<ResponseField name="thinking" type="string">
+  The assistant's reasoning for that turn, when the agent recorded any. Absent otherwise.
+</ResponseField>
+
+<ResponseField name="created_at" type="number">
+  When the message was created, in epoch milliseconds.
+</ResponseField>
+
+<CodeGroup>
+```bash curl
+curl https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```json response
+{
+  "id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+  "agent": "hermes",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "created": 1781049600000,
+  "last_response_at": 1781049642000,
+  "history": [
+    {
+      "id": "hermes:7f3e0b6c52a949d2b1c4a8e9d0f31726:1",
+      "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+      "role": "user",
+      "content": "Research the top 3 EV makers, write a memo.",
+      "created_at": 1781049601000
+    },
+    {
+      "id": "hermes:7f3e0b6c52a949d2b1c4a8e9d0f31726:2",
+      "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+      "role": "assistant",
+      "content": "Here is the memo...",
+      "thinking": "Comparing deliveries, margins, and charging networks...",
+      "created_at": 1781049642000
+    }
+  ]
+}
+```
+</CodeGroup>
+
+## Delete a session
+
+`DELETE /v1/sessions/{id}` removes the conversation and returns exactly `{ "id": "...", "deleted": true }`. The delete acts once: repeating it returns `404 session_not_found`.
+
+<CodeGroup>
+```bash curl
+curl -X DELETE https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```json response
+{ "id": "7f3e0b6c52a949d2b1c4a8e9d0f31726", "deleted": true }
+```
+</CodeGroup>
+
+<Warning>
+  Deleting a session is permanent. It removes the conversation and its history, but leaves the instance (its files, memory, and connected accounts) untouched.
+</Warning>
+
+## One turn at a time
+
+A session runs one response at a time. Posting new input while a turn is in flight returns `409 session_busy`. Cancel the running turn with [`POST /v1/responses/{id}/cancel`](/agents-api/chat), or start the new input on another session. Two sessions on the same instance run independently.
+
+## List models
+
+`GET /v1/models` lists the models the instance's agent can run. The result is cached for about 60 seconds, so a newly available model can take up to a minute to appear.
+
+<ResponseField name="default_model" type="string | null">
+  The model used when a turn does not name one.
+</ResponseField>
+
+<ResponseField name="default_provider" type="string | null">
+  The provider of the default model.
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  One entry per model: `{ "id", "label", "provider", "is_default" }`. Pass an entry's `id` as `model` (with its `provider`) on a turn.
+</ResponseField>
+
+<CodeGroup>
+```bash curl
+curl https://ab12cd34ef.agent37.app/v1/models \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python python
+import requests
+
+models = requests.get(
+    "https://ab12cd34ef.agent37.app/v1/models",
+    headers={"Authorization": "Bearer sk_live_..."},
+).json()
+```
+
+```javascript node
+const models = await (await fetch(
+  "https://ab12cd34ef.agent37.app/v1/models",
+  { headers: { Authorization: "Bearer sk_live_..." } },
+)).json();
+```
+
+```json response
+{
+  "default_model": "claude-sonnet-4-5",
+  "default_provider": "anthropic",
+  "data": [
+    { "id": "claude-sonnet-4-5", "label": "Claude Sonnet 4.5", "provider": "anthropic", "is_default": true },
+    { "id": "gpt-5.2", "label": "GPT-5.2", "provider": "openai", "is_default": false }
+  ]
+}
+```
+</CodeGroup>
+
+`model` and `provider` are dials you set per turn on [`POST /v1/responses`](/agents-api/chat): omit them to keep the session's current model, or send them to switch. A continuation that sets them updates the session's stored model and provider for the turns that follow.
+
+## Health and version
+
+`GET /v1/health` returns `{ "ok": true, "hermes": true }`. `ok` is true whenever the gateway is up; `hermes` reports whether the agent worker behind it is reachable. Use it as a readiness probe after [create or start](/agents-api/instances).
+
+`GET /v1/version` returns the gateway build, e.g. `{ "name": "agent37-gateway", "version": "0.1.0" }`.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Send a message" icon="send" href="/agents-api/chat">
+    Start and continue sessions with `POST /v1/responses`, the turn that fills these threads.
+  </Card>
+  <Card title="Streaming" icon="activity" href="/agents-api/streaming">
+    The full SSE event list for `stream: true`, plus reconnect and cancel.
+  </Card>
+  <Card title="Build a chat app" icon="messages" href="/agents-api/chat-app">
+    Put list, send, and continue together: one instance per user, one session per thread.
+  </Card>
+  <Card title="Instance URLs" icon="link" href="/agents-api/urls">
+    How `{instanceId}.agent37.app` routing and authentication work.
+  </Card>
+</CardGroup>

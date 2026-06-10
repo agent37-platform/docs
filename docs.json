@@ -22,23 +22,21 @@
         ]
       },
       {
-        "group": "Core API",
+        "group": "Hosting API",
         "pages": [
-          "agents-api/messages",
-          "agents-api/streaming",
-          "agents-api/instances"
+          "agents-api/instances",
+          "agents-api/templates",
+          "agents-api/urls",
+          "agents-api/exec",
+          "agents-api/budgets"
         ]
       },
       {
-        "group": "Building blocks",
+        "group": "Agent API",
         "pages": [
-          "agents-api/templates",
-          "agents-api/skills",
-          "agents-api/files",
-          "agents-api/embeds",
-          "agents-api/exec",
-          "agents-api/integrations",
-          "agents-api/scheduled-runs"
+          "agents-api/chat",
+          "agents-api/streaming",
+          "agents-api/sessions"
         ]
       },
       {
@@ -50,8 +48,8 @@
       {
         "group": "Reference",
         "pages": [
-          "agents-api/errors",
-          "agents-api/billing"
+          "agents-api/billing",
+          "agents-api/errors"
         ]
       },
       {
@@ -110,6 +108,14 @@
      "vscode"
    ]
   },
+  "redirects": [
+    { "source": "/agents-api/messages", "destination": "/agents-api/chat" },
+    { "source": "/agents-api/files", "destination": "/agents-api/exec" },
+    { "source": "/agents-api/embeds", "destination": "/agents-api/urls" },
+    { "source": "/agents-api/scheduled-runs", "destination": "/agents-api/chat" },
+    { "source": "/agents-api/integrations", "destination": "/agents-api/budgets" },
+    { "source": "/agents-api/skills", "destination": "/agents-api/templates" }
+  ],
   "footer": {
     "socials": {
       "website": "https://www.agent37.com"

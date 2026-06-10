@@ -3,26 +3,24 @@ title: "Instances"
 description: "Create, size, and manage the persistent computer that runs your agent."
 ---
 
-An instance is a persistent, isolated, always-on computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, it can take a message immediately. Creating an instance pre-charges prorated compute from your prepaid balance, but the agent does no work until you send it a message.
+An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance can take a message immediately at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance URLs](/agents-api/urls)).
+
+Creating an instance debits one calendar month of compute from your workspace wallet, and that debit is the create gate: if the wallet cannot cover it, the create fails with `402 insufficient_balance` and nothing is provisioned. A failed create is fully refunded. See [Billing](/agents-api/billing).
 
 ## Create an instance
 
-`POST /v1/instances` returns an instance that is ready to take a message the moment its `status` is `running`. Every field is optional, so a `POST` with no body works.
+`POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template on the default shape.
 
-<ParamField body="template" type="string">
-  A template name. `agent37-hermes` (the default) is available today; `agent37-openclaw`, `agent37-claude-code`, `agent37-codex`, and `agent37-all` are coming soon. Register your own under [custom templates](/agents-api/templates#custom-templates). See [Templates](/agents-api/templates).
+<ParamField body="template" type="string" default="agent37-hermes">
+  A template name. `agent37-hermes` is the default and is available today; the other catalog entries are coming soon and return `409 template_unavailable`. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Direct image references are rejected with `400`: register a template first, then pass its name.
 </ParamField>
 
-<ParamField body="vcpu" type="integer" default="1">
-  Size: `1`, `2`, `4`, or `8`. Sets CPU, memory, disk, and price.
+<ParamField body="resources" type="object">
+  The instance shape: `{ "cpu": 2, "memory": 4, "disk": 8 }`. Only the three shapes below are valid. Disk is determined by the cpu and memory pair, so omit it or pass the matching value. Any other combination returns `400 invalid_request` listing the valid shapes.
 </ParamField>
 
 <ParamField body="user" type="string">
-  An opaque tag for your own attribution (your end user's id). Stored, never interpreted. Filter the list by it.
-</ParamField>
-
-<ParamField body="managed_credit_cap_usd" type="number" default="1.00">
-  Hard cap on this instance's managed usage, drawn from your shared balance.
+  An opaque tag for your own attribution, typically your end user's id. Stored, never interpreted, echoed back on the instance object.
 </ParamField>
 
 <ParamField body="name" type="string">
@@ -33,138 +31,253 @@ An instance is a persistent, isolated, always-on computer running your agent. Cr
   Your own key/value pairs. Stored, never interpreted.
 </ParamField>
 
-<Info>
-  `agent37-hermes` is available today, plus workspace custom templates in preview. The `agent37-openclaw`, `agent37-claude-code`, `agent37-codex`, and `agent37-all` templates are coming soon. See [Templates](/agents-api/templates).
-</Info>
+<ParamField body="budget" type="object">
+  Caps on this instance's managed usage (managed LLM, Brave search, and Composio calls), in micros (millionths of a dollar): `monthly_cap_micros` resets each UTC month, `topup_micros` adds one-time headroom that persists until spent. Both default to `0`, so managed calls are refused until you raise one. These are ceilings, not money; spend still draws the workspace wallet. See [Budgets](/agents-api/budgets).
+</ParamField>
 
-## Create body and instance object
+### Shapes and pricing
+
+| cpu | memory | disk | Price |
+| --- | --- | --- | --- |
+| 2 | 4 GB | 8 GB | $4.99 per month (default) |
+| 4 | 8 GB | 20 GB | $10.38 per month |
+| 8 | 16 GB | 40 GB | $20.76 per month |
+
+Compute is billed one calendar month in advance at create, then renews each month on the instance's own anniversary. An instance bills for as long as it exists, stopped or running; deleting it refunds the unused remainder. See [Billing](/agents-api/billing).
+
+### Example
+
+The `topup_micros` of `1000000` gives the instance $1 of managed-spend headroom so its first chat works out of the box.
 
 <CodeGroup>
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "template": "agent37-hermes", "vcpu": 2, "user": "u_882" }'
+  -d '{
+    "template": "agent37-hermes",
+    "user": "u_882",
+    "budget": { "topup_micros": 1000000 }
+  }'
 ```
 
-```json instance object
+```python python
+import requests
+
+resp = requests.post(
+    "https://api.agent37.com/v1/instances",
+    headers={"Authorization": "Bearer sk_live_..."},
+    json={
+        "template": "agent37-hermes",
+        "user": "u_882",
+        "budget": {"topup_micros": 1000000},
+    },
+)
+instance = resp.json()
+print(instance["id"], instance["status"])
+```
+
+```javascript node
+const res = await fetch("https://api.agent37.com/v1/instances", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer sk_live_...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    template: "agent37-hermes",
+    user: "u_882",
+    budget: { topup_micros: 1000000 },
+  }),
+});
+const instance = await res.json();
+```
+
+```json response
 {
-  "id": "inst_x7",
+  "id": "ab12cd34ef",
   "status": "running",
   "template": "agent37-hermes",
-  "agents": ["hermes"],
-  "vcpu": 2,
+  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.09",
+  "resources": { "cpu": 2, "memory": 4, "disk": 8 },
+  "ports": [
+    { "port": 3737, "default": true, "url": "https://ab12cd34ef.agent37.app" },
+    { "port": 9119, "default": false, "url": "https://q7w8e9r0t1y2u3i4o5p6a7s8.agent37.app" },
+    { "port": 6969, "default": false, "url": "https://z1x2c3v4b5n6m7k8j9h0g1f2.agent37.app" }
+  ],
   "user": "u_882",
-  "balance": { "managed_cap_usd": 1.00, "managed_used_usd": 0, "remaining_usd": 1.00 },
-  "update_available": false,
-  "created": 1748400000
+  "name": null,
+  "metadata": null,
+  "paid_through": 1783641600,
+  "past_due": false,
+  "created": 1781049600
 }
 ```
 </CodeGroup>
 
+## The instance object
+
 <ResponseField name="id" type="string">
-  The instance id, prefixed `inst_`.
+  A bare 10-character lowercase alphanumeric id, no prefix. It doubles as the DNS label in the instance's URL.
 </ResponseField>
 
 <ResponseField name="status" type="string">
-  `running` means it can take a message now.
+  The lifecycle state. `running` means it can take a message now. See the [statuses table](#statuses) below.
 </ResponseField>
 
 <ResponseField name="template" type="string">
   The template the instance was built from.
 </ResponseField>
 
-<ResponseField name="agents" type="string[]">
-  The agents the template installed (Hermes by default).
+<ResponseField name="image_ref" type="string">
+  The exact image the instance is running.
 </ResponseField>
 
-<ResponseField name="vcpu" type="integer">
-  The current size.
+<ResponseField name="resources" type="object">
+  The shape: `cpu` (vCPUs), `memory` and `disk` (GB).
 </ResponseField>
 
-<ResponseField name="user" type="string">
+<ResponseField name="ports" type="object[]">
+  The instance's routed ports, each `{ port, default, url }`. The default port's URL uses the instance id (`https://ab12cd34ef.agent37.app`, where the agent's chat API lives); other ports get their own opaque-handle URLs. See [Instance URLs](/agents-api/urls).
+</ResponseField>
+
+<ResponseField name="user" type="string | null">
   Your attribution tag, echoed back.
 </ResponseField>
 
-<ResponseField name="balance" type="object">
-  Per-instance managed-usage tracking: `managed_cap_usd`, `managed_used_usd`, and `remaining_usd`.
+<ResponseField name="name" type="string | null">
+  Your label, echoed back.
 </ResponseField>
 
-<ResponseField name="update_available" type="boolean">
-  `true` when a newer template version exists. Apply it with the `/update` endpoint.
+<ResponseField name="metadata" type="object | null">
+  Your key/value pairs, echoed back.
+</ResponseField>
+
+<ResponseField name="paid_through" type="integer | null">
+  When the paid compute month ends, in epoch seconds. The next anniversary renewal debits at this time.
+</ResponseField>
+
+<ResponseField name="past_due" type="boolean">
+  `true` when a monthly renewal could not be covered and the instance was force-stopped. A funded `start` re-debits the month and clears it.
 </ResponseField>
 
 <ResponseField name="created" type="integer">
-  Creation time in unix seconds.
+  Creation time in epoch seconds.
 </ResponseField>
 
-## Manage it
+<Note>
+  Hosting API timestamps are epoch seconds. Money fields are integers in micros, USD times 1e6.
+</Note>
+
+## List, get, delete
 
 | Action | Endpoint |
 | --- | --- |
-| Retrieve / list | `GET /v1/instances/{id}` · `GET /v1/instances?user=` |
-| Update (name, cap, resize `vcpu`) | `PATCH /v1/instances/{id}` |
-| Delete / restore | `DELETE /v1/instances/{id}` · `POST /v1/instances/{id}/restore` |
+| List | `GET /v1/instances` |
+| Retrieve | `GET /v1/instances/{id}` |
+| Delete | `DELETE /v1/instances/{id}` |
+
+`GET /v1/instances` returns `{ "data": [ ... ] }`, newest first, each element the full instance object. `GET /v1/instances/{id}` returns one. Unknown, deleted, or other-workspace ids uniformly return `404 not_found`.
+
+`DELETE /v1/instances/{id}` returns `{ "id": "ab12cd34ef", "deleted": true }`. It acts once: a repeat delete returns `404`. Billing stops at delete, and the unused remainder of the paid month is refunded to your wallet, prorated to the exact time used (a minimum of one hour is billed).
+
+```bash curl
+curl -X DELETE https://api.agent37.com/v1/instances/ab12cd34ef \
+  -H "Authorization: Bearer sk_live_..."
+# -> { "id": "ab12cd34ef", "deleted": true }
+```
 
 <Warning>
-  **Delete frees the seat.** An instance occupies one of your pre-purchased seats for as long as it exists, running or idle, since it runs continuously (cron, heartbeats). Delete archives it and opens the seat so a new instance can take its spot. There is no refund; the seat is already yours to reuse. The data stays recoverable with `restore`. Add `?permanent=true` to purge it.
+  Delete is destructive: the instance's files, memory, and sessions are gone. To pause work while keeping everything, `stop` it instead. A stopped instance still bills compute, because it still exists; delete is what stops billing.
 </Warning>
 
 ## Lifecycle
 
-Four calls control whether the instance's computer is running and which version it runs. Each is a `POST` to a subpath and takes no body. They acknowledge the new state only, returning `{ id, status }` (`update` adds `image_ref`); `GET` the instance for its full representation. Everything on the instance (files, memory, connected accounts) survives them.
+Four calls control whether the instance's computer is running and which image it runs. Each is a `POST` to a subpath and takes no body (`update` rejects one). They acknowledge the new state only, returning `{ id, status }` (`update` adds `image_ref`); `GET` the instance for its full representation. Everything on the instance (files, memory, connected accounts) survives them.
 
 ### Stop
 
-`POST /v1/instances/{id}/stop` halts the container. The agent stops doing work (no cron, no heartbeats, no responses) and `status` becomes `stopped`. The instance and its data stay intact, and its CPU and memory are released back to the host while its disk stays reserved. Bring it back up with `start`.
+`POST /v1/instances/{id}/stop` halts the container. The agent stops doing work (no cron, no heartbeats, no responses) and `status` becomes `stopped`. The data stays intact, CPU and memory are released back to the host, and the disk stays reserved on that host. Stopping an already stopped instance returns the same ack again; any other state returns `400`.
 
 ```bash curl
-curl -X POST https://api.agent37.com/v1/instances/inst_x7/stop \
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/stop \
   -H "Authorization: Bearer sk_live_..."
-# -> { "id": "inst_x7", "status": "stopped" }
+# -> { "id": "ab12cd34ef", "status": "stopped" }
 ```
-
-<Warning>
-  **Stopping does not free the seat.** A stopped instance still occupies its pre-purchased seat, just like a running one. To open the seat for another instance, `delete` it (see above).
-</Warning>
 
 ### Start
 
-`POST /v1/instances/{id}/start` brings a `stopped` instance back up on its pinned host, recreating the container from the image it already ran, and returns it to `running`. If the host no longer has room for the instance's CPU and memory, it returns `409 capacity_unavailable`.
+`POST /v1/instances/{id}/start` brings a `stopped` instance back up on its pinned host, recreating the container from the image it already ran. If the host no longer has room for the instance's CPU and memory, it returns `409 capacity_unavailable`. If the instance is `past_due`, start first re-debits the lapsed month and clears the flag; without funds it returns `402 insufficient_balance`. Starting an already running instance returns the same ack again.
 
 ```bash curl
-curl -X POST https://api.agent37.com/v1/instances/inst_x7/start \
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/start \
   -H "Authorization: Bearer sk_live_..."
-# -> { "id": "inst_x7", "status": "running" }
+# -> { "id": "ab12cd34ef", "status": "running" }
 ```
 
 ### Restart
 
-`POST /v1/instances/{id}/restart` recreates the container from the image already on the host (no download) and returns it to `running`. Use it to recover a wedged agent or pick up changed settings. Same template version, same data. The instance must be `running`; use `start` to bring a `stopped` one back up.
+`POST /v1/instances/{id}/restart` recreates the container from the image already on the host (no download) and returns it to `running`. Use it to recover a wedged agent or pick up changed settings. Same image, same data. The instance must be `running`; use `start` to bring a `stopped` one back up.
 
 ```bash curl
-curl -X POST https://api.agent37.com/v1/instances/inst_x7/restart \
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
   -H "Authorization: Bearer sk_live_..."
-# -> { "id": "inst_x7", "status": "running" }
+# -> { "id": "ab12cd34ef", "status": "running" }
 ```
 
 ### Update
 
-`POST /v1/instances/{id}/update` pulls the template's current image, recreates the container on it, and preserves the data. Use it to move an instance onto a newer version after you point its template at a new tag. The response carries the `image_ref` now running.
+`POST /v1/instances/{id}/update` pulls the template's current image, recreates the container on it, and preserves the data. Use it to move an instance onto a newer version after you point its template at a new tag. The instance must be `running`, and the request must have no body (a non-empty body returns `400`). The ack carries the `image_ref` now running. A bad image reference on the template surfaces here as a `502 provisioning_failed`.
 
 ```bash curl
-curl -X POST https://api.agent37.com/v1/instances/inst_x7/update \
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
   -H "Authorization: Bearer sk_live_..."
-# -> { "id": "inst_x7", "status": "running", "image_ref": "ghcr.io/your-name/my-agent:v2" }
+# -> { "id": "ab12cd34ef", "status": "running", "image_ref": "ghcr.io/acme/my-agent:v1" }
 ```
+
+## Statuses
+
+| Status | Meaning |
+| --- | --- |
+| `provisioning` | Being created. You only observe this if a create is in flight. |
+| `running` | Up and taking messages. |
+| `stopping` | A stop is in progress. |
+| `stopped` | Halted. Data intact, disk reserved, compute released. Still bills. |
+| `starting` | A start is in progress. |
+| `restarting` | A restart is in progress. |
+| `updating` | An update is in progress. |
+| `failed` | A create or lifecycle action failed. |
+| `deleting` | A delete is in progress. |
+| `deleted` | Gone. The id reads as `404` from here on. |
+
+<Note>
+  `past_due` is a flag, not a status. A past-due instance shows `status: "stopped"` with `past_due: true`; a funded `start` clears it.
+</Note>
+
+## Capacity and limit errors
+
+| Error | When |
+| --- | --- |
+| `402 insufficient_balance` | Create when the wallet cannot cover the first month, or start of a past-due instance without funds. |
+| `409 instance_limit_reached` | Create when the workspace is at its instance cap (default 25). |
+| `503 no_capacity` | Create when no host has capacity for the requested shape right now. |
+| `409 capacity_unavailable` | Start when the pinned host cannot re-reserve the instance's compute. |
+
+See [Errors](/agents-api/errors) for the full catalog and the error envelope.
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Templates" icon="stack" href="/agents-api/templates">
-    Choose which agents an instance installs.
+  <Card title="Send a message" icon="send" href="/agents-api/chat">
+    Send the instance its first message at its own URL.
+  </Card>
+  <Card title="Instance URLs" icon="link" href="/agents-api/urls">
+    How the id becomes a URL, and what the other ports are.
+  </Card>
+  <Card title="Budgets" icon="wallet" href="/agents-api/budgets">
+    Cap and top up each instance's managed spend.
   </Card>
   <Card title="Billing" icon="credit-card" href="/agents-api/billing">
-    Prepaid balance, managed caps, and pricing.
+    The wallet, monthly compute prepay, and refunds.
   </Card>
 </CardGroup>

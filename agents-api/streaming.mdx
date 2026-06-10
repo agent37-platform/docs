@@ -1,44 +1,109 @@
 ---
-title: "Streaming events"
-description: "Stream a response as named Server-Sent Events, and reconnect safely if the stream drops."
+title: "Streaming"
+description: "Stream a reply as named Server-Sent Events from your instance URL, and reconnect without losing the answer."
 ---
 
-Send `stream: true` on [a message](/agents-api/messages) and the response comes back as Server-Sent Events. Each event is named, so you can render text, reasoning, and tool activity live. Events arrive in order, and the terminal `response.completed` event carries the final `output_text` and `usage`.
+Send `stream: true` on [a message](/agents-api/chat) and the reply comes back as Server-Sent Events. Each event is named, so you can render text, reasoning, and tool activity live. Events arrive in order, and the terminal `response.completed` event carries the final `output_text` and `usage`.
+
+The base URL is your instance URL: `https://{instanceId}.agent37.app`, with the same `sk_live_` Bearer on every request. This page documents the streaming contract of gateway v0.1.0, the API every instance serves.
+
+## Start a stream
+
+```bash curl
+curl -N https://ab12cd34ef.agent37.app/v1/responses \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "Research the top 3 EV makers, write a memo.",
+    "stream": true
+  }'
+```
+
+The connection stays open and frames arrive as `event:` plus `data:` pairs separated by a blank line:
+
+```text stream
+event: response.created
+data: {"id":"c91d2a7e84f04b6f9a3d5e1c0b87f4a2","session_id":"7f3e0b6c52a949d2b1c4a8e9d0f31726"}
+
+event: response.reasoning.delta
+data: {"text":"Comparing deliveries and margins across the big three..."}
+
+event: response.tool_call.started
+data: {"tool":"web_search","label":"EV deliveries 2025"}
+
+event: response.tool_call.completed
+data: {"tool":"web_search","duration_ms":1840}
+
+event: response.output_text.delta
+data: {"text":"## EV market memo\n\n"}
+
+:keepalive
+
+event: response.completed
+data: {"output_text":"## EV market memo\n\n...","usage":{"input_tokens":1840,"output_tokens":920,"cost_usd":0.0137}}
+```
 
 ## Events
 
+There are exactly eight event types:
+
 | Event | Payload |
 | --- | --- |
-| `response.created` | `{ id, instance_id, session_id }` |
+| `response.created` | `{ id, session_id }`, always first; the response id and the session it runs in |
 | `response.reasoning.delta` | `{ text }`, a chunk of the agent's thinking |
 | `response.output_text.delta` | `{ text }`, a chunk of the visible answer |
-| `response.tool_call.started` | `{ tool, label }` |
-| `response.tool_call.completed` | `{ tool, duration_ms }` |
-| `response.tool_call.failed` | `{ tool, error }`, the run continues |
-| `response.completed` | `{ output_text, usage }`, terminal success |
-| `response.failed` | `{ error: { code, message } }`, terminal error |
+| `response.tool_call.started` | `{ tool, label? }` |
+| `response.tool_call.completed` | `{ tool, duration_ms? }` |
+| `response.tool_call.failed` | `{ tool, error? }`, the run continues |
+| `response.completed` | `{ output_text, usage }`, terminal; `usage` can be `null`, and `cost_usd` inside it is `null` when the provider reports no cost |
+| `response.failed` | `{ error: { code, message, param?, hint? } }`, terminal |
 
 <Info>
-  These events are the same whatever agent the instance runs (Hermes, Claude Code, Codex, OpenClaw). They are the streaming contract, not a per-agent detail, so your client code doesn't change when you switch agents.
+  These event names and payloads are the gateway's streaming contract, not a per-agent detail. Hermes emits them today, and the agents that follow will emit the same eight, so your client code does not change when you switch templates.
 </Info>
 
+Rules the stream always follows:
+
+- `response.created` is always first, and exactly one terminal event (`response.completed` or `response.failed`) ends every stream.
+- Every 30 seconds the gateway writes the comment line `:keepalive`, whether or not events are flowing. Comments are not events: ignore any line starting with `:`.
+- There is no `[DONE]` sentinel. The server closes the connection right after the terminal event; terminal event plus close is end of stream.
+- Once streaming starts, failures arrive as a `response.failed` event with the standard error body, never as an HTTP error status.
+
 <Note>
-  **Reconnect safely.** If a stream drops, reconnect to `GET /v1/responses/{id}/stream`. It replays a snapshot of everything so far, then resumes live, so the answer is never lost.
+  A cancelled turn (`POST /v1/responses/{id}/cancel`) still ends with `response.completed`, carrying whatever `output_text` accumulated before the cancel. Only failures emit `response.failed`. The stored response's `status` is `cancelled`.
+</Note>
+
+## Reconnect after a drop
+
+```text
+GET /v1/responses/{id}/stream
+```
+
+If your connection drops mid-turn, reconnect with the response id from `response.created`:
+
+```bash curl
+curl -N https://ab12cd34ef.agent37.app/v1/responses/c91d2a7e84f04b6f9a3d5e1c0b87f4a2/stream \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+While the run is live, the gateway replays the entire ordered event buffer from `response.created` onward, then stays attached for the rest of the run. If the run just finished, it replays the buffer and ends.
+
+<Note>
+  **The answer is never lost.** Reconnect any time and you get the final `output_text`, even after the turn is over. One caveat: about 60 seconds after a turn finishes, the in-memory buffer expires and the replay is synthesized from storage as `response.created`, one `response.output_text.delta` carrying the full text (omitted when the turn produced none), then the terminal event. Reasoning and tool-call events from the original run are not preserved in that synthesized replay.
 </Note>
 
 ## Parse the stream
 
-Read the response body, split on the SSE frame boundary, and branch on each event's `event:` line. Stop when you see a terminal event.
+No SSE library needed. Read the response body, split on the blank-line frame boundary, skip comment lines, and branch on each frame's `event:` line. Stop when the connection closes after a terminal event.
 
 ```javascript node
-const res = await fetch("https://api.agent37.com/v1/responses", {
+const res = await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
   method: "POST",
   headers: {
     Authorization: "Bearer sk_live_...",
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    instance_id: "inst_x7",
     input: "Research the top 3 EV makers, write a memo.",
     stream: true,
   }),
@@ -58,6 +123,8 @@ while (true) {
   buffer = frames.pop(); // keep the trailing partial frame
 
   for (const frame of frames) {
+    if (frame.startsWith(":")) continue; // comment line, e.g. :keepalive
+
     const event = frame.match(/^event: (.+)$/m)?.[1];
     const data = JSON.parse(frame.match(/^data: (.+)$/m)?.[1] ?? "{}");
 
@@ -69,7 +136,7 @@ while (true) {
         // show the agent thinking, if you want
         break;
       case "response.tool_call.started":
-        console.log(`\n[${data.tool}] ${data.label}`);
+        console.log(`\n[${data.tool}] ${data.label ?? ""}`);
         break;
       case "response.completed":
         console.log("\nusage:", data.usage);
@@ -82,6 +149,10 @@ while (true) {
 }
 ```
 
+<Note>
+  The browser's built-in `EventSource` cannot send a POST body or an `Authorization` header, so it cannot start a stream here. Use `fetch` as above, in the browser and in Node.
+</Note>
+
 <Tip>
   Prefer not to stream? Send `stream: false` (the default) and the call returns the finished response as one JSON body, with the agent's reply in `output_text`.
 </Tip>
@@ -89,10 +160,16 @@ while (true) {
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Send a message" icon="send" href="/agents-api/messages">
-    Every field on the core call, plus the response shape.
+  <Card title="Send a message" icon="send" href="/agents-api/chat">
+    Every field on `POST /v1/responses`, plus the full response object.
+  </Card>
+  <Card title="Sessions" icon="history" href="/agents-api/sessions">
+    List, read, and delete the conversations your streams run in.
   </Card>
   <Card title="Build a chat app" icon="messages" href="/agents-api/chat-app">
     Stream every reply into a per-user chat.
+  </Card>
+  <Card title="Errors" icon="alert-triangle" href="/agents-api/errors">
+    Every error code on both planes, and how to branch on them.
   </Card>
 </CardGroup>
