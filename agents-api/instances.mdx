@@ -10,7 +10,7 @@ An instance is a persistent, isolated, always-on computer running your agent. Cr
 `POST /v1/instances` returns an instance that is ready to take a message the moment its `status` is `running`. Every field is optional, so a `POST` with no body works.
 
 <ParamField body="template" type="string">
-  A template name. `agent37-hermes` (the default) and `agent37-openclaw` are available today; `agent37-claude-code`, `agent37-codex`, and `agent37-all` are coming soon. Register your own under [custom templates](/agents-api/templates#custom-templates). See [Templates](/agents-api/templates).
+  A template name. `agent37-hermes` (the default) is available today; `agent37-openclaw`, `agent37-claude-code`, `agent37-codex`, and `agent37-all` are coming soon. Register your own under [custom templates](/agents-api/templates#custom-templates). See [Templates](/agents-api/templates).
 </ParamField>
 
 <ParamField body="vcpu" type="integer" default="1">
@@ -34,7 +34,7 @@ An instance is a persistent, isolated, always-on computer running your agent. Cr
 </ParamField>
 
 <Info>
-  `agent37-hermes` and `agent37-openclaw` are available today, plus workspace custom templates in preview. The `agent37-claude-code`, `agent37-codex`, and `agent37-all` templates are coming soon. See [Templates](/agents-api/templates).
+  `agent37-hermes` is available today, plus workspace custom templates in preview. The `agent37-openclaw`, `agent37-claude-code`, `agent37-codex`, and `agent37-all` templates are coming soon. See [Templates](/agents-api/templates).
 </Info>
 
 ## Create body and instance object
