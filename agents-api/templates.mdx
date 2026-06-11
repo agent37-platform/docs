@@ -49,11 +49,7 @@ curl https://api.agent37.com/v1/templates \
 
 ## Register a workspace template
 
-`POST /v1/templates` registers a public amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it.
-
-<Note>
-  Extending the built-in Hermes image with your own layers is coming soon. Today a workspace template runs your own public image as-is.
-</Note>
+`POST /v1/templates` registers a public amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it. The image can be anything public, built from scratch or on [the Hermes base image](#build-on-the-hermes-base-image).
 
 <ParamField body="name" type="string" required>
   2 to 63 characters: lowercase letters, digits, and hyphens, starting with a letter (`^[a-z][a-z0-9-]{1,62}$`). The `agent37-` prefix is reserved. A name that already exists returns `409 template_conflict`.
@@ -130,6 +126,30 @@ Registration validates the reference's shape and stores the template as `active`
   Build for `linux/amd64` even on an Apple Silicon Mac (`docker build --platform=linux/amd64 ...`). Instances run on amd64, and an arm64 image will fail to start.
 </Note>
 
+## Build on the Hermes base image
+
+`ghcr.io/agent37-platform/hermes-base` is the published FROM target for custom templates. It ships Hermes with its browser stack (Chromium, Playwright), the gateway that serves the [chat API](/agents-api/chat), and a general toolchain: git, Python 3 with uv, Node.js, build tools. It is deliberately clean. There are no platform LLM credentials and no managed search or Composio integrations; you add your layers on top and bring your own model keys.
+
+```dockerfile
+FROM ghcr.io/agent37-platform/hermes-base:2026.06.11a
+
+USER root
+RUN apt-get update && apt-get install -y postgresql-client
+COPY my-skills/ /usr/local/share/agent37/default-skills/
+USER node
+```
+
+Build it for `linux/amd64`, push it to a public registry, register it as a workspace template, and create instances from it.
+
+The contract:
+
+- Pin the base tag. `hermes-base` is published alongside the built-in `agent37-hermes` image with date tags; `latest` floats.
+- Keep the entrypoint. It starts Hermes and the gateway; a Dockerfile that overrides `ENTRYPOINT` loses the chat API.
+- Bake outside `/home/node` and `/home/linuxbrew`. Both are persistent volumes, so anything the image writes there is masked at runtime. Use `/usr/local` or `/opt`. Skills placed in `/usr/local/share/agent37/default-skills/` are copied into `~/.hermes/skills` at boot.
+- The image runs as the `node` user, with passwordless sudo. Switch to `USER root` for installs and back to `USER node` at the end.
+- Declare a default port and leave it to the gateway. The runtime binds the gateway to the template's default port, so the bare instance URL serves the chat API; do not bind your own service there. Declare your own services as additional ports. With no default port the instance is a private sandbox reachable only by [exec](/agents-api/exec).
+- Bring your own model keys. Instances boot with no LLM provider configured, and chat returns errors until you add one. Write your provider credentials into `~/.hermes/config.yaml`, Hermes' standard config file, over [exec](/agents-api/exec) or the terminal. The file lives on the persistent volume, so it survives restarts and updates.
+
 ## Update a template
 
 `PATCH /v1/templates/{name}` changes any of `name`, `image_ref`, `description`, `status` (`active` or `inactive`), or `ports`. Send at least one field. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
@@ -160,7 +180,7 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
   "scope": "system",
   "agents": ["hermes"],
   "status": "active",
-  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.09",
+  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.11a",
   "description": "Hermes general agent: browser, code, files.",
   "ports": [
     { "port": 3737, "default": true },
