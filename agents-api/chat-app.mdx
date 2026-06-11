@@ -7,6 +7,10 @@ The simplest thing to build on the Agents API is a chat app where every user has
 
 The pattern is four calls: create one instance per user at signup, start one session per chat thread, list sessions for the sidebar, and fetch one session for the open thread.
 
+<Card title="hermes-chat: this guide as a working app" icon="github" href="https://github.com/agent37-platform/examples/tree/main/hermes-chat" horizontal>
+  Everything on this page, runnable: create instances from a table, stream replies token by token, list and reopen threads, cancel a turn. Express plus vanilla JS, no build step. Clone it, add your key, `npm start`.
+</Card>
+
 ## One key, two base URLs
 
 <Info>
@@ -134,6 +138,8 @@ Two good ways to handle it in a chat UI:
 
 - **Disable the composer** while a turn runs, and re-enable it when the reply arrives (the non-streaming call returning, or the terminal streaming event).
 - **Offer a stop button** that calls `POST /v1/responses/{id}/cancel` on the instance URL. With `stream: true` the first event, `response.created`, hands you the response id immediately, which is what makes the button possible. Cancel is best effort: the response ends with `status: "cancelled"`, and whatever the agent already did is not undone.
+
+The [hermes-chat example](https://github.com/agent37-platform/examples/tree/main/hermes-chat) wires up both: the composer locks while a turn is in flight, and the stop button cancels it.
 
 Other threads are unaffected: each session has its own lock, so one user can run turns in several threads at once.
 

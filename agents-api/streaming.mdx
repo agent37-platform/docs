@@ -150,7 +150,7 @@ while (true) {
 ```
 
 <Note>
-  The browser's built-in `EventSource` cannot send a POST body or an `Authorization` header, so it cannot start a stream here. Use `fetch` as above, in the browser and in Node.
+  The browser's built-in `EventSource` cannot send a POST body or an `Authorization` header, so it cannot start a stream here. Use `fetch` as above, in the browser and in Node. The [hermes-chat example](https://github.com/agent37-platform/examples/tree/main/hermes-chat) runs a browser version of this parser in a real chat UI (`public/chat.js`), with reconnect and cancel wired in.
 </Note>
 
 <Tip>
