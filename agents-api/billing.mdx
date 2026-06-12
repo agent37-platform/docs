@@ -9,6 +9,7 @@ Billing is prepaid. You top up one workspace wallet in the dashboard, and everyt
 
 - **$1 free to start.** Your first visit to the dashboard grants a one-time $1 credit, enough to run your first instance for days. Until your first real top-up, the workspace is capped at one instance.
 - **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are $5 to $1000 each, paid through Stripe.
+- **Or top up automatically.** Set a rule once and the wallet refills itself; see [Automatic top-up](#automatic-top-up).
 - **Instances draw it down.** Compute bills hourly, prepaid one day at a time, for as long as the instance exists, stopped or running.
 - **Managed usage draws it down.** Managed LLM, Brave search, and Composio calls are metered at cost against the same wallet, gated by each instance's [budget](/agents-api/budgets).
 - **Delete to stop billing.** Deleting an instance refunds the unused remainder of its prepaid day, prorated to the hour.
@@ -60,6 +61,14 @@ If provisioning fails after the debit, for example a custom template's image can
 
 **Delete refunds the remainder.** Deleting an instance refunds the unused part of the prepaid day, prorated, with a minimum of one hour billed.
 
+## Automatic top-up
+
+Without automatic top-up, instances are stopped when the wallet runs out. Set a rule at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing) to keep them running: when the balance falls below your threshold, your card is charged for a fixed amount. The rule is checked every hour, and once more right before any instance would be suspended, so instances stay up as long as the card charges.
+
+- Any manual top-up saves its card, and automatic top-up charges the most recently saved one. Add funds once before enabling the rule.
+- The threshold can be $1 to $1000. The purchase amount follows the usual $5 to $1000 top-up range.
+- If a charge fails, automatic top-up turns itself off and emails the workspace admins. Add funds manually, which saves a new card, then re-enable it.
+
 ## Paid through and past due
 
 Every instance object reports its billing state in two fields:
@@ -81,7 +90,7 @@ Every instance object reports its billing state in two fields:
 }
 ```
 
-If a renewal cannot be covered by the wallet, the instance is force-stopped and flagged `past_due: true`. Top up the wallet, then `POST /v1/instances/{id}/start`: a funded start re-debits a day anchored at the start time, so suspended time is never billed, and clears the flag. A start without funds returns `402 insufficient_balance`.
+If a renewal cannot be covered by the wallet, and [automatic top-up](#automatic-top-up) is off or could not charge, the instance is force-stopped, flagged `past_due: true`, and the workspace admins are emailed. Top up the wallet, then `POST /v1/instances/{id}/start`: a funded start re-debits a day anchored at the start time, so suspended time is never billed, and clears the flag. A start without funds returns `402 insufficient_balance`.
 
 <Tip>
   Branch on the error `code`, not the message. See [Errors](/agents-api/errors) for the full list and the response shape.
