@@ -107,7 +107,7 @@ console.log((await res.json()).url);
 
 ```json response
 {
-  "url": "https://ab12cd34ef-9119.agent37.app/?token=6a2b...e1f0",
+  "url": "https://ab12cd34ef-9119.agent37.app/?a37_token=6a2b...e1f0",
   "port": 9119,
   "expires_at": 1717999200
 }
@@ -122,10 +122,12 @@ console.log((await res.json()).url);
   The port the URL routes to.
 </ResponseField>
 <ResponseField name="expires_at" type="integer">
-  Unix seconds when the URL stops working. Signed URLs live for one hour; mint a fresh one when it expires.
+  Unix seconds when the URL stops working. Mint a fresh one when it expires.
 </ResponseField>
 
-The instance must be running, and `port` must be one it exposes (any port from the `ports` array, named or not). An unexposed or missing port returns `400`; an unknown or cross-workspace instance returns `404`.
+The instance must be running, and `port` must be one it exposes (any port from the `ports` array, named or not). An optional `ttl_seconds` sets how long the URL lives, default `3600` (one hour), clamped to `[60, 86400]` (one minute to one day); pass a short value for a quick preview link or the max for a day-long share link. An unexposed or missing port, or a `ttl_seconds` that is not a positive integer, returns `400`; an unknown or cross-workspace instance returns `404`.
+
+The token rides in the `a37_token` query param. The edge consumes it (promoting it to the cookie) and strips it before forwarding, so it never reaches the instance and never collides with a query param your own app uses.
 
 This is how you give your own users browser access without sharing the `sk_live_` key: your backend holds the key, mints a signed URL on demand, and hands the link to the browser. The link is the only credential it carries, and it expires.
 
