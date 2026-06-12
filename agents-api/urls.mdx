@@ -16,12 +16,13 @@ A template declares which container ports an instance exposes, and every exposed
 ```json instance ports
 "ports": [
   { "port": 3737, "default": true,  "url": "https://ab12cd34ef.agent37.app" },
-  { "port": 9119, "default": false, "url": "https://q7w8e9r0t1y2u3i4o5p6a7s8.agent37.app" },
-  { "port": 6969, "default": false, "url": "https://z1x2c3v4b5n6m7k8j9h0g1f2.agent37.app" }
+  { "port": 9119, "default": false, "url": "https://ab12cd34ef-9119.agent37.app" },
+  { "port": 7681, "default": false, "url": "https://ab12cd34ef-7681.agent37.app" },
+  { "port": 8080, "default": false, "url": "https://ab12cd34ef-8080.agent37.app" }
 ]
 ```
 
-The default port owns the bare instance URL. Every non-default port gets an opaque handle URL: a 24 character lowercase alphanumeric label that is not derivable from the id.
+The default port owns the bare instance URL (`https://{instanceId}.agent37.app`). Every non-default port is reached at `https://{instanceId}-{port}.agent37.app` — derivable from the instance id and the port number.
 
 <ResponseField name="port" type="integer">
   The container port inside the instance.
@@ -30,11 +31,11 @@ The default port owns the bare instance URL. Every non-default port gets an opaq
   At most one port per template is the default. It is served at `https://{instanceId}.agent37.app`.
 </ResponseField>
 <ResponseField name="url" type="string">
-  The HTTPS URL that routes to this port.
+  The HTTPS URL that routes to this port. Add the Bearer to call it directly, or mint a signed URL to open it in a browser.
 </ResponseField>
 
 <Tip>
-  Construct the default URL from the id whenever you like; that is the point of the scheme. For non-default ports, read `url` from the `ports` array instead of guessing: the handles are opaque on purpose.
+  You can construct any port's URL from the id and the port number — `https://{instanceId}-{port}.agent37.app` — or just read `url` from the `ports` array.
 </Tip>
 
 ### What `agent37-hermes` exposes
@@ -42,26 +43,92 @@ The default port owns the bare instance URL. Every non-default port gets an opaq
 | Port | URL | Serves |
 | --- | --- | --- |
 | `3737` | `https://ab12cd34ef.agent37.app` (default) | The gateway: [chat](/agents-api/chat) at `/v1/responses`, plus sessions, models, health |
-| `9119` | Opaque handle URL | Hermes dashboard |
-| `6969` | Opaque handle URL | Mission Control |
+| `9119` | `https://ab12cd34ef-9119.agent37.app` | Hermes dashboard (browser) |
+| `7681` | `https://ab12cd34ef-7681.agent37.app` | A shell in the container (browser) |
+| `8080` | `https://ab12cd34ef-8080.agent37.app` | File browser for the workspace (browser) |
+| `6969` | `https://ab12cd34ef-6969.agent37.app` | Mission Control (browser) |
 
-So for the default [template](/agents-api/templates), chat is just the bare URL plus a path: `POST https://ab12cd34ef.agent37.app/v1/responses`.
+So for the default [template](/agents-api/templates), chat is just the bare URL plus a path: `POST https://ab12cd34ef.agent37.app/v1/responses`. The dashboard, terminal, and file browser are browser surfaces you open with a [signed URL](#browser-access-with-signed-urls).
 
 ## Authentication
 
-Every request to an instance URL carries the same workspace API key as the hosting API:
+A port accepts either credential, so you can reach the same port two ways:
+
+- **Bearer** for programmatic, server-side calls.
+- **Signed URL** for handing a browser tab to a person.
+
+### Bearer (programmatic)
+
+Every request to an instance URL can carry the same workspace API key as the hosting API:
 
 ```
 Authorization: Bearer sk_live_...
 ```
 
-The platform edge authenticates the key, checks that the instance belongs to your workspace, and forwards the request to the instance's port. A request without the header gets `401`; a key from another workspace gets `404`.
+The platform edge authenticates the key, checks that the instance belongs to your workspace, and forwards the request to the instance's port. A request without a credential gets `401`; a key from another workspace gets `404`.
 
-Auth is header based with no cookies, so instance URLs are for server side and programmatic use. You cannot open one in a plain browser tab: the tab has no way to send the header. That includes browser surfaces like the Hermes dashboard; reach those through a server side proxy that adds the header. Time boxed share links you can hand to a browser are coming soon.
+The Bearer is a header, so it is for server-side and programmatic use: a plain browser tab has no way to send it on navigation. To open a browser surface like the dashboard, terminal, or file browser, mint a signed URL instead.
 
 <Warning>
   The Bearer token is your workspace API key. Never embed an instance URL plus the key in client side code; anyone holding the key can call every instance in the workspace.
 </Warning>
+
+### Browser access with signed URLs
+
+A signed URL is a time-boxed link a browser can open with no header. Mint one for any exposed port on the hosting API:
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/signed-url \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "port": 9119 }'
+```
+
+```python python
+import requests
+
+r = requests.post(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/signed-url",
+    headers={"Authorization": "Bearer sk_live_..."},
+    json={"port": 9119},
+)
+print(r.json()["url"])
+```
+
+```javascript node
+const res = await fetch("https://api.agent37.com/v1/instances/ab12cd34ef/signed-url", {
+  method: "POST",
+  headers: { Authorization: "Bearer sk_live_...", "Content-Type": "application/json" },
+  body: JSON.stringify({ port: 9119 }),
+});
+console.log((await res.json()).url);
+```
+
+```json response
+{
+  "url": "https://ab12cd34ef-9119.agent37.app/?token=6a2b...e1f0",
+  "port": 9119,
+  "expires_at": 1717999200
+}
+```
+
+</CodeGroup>
+
+<ResponseField name="url" type="string">
+  The browser-openable URL. The first request promotes the token to a short-lived cookie, so the page's own assets and WebSocket connections authenticate without it.
+</ResponseField>
+<ResponseField name="port" type="integer">
+  The port the URL routes to.
+</ResponseField>
+<ResponseField name="expires_at" type="integer">
+  Unix seconds when the URL stops working. Signed URLs live for one hour; mint a fresh one when it expires.
+</ResponseField>
+
+The instance must be running, and `port` must be one it exposes (any port from the `ports` array, named or not). An unexposed or missing port returns `400`; an unknown or cross-workspace instance returns `404`.
+
+This is how you give your own users browser access without sharing the `sk_live_` key: your backend holds the key, mints a signed URL on demand, and hands the link to the browser. The link is the only credential it carries, and it expires.
 
 ## Call an instance
 
@@ -97,13 +164,9 @@ console.log(await res.json());
 
 </CodeGroup>
 
-## HTTP and SSE, not WebSocket
+## HTTP, SSE, and WebSocket
 
-Plain HTTP requests and SSE streams pass end to end: [streaming chat](/agents-api/streaming) with `stream: true` works on the bare URL, and the connection stays open until the server closes it after the terminal event.
-
-<Note>
-  WebSocket upgrades are not supported through instance URLs yet. A request that asks to upgrade the connection is refused. Build on HTTP and SSE.
-</Note>
+Plain HTTP requests, SSE streams, and WebSocket connections all pass end to end. [Streaming chat](/agents-api/streaming) with `stream: true` works on the bare URL, and the connection stays open until the server closes it after the terminal event. WebSocket upgrades pass through too: that is what the browser terminal uses for its interactive shell.
 
 ## Templates with no ports
 
