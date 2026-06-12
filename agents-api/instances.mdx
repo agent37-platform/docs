@@ -16,7 +16,7 @@ Creating an instance debits one day of compute from your workspace wallet, and t
 </ParamField>
 
 <ParamField body="resources" type="object">
-  The instance shape: `{ "cpu": 2, "memory": 4, "disk": 6 }`. Only the three shapes below are valid. Disk is determined by the cpu and memory pair, so omit it or pass the matching value. Any other combination returns `400 invalid_request` listing the valid shapes.
+  The instance shape: `{ "cpu": 2, "memory": 4, "disk": 6 }`. The cpu and memory pair must be one of the three shapes below. Disk is any whole number of GB within the shape's range, and defaults to the range minimum when omitted. Any other combination returns `400 invalid_request` listing the valid shapes.
 </ParamField>
 
 <ParamField body="user" type="string">
@@ -37,13 +37,13 @@ Creating an instance debits one day of compute from your workspace wallet, and t
 
 ### Shapes and pricing
 
-| cpu | memory | disk | Price |
+| cpu | memory | disk | Price at the default disk |
 | --- | --- | --- | --- |
-| 2 | 4 GB | 6 GB | $4.94 per month (default) |
-| 4 | 8 GB | 20 GB | $10.60 per month |
-| 8 | 16 GB | 40 GB | $21.20 per month |
+| 2 | 4 GB | 6-20 GB | $4.94 per month (default) |
+| 4 | 8 GB | 20-40 GB | $10.60 per month |
+| 8 | 16 GB | 40-80 GB | $21.20 per month |
 
-Compute bills hourly and is prepaid one day at a time: a day at create, then a day on each renewal. An instance bills for as long as it exists, stopped or running; deleting it refunds the unused remainder. See [Billing](/agents-api/billing).
+Disk above the range minimum adds $0.09 per GB per month. Compute bills hourly and is prepaid one day at a time: a day at create, then a day on each renewal. An instance bills for as long as it exists, stopped or running; deleting it refunds the unused remainder. See [Billing](/agents-api/billing).
 
 ### Example
 
@@ -194,7 +194,7 @@ curl -X DELETE https://api.agent37.com/v1/instances/ab12cd34ef \
 
 ## Lifecycle
 
-Four calls control whether the instance's computer is running and which image it runs. Each is a `POST` to a subpath and takes no body (`update` rejects one). They acknowledge the new state only, returning `{ id, status }` (`update` adds `image_ref`); `GET` the instance for its full representation. Everything on the instance (files, memory, connected accounts) survives them.
+Five calls control whether the instance's computer is running, which image it runs, and how big it is. Each is a `POST` to a subpath; `stop`, `start`, and `restart` take no body, `update` rejects one, and `resize` takes the new size. They acknowledge the new state only, returning `{ id, status }` (`update` adds `image_ref`, `resize` adds `resources`); `GET` the instance for its full representation. Everything on the instance (files, memory, connected accounts) survives them.
 
 ### Stop
 
@@ -236,6 +236,20 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
 # -> { "id": "ab12cd34ef", "status": "running", "image_ref": "ghcr.io/acme/my-agent:v1" }
 ```
 
+### Resize
+
+`POST /v1/instances/{id}/resize` grows a running instance to a bigger size. The body uses the same vocabulary as create's `resources`, and omitted fields keep their current value, so `{ "disk": 15 }` grows disk alone and `{ "cpu": 4, "memory": 8 }` moves up a shape (disk rises to the new shape's minimum if it was below it). Resize only grows: any request that would shrink a dimension returns `400`, and moving to a smaller size means creating a new instance. The ack carries the new `resources`, and the new rate applies from the next hourly renewal.
+
+The container is recreated with the new limits, like `restart`: the disk, instance id, and URLs are kept, in-memory state is lost, and the instance is back in seconds. If its host cannot fit the increase, nothing changes and you get `409 capacity_unavailable`.
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "cpu": 4, "memory": 8 }'
+# -> { "id": "ab12cd34ef", "status": "running", "resources": { "cpu": 4, "memory": 8, "disk": 20 } }
+```
+
 ## Statuses
 
 | Status | Meaning |
@@ -246,7 +260,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
 | `stopped` | Halted. Data intact, disk reserved, compute released. Still bills. |
 | `starting` | A start is in progress. |
 | `restarting` | A restart is in progress. |
-| `updating` | An update is in progress. |
+| `updating` | An update or resize is in progress. |
 | `failed` | A create or lifecycle action failed. |
 | `deleting` | A delete is in progress. |
 | `deleted` | Gone. The id reads as `404` from here on. |
@@ -262,7 +276,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
 | `402 insufficient_balance` | Create when the wallet cannot cover the first day, or start of a past-due instance without funds. |
 | `409 instance_limit_reached` | Create when the workspace is at its instance cap: one instance on the free credit, 25 once topped up. |
 | `503 no_capacity` | Create when no host has capacity for the requested shape right now. |
-| `409 capacity_unavailable` | Start when the pinned host cannot re-reserve the instance's compute. |
+| `409 capacity_unavailable` | Start when the pinned host cannot re-reserve the instance's compute, or resize when it cannot fit the increase. |
 
 See [Errors](/agents-api/errors) for the full catalog and the error envelope.
 

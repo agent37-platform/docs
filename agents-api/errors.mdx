@@ -39,7 +39,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | `not_found` | 404 | No instance or template with that id or name in your workspace, or an unknown `/v1` path. |
 | `insufficient_balance` | 402 | The wallet cannot cover a day of compute: at create (one day billed in advance) or at `start` of a `past_due` instance. |
 | `instance_limit_reached` | 409 | The workspace is at its instance limit: one instance on the free credit, 25 once you have topped up. |
-| `capacity_unavailable` | 409 | `start` only: the pinned host cannot re-reserve this instance's CPU and RAM right now. |
+| `capacity_unavailable` | 409 | `start` or `resize`: the pinned host cannot re-reserve this instance's compute, or fit the resize increase, right now. |
 | `template_conflict` | 409 | A template create or rename targets a name that already exists. |
 | `template_unavailable` | 409 | The template is coming soon or inactive. |
 | `no_capacity` | 503 | Create only: no host can fit the requested shape right now. Safe to retry. |
@@ -181,7 +181,7 @@ The same grouping works on the Hosting API: `insufficient_balance` sends your us
     A session runs one response at a time. Posting new input while a turn is in flight returns this, with a `hint` naming both ways out: cancel the running turn with `POST /v1/responses/{id}/cancel` (best effort; a finished response just returns its terminal state), or start a fresh session by omitting `session_id`. See [Sessions](/agents-api/sessions).
   </Accordion>
   <Accordion title="The capacity trio: instance_limit_reached, capacity_unavailable, no_capacity" icon="server">
-    Three different walls, three different fixes. `instance_limit_reached` (409, create): the workspace is at its instance limit (one instance on the free credit, 25 once you have topped up); top up, or delete instances you no longer need. `no_capacity` (503, create): no host can fit the requested shape right now; retry with backoff or pick a smaller shape, and a create that fails this way does not keep your money. `capacity_unavailable` (409, start): a stopped instance stays pinned to the host that holds its disk, and that host cannot re-reserve the CPU and RAM right now; retry later. See [Instances](/agents-api/instances).
+    Three different walls, three different fixes. `instance_limit_reached` (409, create): the workspace is at its instance limit (one instance on the free credit, 25 once you have topped up); top up, or delete instances you no longer need. `no_capacity` (503, create): no host can fit the requested shape right now; retry with backoff or pick a smaller shape, and a create that fails this way does not keep your money. `capacity_unavailable` (409, start or resize): an instance stays pinned to the host that holds its disk, and that host cannot re-reserve its CPU and RAM, or fit a resize increase, right now; retry later, or create a new instance to land elsewhere. See [Instances](/agents-api/instances).
   </Accordion>
 </AccordionGroup>
 
