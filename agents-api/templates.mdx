@@ -116,7 +116,7 @@ console.log(await resp.json());
 
 </CodeGroup>
 
-Registration validates the reference's shape and stores the template as `active` right away. The image is pulled lazily, the first time you create or update an instance from the template. A bad reference surfaces there as a failed create: the create returns `502 provisioning_failed` and the prepaid month is refunded in full.
+Registration validates the reference's shape and stores the template as `active` right away. The image is pulled lazily, the first time you create or update an instance from the template. A bad reference surfaces there as a failed create: the create returns `502 provisioning_failed` and the prepaid day is refunded in full.
 
 <Tip>
   Pin a tag on `image_ref`; do not rely on `latest`. A pinned tag makes rollback a one-field `PATCH` and keeps every instance you create reproducible.

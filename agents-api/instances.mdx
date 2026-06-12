@@ -5,7 +5,7 @@ description: "Create, size, and manage the persistent computer that runs your ag
 
 An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance can take a message immediately at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance URLs](/agents-api/urls)).
 
-Creating an instance debits one calendar month of compute from your workspace wallet, and that debit is the create gate: if the wallet cannot cover it, the create fails with `402 insufficient_balance` and nothing is provisioned. A failed create is fully refunded. See [Billing](/agents-api/billing).
+Creating an instance debits one day of compute from your workspace wallet, and that debit is the create gate: if the wallet cannot cover it, the create fails with `402 insufficient_balance` and nothing is provisioned. A failed create is fully refunded. See [Billing](/agents-api/billing).
 
 ## Create an instance
 
@@ -16,7 +16,7 @@ Creating an instance debits one calendar month of compute from your workspace wa
 </ParamField>
 
 <ParamField body="resources" type="object">
-  The instance shape: `{ "cpu": 2, "memory": 4, "disk": 8 }`. Only the three shapes below are valid. Disk is determined by the cpu and memory pair, so omit it or pass the matching value. Any other combination returns `400 invalid_request` listing the valid shapes.
+  The instance shape: `{ "cpu": 2, "memory": 4, "disk": 6 }`. Only the three shapes below are valid. Disk is determined by the cpu and memory pair, so omit it or pass the matching value. Any other combination returns `400 invalid_request` listing the valid shapes.
 </ParamField>
 
 <ParamField body="user" type="string">
@@ -39,11 +39,11 @@ Creating an instance debits one calendar month of compute from your workspace wa
 
 | cpu | memory | disk | Price |
 | --- | --- | --- | --- |
-| 2 | 4 GB | 8 GB | $4.99 per month (default) |
-| 4 | 8 GB | 20 GB | $10.38 per month |
-| 8 | 16 GB | 40 GB | $20.76 per month |
+| 2 | 4 GB | 6 GB | $4.94 per month (default) |
+| 4 | 8 GB | 20 GB | $10.60 per month |
+| 8 | 16 GB | 40 GB | $21.20 per month |
 
-Compute is billed one calendar month in advance at create, then renews each month on the instance's own anniversary. An instance bills for as long as it exists, stopped or running; deleting it refunds the unused remainder. See [Billing](/agents-api/billing).
+Compute bills hourly and is prepaid one day at a time: a day at create, then a day on each renewal. An instance bills for as long as it exists, stopped or running; deleting it refunds the unused remainder. See [Billing](/agents-api/billing).
 
 ### Example
 
@@ -99,7 +99,7 @@ const instance = await res.json();
   "status": "running",
   "template": "agent37-hermes",
   "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.09",
-  "resources": { "cpu": 2, "memory": 4, "disk": 8 },
+  "resources": { "cpu": 2, "memory": 4, "disk": 6 },
   "ports": [
     { "port": 3737, "default": true, "url": "https://ab12cd34ef.agent37.app" },
     { "port": 9119, "default": false, "url": "https://ab12cd34ef-9119.agent37.app" },
@@ -155,11 +155,11 @@ const instance = await res.json();
 </ResponseField>
 
 <ResponseField name="paid_through" type="integer | null">
-  When the paid compute month ends, in epoch seconds. The next anniversary renewal debits at this time.
+  When the prepaid compute day ends, in epoch seconds. The next renewal debits at this time.
 </ResponseField>
 
 <ResponseField name="past_due" type="boolean">
-  `true` when a monthly renewal could not be covered and the instance was force-stopped. A funded `start` re-debits the month and clears it.
+  `true` when a renewal could not be covered and the instance was force-stopped. A funded `start` re-debits a day and clears it.
 </ResponseField>
 
 <ResponseField name="created" type="integer">
@@ -208,7 +208,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/stop \
 
 ### Start
 
-`POST /v1/instances/{id}/start` brings a `stopped` instance back up on its pinned host, recreating the container from the image it already ran. If the host no longer has room for the instance's CPU and memory, it returns `409 capacity_unavailable`. If the instance is `past_due`, start first re-debits the lapsed month and clears the flag; without funds it returns `402 insufficient_balance`. Starting an already running instance returns the same ack again.
+`POST /v1/instances/{id}/start` brings a `stopped` instance back up on its pinned host, recreating the container from the image it already ran. If the host no longer has room for the instance's CPU and memory, it returns `409 capacity_unavailable`. If the instance is `past_due`, start first re-debits a day and clears the flag; without funds it returns `402 insufficient_balance`. Starting an already running instance returns the same ack again.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/start \
@@ -259,8 +259,8 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
 
 | Error | When |
 | --- | --- |
-| `402 insufficient_balance` | Create when the wallet cannot cover the first month, or start of a past-due instance without funds. |
-| `409 instance_limit_reached` | Create when the workspace is at its instance cap (default 25). |
+| `402 insufficient_balance` | Create when the wallet cannot cover the first day, or start of a past-due instance without funds. |
+| `409 instance_limit_reached` | Create when the workspace is at its instance cap: one instance on the free credit, 25 once topped up. |
 | `503 no_capacity` | Create when no host has capacity for the requested shape right now. |
 | `409 capacity_unavailable` | Start when the pinned host cannot re-reserve the instance's compute. |
 

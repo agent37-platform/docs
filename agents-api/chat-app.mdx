@@ -63,7 +63,7 @@ const agentOf = (id) => makeClient(`https://${id}.agent37.app`);
     // https://ab12cd34ef.agent37.app
     ```
 
-    Omitting `template` gives you `agent37-hermes`, the default, on the default 2 vCPU / 4 GB RAM / 8 GB disk shape, billed at $4.99 per month from your workspace wallet (see [Billing](/agents-api/billing)). The $1 `budget.topup_micros` grants one-time managed-spend headroom so the agent's LLM calls work from the first message; without it the per-instance [budget](/agents-api/budgets) defaults to $0.
+    Omitting `template` gives you `agent37-hermes`, the default, on the default 2 vCPU / 4 GB RAM / 6 GB disk shape, billed at $4.94 per month from your workspace wallet (see [Billing](/agents-api/billing)). The $1 `budget.topup_micros` grants one-time managed-spend headroom so the agent's LLM calls work from the first message; without it the per-instance [budget](/agents-api/budgets) defaults to $0.
 
     The call is synchronous and returns `201` with `status: "running"`, so the agent is ready the moment the call comes back. Store `inst.id` on the user row.
   </Step>
