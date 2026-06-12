@@ -7,10 +7,11 @@ Billing is prepaid. You top up one workspace wallet in the dashboard, and everyt
 
 ## How the balance works
 
+- **$1 free to start.** Your first visit to the dashboard grants a one-time $1 credit, enough to run your first instance for days. Until your first real top-up, the workspace is capped at one instance.
 - **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are $5 to $1000 each, paid through Stripe.
-- **Instances draw it down.** Each instance bills compute one calendar month in advance, for as long as it exists, stopped or running.
+- **Instances draw it down.** Compute bills hourly, prepaid one day at a time, for as long as the instance exists, stopped or running.
 - **Managed usage draws it down.** Managed LLM, Brave search, and Composio calls are metered at cost against the same wallet, gated by each instance's [budget](/agents-api/budgets).
-- **Delete to stop billing.** Deleting an instance refunds the unused remainder of its prepaid month, prorated to the exact time used.
+- **Delete to stop billing.** Deleting an instance refunds the unused remainder of its prepaid day, prorated to the hour.
 
 <Note>
   There are no balance or billing endpoints on `/v1`. The wallet, top-ups, and the ledger are managed entirely in the [dashboard](https://www.agent37.com/dashboard/cloud/billing).
@@ -22,47 +23,49 @@ Compute is priced from the instance's `resources`:
 
 | Resource | Rate |
 | -------- | ---- |
-| vCPU | $0.795 per vCPU per month |
-| RAM | $0.650 per GB per month |
-| Disk | $0.100 per GB per month |
+| vCPU | $0.80 per vCPU per month |
+| RAM | $0.70 per GB per month |
+| Disk | $0.09 per GB per month |
 
 Applied to the three valid shapes:
 
 | Shape | Price per month |
 | ----- | --------------- |
-| 2 vCPU / 4 GB RAM / 8 GB disk (default) | $4.99 |
-| 4 vCPU / 8 GB RAM / 20 GB disk | $10.38 |
-| 8 vCPU / 16 GB RAM / 40 GB disk | $20.76 |
+| 2 vCPU / 4 GB RAM / 6 GB disk (default) | $4.94 |
+| 4 vCPU / 8 GB RAM / 20 GB disk | $10.60 |
+| 8 vCPU / 16 GB RAM / 40 GB disk | $21.20 |
 
 See [Instances](/agents-api/instances) for how to pick a shape with `resources` on create.
 
-## The monthly cycle
+## The daily cycle
 
-**Create debits the first month.** `POST /v1/instances` charges one full calendar month of compute up front. The debit is the create gate: if the wallet cannot cover it, the create returns `402 insufficient_balance` and nothing is provisioned.
+The monthly price is the rate; the wallet is debited one day at a time (the hourly rate, monthly / 730, times 24).
+
+**Create debits the first day.** `POST /v1/instances` charges one day of compute up front. The debit is the create gate: if the wallet cannot cover it, the create returns `402 insufficient_balance` and nothing is provisioned.
 
 ```json
 {
   "error": {
     "code": "insufficient_balance",
-    "message": "This instance costs $4.99 per month, billed in advance. Add balance to your workspace and try again."
+    "message": "This instance costs $0.0068 per hour, billed one day in advance ($0.1624). Add balance to your workspace and try again."
   }
 }
 ```
 
-If provisioning fails after the debit, for example a custom template's image cannot be pulled, the month is refunded in full.
+If provisioning fails after the debit, for example a custom template's image cannot be pulled, the day is refunded in full.
 
-**Renewal on the instance's anniversary.** Each renewal extends the paid period by one calendar month from the previous `paid_through` date. When that day does not exist in the target month, the renewal clamps to the last day: an instance paid through January 31 renews through February 28, or February 29 in a leap year.
+**Renewal every 24 hours.** Each renewal extends the paid period by exactly 24 hours from the previous `paid_through` and debits one more day, on the instance's own schedule.
 
 **Stopped instances still bill.** An instance bills as long as it exists. Stopping releases its CPU and RAM but keeps its disk and host placement, so a stopped instance renews like a running one. Delete it to stop billing.
 
-**Delete refunds the remainder.** Deleting an instance refunds the unused part of the prepaid month, prorated to the exact time used, with a minimum of one hour billed.
+**Delete refunds the remainder.** Deleting an instance refunds the unused part of the prepaid day, prorated, with a minimum of one hour billed.
 
 ## Paid through and past due
 
 Every instance object reports its billing state in two fields:
 
 <ResponseField name="paid_through" type="integer | null">
-  Unix timestamp in epoch seconds. Compute is paid through this moment; the next renewal extends it by one calendar month.
+  Unix timestamp in epoch seconds. Compute is paid through this moment; each renewal extends it by 24 hours.
 </ResponseField>
 
 <ResponseField name="past_due" type="boolean">
@@ -78,7 +81,7 @@ Every instance object reports its billing state in two fields:
 }
 ```
 
-If a renewal cannot be covered by the wallet, the instance is force-stopped and flagged `past_due: true`. Top up the wallet, then `POST /v1/instances/{id}/start`: a funded start re-debits the month and clears the flag. A start without funds returns `402 insufficient_balance`.
+If a renewal cannot be covered by the wallet, the instance is force-stopped and flagged `past_due: true`. Top up the wallet, then `POST /v1/instances/{id}/start`: a funded start re-debits a day anchored at the start time, so suspended time is never billed, and clears the flag. A start without funds returns `402 insufficient_balance`.
 
 <Tip>
   Branch on the error `code`, not the message. See [Errors](/agents-api/errors) for the full list and the response shape.
@@ -90,7 +93,7 @@ Managed LLM, Brave search, and Composio calls debit the same wallet at cost, but
 
 ## Ledger and spend visibility
 
-Every wallet movement lands in an append-only ledger: top-ups, month debits, prorated refunds, and managed usage. Review the ledger, your balance, and a per-instance spend breakdown at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). For managed spend on a single instance, `GET /v1/instances/{id}/usage` returns a monthly rollup; compute prepay is dashboard-only and never appears there.
+Every wallet movement lands in an append-only ledger: top-ups, the signup credit, day debits, prorated refunds, and managed usage. Review the ledger, your balance, and a per-instance spend breakdown at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). For managed spend on a single instance, `GET /v1/instances/{id}/usage` returns a monthly rollup; compute prepay is dashboard-only and never appears there.
 
 ## Next steps
 
