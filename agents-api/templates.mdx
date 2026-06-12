@@ -64,7 +64,7 @@ curl https://api.agent37.com/v1/templates \
 </ParamField>
 
 <ParamField body="ports" type="array">
-  The ports the image serves, each `{ "port": <int>, "default": <bool>, "name": <string?> }`. At most 20 entries; ports are integers 1 to 65535; no duplicates; at most one entry may set `default: true`. Give a port a `name` (up to 40 characters: letters, digits, space, `.`, `_`, `-`) to mark it a browser-openable service, surfaced with a [signed URL](/agents-api/urls#browser-access-with-signed-urls); leave it unnamed for a programmatic-only port. The reserved set `3737`, `7681`, `8080`, `6080`, `7890`, `6969`, `9119` is rejected: those belong to the managed runtime. Omit `ports` or pass `[]` for a private sandbox with no routable URL; you can still reach it with [exec](/agents-api/exec).
+  The ports the image serves, each `{ "port": <int>, "default": <bool> }`. At most 20 entries; ports are integers 1 to 65535; no duplicates; at most one entry may set `default: true`. Each non-default port is reached at `https://{instanceId}-{port}.agent37.app`, openable in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). The reserved set `3737`, `7681`, `8080`, `6080`, `7890`, `6969`, `9119` is rejected: those belong to the managed runtime. Omit `ports` or pass `[]` for a private sandbox with no routable URL; you can still reach it with [exec](/agents-api/exec).
 </ParamField>
 
 <CodeGroup>
@@ -184,9 +184,9 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
   "description": "Hermes general agent: browser, code, files.",
   "ports": [
     { "port": 3737, "default": true },
-    { "port": 9119, "default": false, "name": "Dashboard" },
-    { "port": 7681, "default": false, "name": "Terminal" },
-    { "port": 8080, "default": false, "name": "Files" },
+    { "port": 9119, "default": false },
+    { "port": 7681, "default": false },
+    { "port": 8080, "default": false },
     { "port": 6969, "default": false }
   ],
   "created": null,

@@ -102,9 +102,9 @@ const instance = await res.json();
   "resources": { "cpu": 2, "memory": 4, "disk": 8 },
   "ports": [
     { "port": 3737, "default": true, "url": "https://ab12cd34ef.agent37.app" },
-    { "port": 9119, "default": false, "name": "Dashboard", "url": "https://q7w8e9r0t1y2u3i4o5p6a7s8.agent37.app" },
-    { "port": 7681, "default": false, "name": "Terminal", "url": "https://h1j2k3l4m5n6o7p8q9r0s1t2.agent37.app" },
-    { "port": 8080, "default": false, "name": "Files", "url": "https://a1b2c3d4e5f6g7h8i9j0k1l2.agent37.app" }
+    { "port": 9119, "default": false, "url": "https://ab12cd34ef-9119.agent37.app" },
+    { "port": 7681, "default": false, "url": "https://ab12cd34ef-7681.agent37.app" },
+    { "port": 8080, "default": false, "url": "https://ab12cd34ef-8080.agent37.app" }
   ],
   "user": "u_882",
   "name": null,
@@ -139,7 +139,7 @@ const instance = await res.json();
 </ResponseField>
 
 <ResponseField name="ports" type="object[]">
-  The instance's routed ports, each `{ port, default, url }` plus an optional `name`. The default port's URL uses the instance id (`https://ab12cd34ef.agent37.app`, where the agent's chat API lives); other ports get their own opaque-handle URLs. A named port is a browser-openable service you can mint a [signed URL](/agents-api/urls#browser-access-with-signed-urls) for. See [Instance URLs](/agents-api/urls).
+  The instance's routed ports, each `{ port, default, url }`. The default port's URL uses the instance id (`https://ab12cd34ef.agent37.app`, where the agent's chat API lives); every other port is reached at `https://{instanceId}-{port}.agent37.app`. Open any of them in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). See [Instance URLs](/agents-api/urls).
 </ResponseField>
 
 <ResponseField name="user" type="string | null">
