@@ -55,6 +55,8 @@ The monthly price is the rate; the wallet is debited one day at a time (the hour
 
 If provisioning fails after the debit, for example a custom template's image cannot be pulled, the day is refunded in full.
 
+**More instances need more balance.** From your second concurrent instance on, your balance must hold 30 days of compute for the whole fleet, the new instance included: two small instances need about $9.74 in balance, five about $24.36. Nothing extra is charged, the balance just has to be there, and billing continues a day at a time. A create (or a resize, counted at the new size) that would leave the fleet uncovered returns `402 insufficient_balance` with the exact amount in the message. Workspaces are also capped at 10 instances; contact support@agent37.com to raise it.
+
 **Renewal every 24 hours.** Each renewal extends the paid period by exactly 24 hours from the previous `paid_through` and debits one more day, on the instance's own schedule.
 
 **Stopped instances still bill.** An instance bills as long as it exists. Stopping releases its CPU and RAM but keeps its disk and host placement, so a stopped instance renews like a running one. Delete it to stop billing.
