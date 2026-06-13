@@ -11,12 +11,6 @@
     "library": "tabler"
   },
   "api": {
-    "mdx": {
-      "server": "https://api.agent37.com",
-      "auth": {
-        "method": "bearer"
-      }
-    },
     "playground": {
       "display": "interactive",
       "proxy": true
@@ -50,7 +44,6 @@
         "group": "Agent API",
         "pages": [
           "agents-api/chat",
-          "agents-api/streaming",
           "agents-api/sessions"
         ]
       },
@@ -63,6 +56,7 @@
       {
         "group": "Reference",
         "pages": [
+          "agents-api/streaming",
           "agents-api/billing",
           "agents-api/errors"
         ]

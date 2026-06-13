@@ -1,7 +1,7 @@
 ---
 title: "Managed services & budgets"
 description: "Every instance ships with managed LLM, Brave search, and Composio credentials: metered at cost, gated by a per-instance budget you control."
-api: "GET /v1/instances/{id}/budget"
+openapi: "/openapi/hosting-api.json GET /v1/instances/{id}/budget"
 ---
 
 Every instance is created with managed credentials for three services: LLM calls, web search (Brave), and app integrations (Composio). The agent uses them out of the box. Managed calls route and meter through Agent37, so there are no provider or integration keys for you to manage.
@@ -13,16 +13,16 @@ Each managed call is metered at cost against your workspace wallet, and a per-in
 | Service | Rate |
 | --- | --- |
 | Managed LLM | Provider cost, passed through with no markup |
-| Web search (Brave) | $0.005 per call (5,000 micros) |
-| Composio | $0.000114 per call (114 micros) |
+| Web search (Brave) | \$0.005 per call (5,000 micros) |
+| Composio | \$0.000114 per call (114 micros) |
 
-All money fields are integer micros: USD x 1,000,000, so $1.00 is `1000000`. Managed spend debits the workspace wallet, the same wallet that pays for compute. Top it up at [agent37.com/dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing).
+All money fields are integer micros: USD x 1,000,000, so \$1.00 is `1000000`. Managed spend debits the workspace wallet, the same wallet that pays for compute. Top it up at [agent37.com/dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing).
 
 ## How budgets work
 
 A budget has two parts:
 
-- **Monthly cap.** A spending ceiling that resets at the start of each UTC month. It defaults to $0, so managed calls are refused until you grant headroom.
+- **Monthly cap.** A spending ceiling that resets at the start of each UTC month. It defaults to \$0, so managed calls are refused until you grant headroom.
 - **One-time top-up headroom.** A ceiling that persists across months and is consumed only after the monthly portion is exhausted.
 
 <Info>
@@ -281,7 +281,7 @@ For the hosting API error catalog, see [Errors](/agents-api/errors).
 
 The agent connects apps in conversation; there are no integration endpoints to call. Ask it to connect Gmail, Slack, Notion, or any other Composio-supported app, and it replies with an authorization link. Your user opens the link and grants access; Composio handles the OAuth. From the next turn on, the agent can use the app.
 
-Composio calls meter at $0.000114 each, counted against the instance's budget like any other managed call.
+Composio calls meter at \$0.000114 each, counted against the instance's budget like any other managed call.
 
 ## Bring your own keys
 

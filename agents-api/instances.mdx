@@ -1,7 +1,7 @@
 ---
 title: "Instances"
 description: "Create, size, and manage the persistent computer that runs your agent."
-api: "POST /v1/instances"
+openapi: "/openapi/hosting-api.json POST /v1/instances"
 ---
 
 An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance can take a message immediately at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance URLs](/agents-api/urls)).
@@ -40,15 +40,15 @@ Creating an instance debits one day of compute from your workspace wallet, and t
 
 | cpu | memory | disk | Price at the default disk |
 | --- | --- | --- | --- |
-| 2 | 4 GB | 6-20 GB | $4.94 per month (default) |
-| 4 | 8 GB | 20-40 GB | $10.60 per month |
-| 8 | 16 GB | 40-80 GB | $21.20 per month |
+| 2 | 4 GB | 6-20 GB | \$4.94 per month (default) |
+| 4 | 8 GB | 20-40 GB | \$10.60 per month |
+| 8 | 16 GB | 40-80 GB | \$21.20 per month |
 
-Disk above the range minimum adds $0.09 per GB per month. Compute bills hourly and is prepaid one day at a time: a day at create, then a day on each renewal. An instance bills for as long as it exists, stopped or running; deleting it refunds the unused remainder. See [Billing](/agents-api/billing).
+Disk above the range minimum adds \$0.09 per GB per month. Compute bills hourly and is prepaid one day at a time: a day at create, then a day on each renewal. An instance bills for as long as it exists, stopped or running; deleting it refunds the unused remainder. See [Billing](/agents-api/billing).
 
 ### Example
 
-The `topup_micros` of `1000000` gives the instance $1 of managed-spend headroom so its first chat works out of the box.
+The `topup_micros` of `1000000` gives the instance \$1 of managed-spend headroom so its first chat works out of the box.
 
 <CodeGroup>
 ```bash curl

@@ -1,7 +1,7 @@
 ---
 title: "Templates"
 description: "Name an image and the ports it serves once, then create every instance from that name."
-api: "GET /v1/templates"
+openapi: "/openapi/hosting-api.json GET /v1/templates"
 ---
 
 A template is a named image plus the ports it serves. Instances are always created from template names: pass `template` on [`POST /v1/instances`](/agents-api/instances), or omit it for the default `agent37-hermes`. Direct image references are rejected with `400 invalid_request`; register a template first, then pass its name.

@@ -7,8 +7,8 @@ Billing is prepaid. You top up one workspace wallet in the dashboard, and everyt
 
 ## How the balance works
 
-- **$1 free to start.** Your first visit to the dashboard grants a one-time $1 credit, enough to run your first instance for days. Until your first real top-up, the workspace is capped at one instance.
-- **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are $5 to $1000 each, paid through Stripe.
+- **\$1 free to start.** Your first visit to the dashboard grants a one-time \$1 credit, enough to run your first instance for days. Until your first real top-up, the workspace is capped at one instance.
+- **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are \$5 to \$1000 each, paid through Stripe.
 - **Or top up automatically.** Set a rule once and the wallet refills itself; see [Automatic top-up](#automatic-top-up).
 - **Instances draw it down.** Compute bills hourly, prepaid one day at a time, for as long as the instance exists, stopped or running.
 - **Managed usage draws it down.** Managed LLM, Brave search, and Composio calls are metered at cost against the same wallet, gated by each instance's [budget](/agents-api/budgets).
@@ -24,17 +24,17 @@ Compute is priced from the instance's `resources`:
 
 | Resource | Rate |
 | -------- | ---- |
-| vCPU | $0.80 per vCPU per month |
-| RAM | $0.70 per GB per month |
-| Disk | $0.09 per GB per month |
+| vCPU | \$0.80 per vCPU per month |
+| RAM | \$0.70 per GB per month |
+| Disk | \$0.09 per GB per month |
 
 Applied to the three valid shapes:
 
 | Shape | Price per month |
 | ----- | --------------- |
-| 2 vCPU / 4 GB RAM / 6 GB disk (default) | $4.94 |
-| 4 vCPU / 8 GB RAM / 20 GB disk | $10.60 |
-| 8 vCPU / 16 GB RAM / 40 GB disk | $21.20 |
+| 2 vCPU / 4 GB RAM / 6 GB disk (default) | \$4.94 |
+| 4 vCPU / 8 GB RAM / 20 GB disk | \$10.60 |
+| 8 vCPU / 16 GB RAM / 40 GB disk | \$21.20 |
 
 See [Instances](/agents-api/instances) for how to pick a shape with `resources` on create.
 
@@ -55,7 +55,7 @@ The monthly price is the rate; the wallet is debited one day at a time (the hour
 
 If provisioning fails after the debit, for example a custom template's image cannot be pulled, the day is refunded in full.
 
-**More instances need more balance.** From your second concurrent instance on, your balance must hold 30 days of compute for the whole fleet, the new instance included: two small instances need about $9.74 in balance, five about $24.36. Nothing extra is charged, the balance just has to be there, and billing continues a day at a time. A create (or a resize, counted at the new size) that would leave the fleet uncovered returns `402 insufficient_balance` with the exact amount in the message. Workspaces are also capped at 10 instances; contact support@agent37.com to raise it.
+**More instances need more balance.** From your second concurrent instance on, your balance must hold 30 days of compute for the whole fleet, the new instance included: two small instances need about \$9.74 in balance, five about \$24.36. Nothing extra is charged, the balance just has to be there, and billing continues a day at a time. A create (or a resize, counted at the new size) that would leave the fleet uncovered returns `402 insufficient_balance` with the exact amount in the message. Workspaces are also capped at 10 instances; contact support@agent37.com to raise it.
 
 **Renewal every 24 hours.** Each renewal extends the paid period by exactly 24 hours from the previous `paid_through` and debits one more day, on the instance's own schedule.
 
@@ -68,7 +68,7 @@ If provisioning fails after the debit, for example a custom template's image can
 Without automatic top-up, instances are stopped when the wallet runs out. Set a rule at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing) to keep them running: when the balance falls below your threshold, your card is charged for a fixed amount. The rule is checked every hour, and once more right before any instance would be suspended, so instances stay up as long as the card charges.
 
 - Any manual top-up saves its card, and automatic top-up charges the most recently saved one. Add funds once before enabling the rule.
-- The threshold can be $1 to $1000. The purchase amount follows the usual $5 to $1000 top-up range.
+- The threshold can be \$1 to \$1000. The purchase amount follows the usual \$5 to \$1000 top-up range.
 - If a charge fails, automatic top-up turns itself off and emails the workspace admins. Add funds manually, which saves a new card, then re-enable it.
 
 ## Paid through and past due
@@ -100,7 +100,7 @@ If a renewal cannot be covered by the wallet, and [automatic top-up](#automatic-
 
 ## Managed usage
 
-Managed LLM, Brave search, and Composio calls debit the same wallet at cost, but only within each instance's budget: a monthly cap that resets each UTC month plus optional one-time top-up headroom. The default cap is $0, so an instance spends nothing on managed services until you raise its cap or top it up. When a managed call is refused, the 402 reason tells you which pot ran dry: `insufficient_balance` means the wallet is empty, `instance_budget_exhausted` means the wallet has funds but the instance hit its cap. See [Budgets](/agents-api/budgets) for the endpoints, rates, and both 402 reasons.
+Managed LLM, Brave search, and Composio calls debit the same wallet at cost, but only within each instance's budget: a monthly cap that resets each UTC month plus optional one-time top-up headroom. The default cap is \$0, so an instance spends nothing on managed services until you raise its cap or top it up. When a managed call is refused, the 402 reason tells you which pot ran dry: `insufficient_balance` means the wallet is empty, `instance_budget_exhausted` means the wallet has funds but the instance hit its cap. See [Budgets](/agents-api/budgets) for the endpoints, rates, and both 402 reasons.
 
 ## Ledger and spend visibility
 

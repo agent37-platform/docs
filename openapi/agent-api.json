@@ -19,15 +19,17 @@
   ],
   "security": [
     {
-      "bearerAuth": []
+      "apiKey": []
     }
   ],
   "components": {
     "securitySchemes": {
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "description": "Your workspace sk_live_ key, sent as a Bearer token."
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Your Agent37 API key, prefixed with `Bearer ` — e.g. `Bearer sk_live_...`. Create one in the dashboard.",
+        "x-default": "Bearer "
       }
     },
     "schemas": {
