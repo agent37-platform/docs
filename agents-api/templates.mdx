@@ -56,7 +56,7 @@ curl https://api.agent37.com/v1/templates \
 </ParamField>
 
 <ParamField body="image_ref" type="string" required>
-  A fully qualified public image reference with a registry or namespace path, like `ghcr.io/acme/my-agent:v1`. Up to 255 characters. The image must be public and built for `linux/amd64`.
+  A fully qualified public image reference with a registry or namespace path, like `ghcr.io/acme/my-agent:v1`. Up to 255 characters. The image must be public, built for `linux/amd64`, and at most 10 GB compressed. The platform verifies all three against the registry manifest when you register or update the template and again whenever it pulls the image, so a tag repointed at something oversized or private is rejected at that point too.
 </ParamField>
 
 <ParamField body="description" type="string">
