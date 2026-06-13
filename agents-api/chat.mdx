@@ -14,7 +14,11 @@ Omit `session_id` to start a conversation; the reply carries the `session_id` th
 Request bodies are capped at 2 MB; anything larger returns `413 payload_too_large`.
 
 <ParamField body="input" type="string" required>
-  The message or task. Text only: a plain string, with no attachment, file, or image field. See [Sessions and models](/agents-api/sessions) for how history carries across turns.
+  The message or task, a plain string. There is no image field; to attach files, upload them first and list their paths in `files`. See [Sessions and models](/agents-api/sessions) for how history carries across turns.
+</ParamField>
+
+<ParamField body="files" type="string[]">
+  Paths of files on the instance to attach to this turn, typically the `path` returned by [`POST /v1/files`](/agents-api/files). Each must name an existing file on the instance, or the call returns `400 validation_error`. The paths are appended to the input, and the agent reads them from disk.
 </ParamField>
 
 <ParamField body="session_id" type="string">
@@ -103,6 +107,10 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
 
 <Note>
   A failed turn does not reject the HTTP call. The POST still returns 200 with `status: "failed"` and `error` set. Branch on `status`, not on the HTTP code.
+</Note>
+
+<Note>
+  On a non-streaming call the gateway sends the `200` and headers as soon as the turn starts, then keeps the connection alive with a whitespace tick every 25 seconds while the agent works. The JSON body arrives when the turn finishes, prefixed by that whitespace — leading whitespace is valid JSON, so standard parsers handle it unchanged. Don't treat the early headers as the response being ready.
 </Note>
 
 ## Example

@@ -93,7 +93,7 @@ const { data: sessions } = await (await fetch(
 
 ## Retrieve a session with history
 
-`GET /v1/sessions/{id}` returns the session object plus `history`: the full transcript, in order. You read it for display or audit; you never resend it, because the session already holds it. A session with no completed turns returns `history: []`. An unknown id returns `404 session_not_found`.
+`GET /v1/sessions/{id}` returns the session object plus `history`: the full transcript, in order. You read it for display or audit; you never resend it, because the session already holds it. A session with `last_response_at: null` (no turn has finished yet) returns `history: []`. An unknown id returns `404 session_not_found`.
 
 Each entry in `history` is a message:
 
@@ -172,7 +172,7 @@ curl -X DELETE https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8
 </CodeGroup>
 
 <Warning>
-  Deleting a session is permanent. It removes the conversation and its history, but leaves the instance (its files, memory, and connected accounts) untouched.
+  Deleting a session is permanent. It removes the conversation, its history, and the stored response objects for its turns — `GET /v1/responses/{id}` for those turns returns `404 response_not_found` afterwards — but leaves the instance (its files, memory, and connected accounts) untouched.
 </Warning>
 
 ## One turn at a time
@@ -235,7 +235,7 @@ const models = await (await fetch(
 
 `GET /v1/health` returns `{ "ok": true, "hermes": true }`. `ok` is true whenever the gateway is up; `hermes` reports whether the agent worker behind it is reachable. Use it as a readiness probe after [create or start](/agents-api/instances).
 
-`GET /v1/version` returns the gateway build, e.g. `{ "name": "agent37-gateway", "version": "0.1.0" }`.
+`GET /v1/version` returns the gateway build, e.g. `{ "name": "agent37-gateway", "version": "0.1.2" }`.
 
 ## Next steps
 

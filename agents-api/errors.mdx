@@ -3,7 +3,7 @@ title: "Errors"
 description: "Stable, machine-readable error codes on both planes: branch on the code, show the message."
 ---
 
-Every error uses a standard HTTP status code and returns a JSON `error` object with a stable `code`. Branch on `code`, never on `message` or the HTTP status alone. There are two catalogs because there are two planes.
+Every error uses a standard HTTP status code and returns a stable, machine-readable code in a JSON `error` field — an object with a `code` on both API catalogs, a flat string on transport failures between you and the gateway. Branch on the code, never on `message` or the HTTP status alone. There are two catalogs because there are two planes, plus a short list of transport errors.
 
 <Info>
   The **Hosting API** (`https://api.agent37.com/v1/*`) manages instances, templates, and budgets. The **Agent API** is served by the gateway inside each instance at `https://{instanceId}.agent37.app` and handles chat, sessions, and models. Both take the same `sk_live_` Bearer key, but their error envelopes differ: the Agent API adds optional `param` and `hint` fields.
@@ -41,7 +41,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | `instance_limit_reached` | 409 | The workspace is at its instance limit: one instance on the free credit, 25 once you have topped up. |
 | `capacity_unavailable` | 409 | `start` or `resize`: the pinned host cannot re-reserve this instance's compute, or fit the resize increase, right now. |
 | `template_conflict` | 409 | A template create or rename targets a name that already exists. |
-| `template_unavailable` | 409 | The template is coming soon or inactive. |
+| `template_unavailable` | 409 | An instance create or update names a workspace template that is inactive. |
 | `no_capacity` | 503 | Create only: no host can fit the requested shape right now. Safe to retry. |
 | `provisioning_failed` | 502/500 | A container or host operation failed (image pull, container start, lifecycle action). Failed creates are fully refunded. |
 
@@ -71,9 +71,21 @@ Errors from the gateway at `https://{instanceId}.agent37.app/v1/*` use the same 
   A suggested next step, when one applies.
 </ResponseField>
 
-<Note>
-  Auth and instance lookup happen at the platform edge, before your request reaches the gateway, and edge rejections use a flat string instead of the envelope: a missing or invalid key returns 401 with `{"error": "invalid_api_key"}`, and an instance URL your key cannot see (unknown, deleted, or another workspace's) returns 404 with `{"error": "not_found"}`.
-</Note>
+### Transport errors
+
+Auth, instance lookup, and routing happen on the platform between you and the gateway, and rejections there use a flat string instead of the envelope: `{"error": "<code>"}`. Check whether `error` is a string before reading `code`.
+
+| Code | HTTP | When |
+| --- | --- | --- |
+| `invalid_api_key` | 401 | Missing or invalid key. |
+| `not_found` | 404 | An instance URL that does not route: unknown, deleted, `failed`, or another workspace's. |
+| `container_unavailable` | 502 | The instance is not running, typically `stopped`. Start it and retry. |
+| `container_unreachable` | 502 | The instance is up but its service did not answer on the routed port — common briefly during a restart or update. Transient; retry. |
+| `upstream_unreachable` | 502 | The platform could not reach the instance's host. Transient; retry. |
+| `instance_saturated` | 503 | Too many concurrent requests in flight to this instance. Back off and retry. |
+| `host_mesh_not_ready` | 503 | The instance's host is still joining the platform network. Transient; retry. |
+| `upstream_timeout` | 504 | A call produced no response headers for ~100 seconds — typically a wedged instance. The turn may still be running: recover the result through its session, and prefer `stream: true` to see progress. |
+| `internal_error` | 500 | Unexpected platform error. |
 
 ### Codes
 
@@ -82,9 +94,10 @@ Errors from the gateway at `https://{instanceId}.agent37.app/v1/*` use the same 
 | `validation_error` | 400 | A request field is invalid (`param` names it), the body is not valid JSON, or `mode` is `"goal"` (reserved). |
 | `session_not_found` | 404 | No session with that id. |
 | `response_not_found` | 404 | No response with that id. |
+| `file_not_found` | 404 | No file at that path (`GET /v1/files/content`). |
 | `not_found` | 404 | Unknown route on the instance URL. |
 | `session_busy` | 409 | A response is already running on this session. |
-| `payload_too_large` | 413 | The request body exceeds 2 MB. |
+| `payload_too_large` | 413 | A JSON request body exceeds 2 MB. Multipart uploads to `/v1/files` are exempt. |
 | `rate_limited` | 429 | An upstream provider rate limit. Back off and retry. |
 | `agent_error` | 502 | The agent backend failed without a more specific code. |
 | `internal_error` | 500 | Unexpected gateway error. |
@@ -119,6 +132,8 @@ r = requests.post(
 
 if not r.ok:
     error = r.json()["error"]
+    if isinstance(error, str):
+        raise RuntimeError(f"transport error: {error}")  # flat platform error, e.g. container_unavailable
     code = error["code"]
     if code == "session_busy":
         ...  # cancel the running response or start another session
@@ -145,6 +160,10 @@ const res = await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
 
 if (!res.ok) {
   const { error } = await res.json();
+  if (typeof error === "string") {
+    // flat platform error, e.g. "container_unavailable": see the transport table
+    throw new Error(`transport error: ${error}`);
+  }
   switch (error.code) {
     case "session_busy":
       // cancel the running response or start another session
