@@ -26,7 +26,6 @@
         "group": "Get started",
         "pages": [
           "index",
-          "agents-api/quickstart",
           "agents-api/concepts"
         ]
       },
@@ -102,7 +101,7 @@
     "primary": {
       "type": "button",
       "label": "Open dashboard",
-      "href": "https://www.agent37.com/dashboard"
+      "href": "https://www.agent37.com/dashboard/cloud"
     }
   },
   "contextual": {
@@ -118,6 +117,7 @@
    ]
   },
   "redirects": [
+    { "source": "/agents-api/quickstart", "destination": "/" },
     { "source": "/agents-api/messages", "destination": "/agents-api/chat" },
     { "source": "/agents-api/files", "destination": "/agents-api/exec" },
     { "source": "/agents-api/embeds", "destination": "/agents-api/urls" },
