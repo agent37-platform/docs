@@ -1,6 +1,7 @@
 ---
 title: "Managed services & budgets"
 description: "Every instance ships with managed LLM, Brave search, and Composio credentials: metered at cost, gated by a per-instance budget you control."
+api: "GET /v1/instances/{id}/budget"
 ---
 
 Every instance is created with managed credentials for three services: LLM calls, web search (Brave), and app integrations (Composio). The agent uses them out of the box. Managed calls route and meter through Agent37, so there are no provider or integration keys for you to manage.

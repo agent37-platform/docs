@@ -1,6 +1,7 @@
 ---
 title: "Send a message"
 description: "The core call: POST /v1/responses on your instance URL runs a turn through your agent, streams or returns the result, and continues the thread."
+openapi: "/openapi/agent-api.json POST /v1/responses"
 ---
 
 `POST /v1/responses` is the core call. You make it against your instance, not against `api.agent37.com`: every instance serves its own chat API at `https://{instanceId}.agent37.app`, the `url` of the default port in the create response. This page uses `https://ab12cd34ef.agent37.app`. Authenticate with the same `sk_live_` key you use on the hosting API.

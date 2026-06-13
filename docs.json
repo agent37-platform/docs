@@ -10,6 +10,21 @@
   "icons": {
     "library": "tabler"
   },
+  "api": {
+    "mdx": {
+      "server": "https://api.agent37.com",
+      "auth": {
+        "method": "bearer"
+      }
+    },
+    "playground": {
+      "display": "interactive",
+      "proxy": true
+    },
+    "examples": {
+      "languages": ["bash", "python", "javascript"]
+    }
+  },
   "favicon": "/favicon.svg",
   "navigation": {
     "groups": [

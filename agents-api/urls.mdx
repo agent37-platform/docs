@@ -1,6 +1,7 @@
 ---
 title: "Instance URLs"
 description: "Reach the software running inside an instance over HTTPS, at a URL you can derive from the instance id."
+api: "POST /v1/instances/{id}/signed-url"
 ---
 
 Every instance with a default port is reachable at `https://{instanceId}.agent37.app`. The instance id is the DNS label, so instance `ab12cd34ef` lives at `https://ab12cd34ef.agent37.app`: you can construct the URL from the id alone, with no lookup step.

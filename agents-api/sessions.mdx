@@ -1,6 +1,7 @@
 ---
 title: "Sessions & models"
 description: "List, read, and delete conversations on an instance, and see which models its agent can run."
+openapi: "/openapi/agent-api.json GET /v1/sessions"
 ---
 
 A session is one conversation on an instance. An instance holds many sessions, one per thread, and each session keeps its own full history, so you only ever send the new input. These endpoints are served by the gateway running inside the instance.

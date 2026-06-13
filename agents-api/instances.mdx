@@ -1,6 +1,7 @@
 ---
 title: "Instances"
 description: "Create, size, and manage the persistent computer that runs your agent."
+api: "POST /v1/instances"
 ---
 
 An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance can take a message immediately at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance URLs](/agents-api/urls)).
