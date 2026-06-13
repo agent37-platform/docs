@@ -3,8 +3,6 @@ title: "Build a chat app"
 description: "Give every user their own always-on agent. The simplest thing to build on the Agents API, and where most teams start."
 ---
 
-The simplest thing to build on the Agents API is a chat app where every user has their own always-on agent. It holds their files, memory, and connected accounts for as long as it lives, and it is where most teams start.
-
 The pattern is four calls: create one instance per user at signup, start one session per chat thread, list sessions for the sidebar, and fetch one session for the open thread.
 
 <Card title="hermes-chat: this guide as a working app" icon="github" href="https://github.com/agent37-platform/examples/tree/main/hermes-chat" horizontal>
@@ -14,7 +12,7 @@ The pattern is four calls: create one instance per user at signup, start one ses
 ## One key, two base URLs
 
 <Info>
-  You talk to two base URLs. `https://api.agent37.com` creates and manages instances. Each instance then serves its own chat API at `https://{instanceId}.agent37.app`: the instance id is the hostname. The same `sk_live_` key authenticates both. See [Instance URLs](/agents-api/urls).
+  Two base URLs, one key: `https://api.agent37.com` manages instances, and each instance serves its own chat API at `https://{instanceId}.agent37.app` (the id is the hostname). See [Core concepts](/agents-api/concepts).
 </Info>
 
 The snippets below use a small shorthand client so the calls stay readable. `api` is the hosting API; `agentOf(id)` is one user's agent.
@@ -42,7 +40,7 @@ const agentOf = (id) => makeClient(`https://${id}.agent37.app`);
 ```
 
 <Warning>
-  Route every call through your server. The `sk_live_` key is workspace-scoped: it can read and manage every instance and session in your workspace, not just one user's. It must never reach the browser. Your frontend talks to your backend; your backend holds the key and calls both base URLs.
+  Route every call through your server. The `sk_live_` key is workspace-scoped — it can read and manage every instance in your workspace — so it must never reach the browser.
 </Warning>
 
 ## The shape of it
@@ -142,20 +140,3 @@ Two good ways to handle it in a chat UI:
 The [hermes-chat example](https://github.com/agent37-platform/examples/tree/main/hermes-chat) wires up both: the composer locks while a turn is in flight, and the stop button cancels it.
 
 Other threads are unaffected: each session has its own lock, so one user can run turns in several threads at once.
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Send a message" icon="send" href="/agents-api/chat">
-    The full `POST /v1/responses` contract: fields, the response object, and models.
-  </Card>
-  <Card title="Streaming" icon="activity" href="/agents-api/streaming">
-    Render text, reasoning, and tool activity live, and reconnect dropped streams.
-  </Card>
-  <Card title="Sessions" icon="history" href="/agents-api/sessions">
-    List, retrieve with history, and delete the threads on an instance.
-  </Card>
-  <Card title="Budgets" icon="wallet" href="/agents-api/budgets">
-    Cap each user's managed spend with a monthly cap and one-time top-ups.
-  </Card>
-</CardGroup>

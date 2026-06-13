@@ -3,7 +3,7 @@ title: "Core concepts"
 description: "The two planes, the resource model, and the money model behind every Agent37 Cloud call."
 ---
 
-Agent37 Cloud is two APIs that share one key, and three resources that nest. An **instance** is the agent's computer, a **session** is a conversation on it, and a **response** is a single turn.
+Agent37 Cloud is two APIs that share one key, and three resources that nest.
 
 ## Two planes, one key
 
@@ -31,12 +31,12 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 
 | Concept | What it is |
 | --- | --- |
-| **Instance** | An isolated, always-on computer that runs your agent. Built from a [template](/agents-api/templates). Persistent until you delete it, and billed monthly for as long as it exists. Create one per end user. |
+| **Instance** | An isolated, always-on computer that runs your agent. Built from a [template](/agents-api/templates). Persistent until you delete it, and billed for as long as it exists (compute is hourly, prepaid a day at a time). Create one per end user. |
 | **Session** | One conversation on an instance. A message starts one; reuse its `session_id` to continue. An instance can hold many. |
 | **Response** | One agentic turn: your input, the agent's work, its reply. Stream it live or fetch it by id. |
 
 <Info>
-  **The agent is not the model.** The *template* installs the agent software, the *gateway* inside the instance runs your sessions on it (Hermes is the live agent today; OpenClaw, Claude Code, and Codex are coming soon), and the *model* is the LLM the agent thinks with, chosen per turn as `model` + `provider`. They are separate dials.
+  **The agent is not the model.** The *template* installs the agent software, the *gateway* inside the instance runs your sessions on it (Hermes is the live agent today; OpenClaw, Claude Code, and Codex are coming soon), and the *model* is the LLM the agent thinks with, chosen per turn as `model` + `provider`.
 </Info>
 
 ### How they fit together
