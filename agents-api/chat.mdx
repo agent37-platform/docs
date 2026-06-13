@@ -8,8 +8,6 @@ openapi: "/openapi/agent-api.json POST /v1/responses"
 
 The call is agentic by default: the agent can browse, run code, use a terminal, read and write files, call connected tools, and reason across many steps before answering.
 
-Omit `session_id` to start a conversation; the reply carries the `session_id` the gateway minted. Send it back to continue. The session keeps the full history, so you never resend a transcript: you send only the new input.
-
 ## Request body
 
 Request bodies are capped at 2 MB; anything larger returns `413 payload_too_large`.
@@ -286,20 +284,3 @@ A response moves from `in_progress` to exactly one terminal status.
 | `completed` | The turn finished and `output_text` holds the answer. |
 | `failed` | The turn ended on an error; `error` says why. |
 | `cancelled` | You stopped the turn with `cancel`. |
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Streaming" icon="activity" href="/agents-api/streaming">
-    The full event list and a client parser for `stream: true`.
-  </Card>
-  <Card title="Sessions" icon="history" href="/agents-api/sessions">
-    List threads, read history, delete a session, and pick a model.
-  </Card>
-  <Card title="Build a chat app" icon="messages" href="/agents-api/chat-app">
-    Put send, continue, and list together into a working chat.
-  </Card>
-  <Card title="Instances" icon="server" href="/agents-api/instances">
-    Create, size, and manage the computer a conversation runs on.
-  </Card>
-</CardGroup>

@@ -46,10 +46,6 @@ Everything on this page lives on the instance URL, not the hosting API: the base
   When the last turn finished, in epoch milliseconds. Failed turns do not update it; `null` until the first turn completes.
 </ResponseField>
 
-<Note>
-  Gateway timestamps are epoch **milliseconds**. The hosting API at `api.agent37.com` uses epoch seconds.
-</Note>
-
 ## List sessions
 
 `GET /v1/sessions` returns every session on the instance, newest first, wrapped in `{ "data": [...] }`. The list carries session metadata only, never history, so it stays cheap to poll for a sidebar.
@@ -237,20 +233,3 @@ const models = await (await fetch(
 `GET /v1/health` returns `{ "ok": true, "hermes": true }`. `ok` is true whenever the gateway is up; `hermes` reports whether the agent worker behind it is reachable. Use it as a readiness probe after [create or start](/agents-api/instances).
 
 `GET /v1/version` returns the gateway build, e.g. `{ "name": "agent37-gateway", "version": "0.1.0" }`.
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Send a message" icon="send" href="/agents-api/chat">
-    Start and continue sessions with `POST /v1/responses`, the turn that fills these threads.
-  </Card>
-  <Card title="Streaming" icon="activity" href="/agents-api/streaming">
-    The full SSE event list for `stream: true`, plus reconnect and cancel.
-  </Card>
-  <Card title="Build a chat app" icon="messages" href="/agents-api/chat-app">
-    Put list, send, and continue together: one instance per user, one session per thread.
-  </Card>
-  <Card title="Instance URLs" icon="link" href="/agents-api/urls">
-    How `{instanceId}.agent37.app` routing and authentication work.
-  </Card>
-</CardGroup>

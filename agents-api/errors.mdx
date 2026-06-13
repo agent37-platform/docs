@@ -6,7 +6,7 @@ description: "Stable, machine-readable error codes on both planes: branch on the
 Every error uses a standard HTTP status code and returns a JSON `error` object with a stable `code`. Branch on `code`, never on `message` or the HTTP status alone. There are two catalogs because there are two planes.
 
 <Info>
-  The **Hosting API** (`https://api.agent37.com/v1/*`) manages instances, templates, and budgets. The **Agent API** is served by the gateway inside each instance at `https://{instanceId}.agent37.app` and handles chat, sessions, and models. Both take the same `sk_live_` Bearer key, but their error envelopes differ: the Agent API adds optional `param` and `hint` fields.
+  Both planes take the same `sk_live_` Bearer key, but their error envelopes differ: the Agent API adds optional `param` and `hint` fields. See [Core concepts](/agents-api/concepts) for the two planes.
 </Info>
 
 ## Hosting API errors
@@ -188,20 +188,3 @@ The same grouping works on the Hosting API: `insufficient_balance` sends your us
 <Note>
   Both 402 reasons are billing limits, not bugs. When a managed call is refused mid-turn, the refusal shows up in agent behavior (the turn fails or the agent reports it); the instance itself never goes down over managed spend.
 </Note>
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Billing" icon="credit-card" href="/agents-api/billing">
-    The prepaid wallet, top-ups, and monthly compute billing.
-  </Card>
-  <Card title="Budgets" icon="wallet" href="/agents-api/budgets">
-    Cap each instance's managed spend with monthly caps and top-ups.
-  </Card>
-  <Card title="Send a message" icon="send" href="/agents-api/chat">
-    The core call, its fields, and the response object.
-  </Card>
-  <Card title="Instances" icon="server" href="/agents-api/instances">
-    Create, size, and manage your agent's computer.
-  </Card>
-</CardGroup>
