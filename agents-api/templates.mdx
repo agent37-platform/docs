@@ -49,14 +49,14 @@ curl https://api.agent37.com/v1/templates \
 
 ## Register a workspace template
 
-`POST /v1/templates` registers a public amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it. The image can be anything public, built from scratch or on [the Hermes base image](#build-on-the-hermes-base-image). If you need a private registry or don't want your image public, [talk to the team](https://cal.com/vishnukool/30min).
+`POST /v1/templates` registers a public amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it. The image can be anything public, built from scratch or on [the Hermes base image](#build-on-the-hermes-base-image). If you need a private registry, a larger image than the 5 GB cap allows, or don't want your image public, [talk to the team](https://cal.com/vishnukool/30min).
 
 <ParamField body="name" type="string" required>
   2 to 63 characters: lowercase letters, digits, and hyphens, starting with a letter (`^[a-z][a-z0-9-]{1,62}$`). The `agent37-` prefix is reserved. A name that already exists returns `409 template_conflict`.
 </ParamField>
 
 <ParamField body="image_ref" type="string" required>
-  A fully qualified public image reference with a registry or namespace path, like `ghcr.io/acme/my-agent:v1`. Up to 255 characters. The image must be public, built for `linux/amd64`, and at most 10 GB compressed. The platform verifies all three against the registry manifest when you register or update the template and again whenever it pulls the image, so a tag repointed at something oversized or private is rejected at that point too.
+  A fully qualified public image reference with a registry or namespace path, like `ghcr.io/acme/my-agent:v1`. Up to 255 characters. The image must be public, built for `linux/amd64`, and at most 5 GB compressed. The platform verifies all three against the registry manifest when you register or update the template and again whenever it pulls the image, so a tag repointed at something oversized or private is rejected at that point too. Need a bigger image? [Talk to the team](https://cal.com/vishnukool/30min) about raising the cap.
 </ParamField>
 
 <ParamField body="description" type="string">
