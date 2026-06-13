@@ -115,8 +115,8 @@ All three budget endpoints return the same budget object.
   One-time headroom left. Consumed only after the monthly portion is exhausted.
 </ResponseField>
 
-<ResponseField name="updated_at" type="integer | null">
-  Epoch seconds of the last budget write. Cap changes, top-ups, and managed spend all update it; `null` if the budget has never been written.
+<ResponseField name="updated_at" type="integer">
+  Epoch seconds of the last budget write. The budget is first written when the instance is created; cap changes, top-ups, and managed spend all update it.
 </ResponseField>
 
 <CodeGroup>

@@ -19,7 +19,7 @@ The command runs through `sh -c` as the image's default user, on the same box th
 </ParamField>
 
 <Note>
-  Only `running` instances accept commands. Exec against any other status returns `400 invalid_request`. If the platform cannot reach the instance at all, you get `502 provisioning_failed`.
+  Only `running` instances accept commands. Exec against any other status returns `400 invalid_request` (a deleted instance returns `404 not_found`). If the platform cannot reach the instance at all, you get `502 provisioning_failed`.
 </Note>
 
 ## Response
@@ -93,7 +93,7 @@ console.log(result.exit_code, result.stdout);
 
 ## Build on exec
 
-Anything the API does not wrap as its own endpoint, you build on `exec`. There is no separate file endpoint: files move through exec too. A "Download the report" button in your product is one exec call that reads the file the agent wrote:
+Anything the API does not wrap as its own endpoint, you build on `exec`. For moving files, prefer the instance's own [files endpoints](/agents-api/files) at `https://{instanceId}.agent37.app` — `POST /v1/files` to upload, `GET /v1/files/content` to download — but a quick text read works over exec too. A "Download the report" button in your product can be one exec call that reads the file the agent wrote:
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
@@ -111,4 +111,4 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
   -d '{ "command": "mkdir -p ~/data && echo aGVsbG8sd29ybGQK | base64 -d > ~/data/ev-prices.csv" }'
 ```
 
-For binary or large files, stage them at a URL your backend controls and `curl` them down from inside the instance instead; remember the 512 KB per-stream output cap applies on the way out.
+For binary or large files, use the [files endpoints](/agents-api/files) on the instance URL instead — `GET /v1/files/content` streams a download of any size, with no 512 KB cap — or stage them at a URL your backend controls and `curl` them down from inside the instance.

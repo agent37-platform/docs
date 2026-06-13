@@ -15,7 +15,7 @@ Guidance for AI agents working on the Agent37 docs. `CLAUDE.md` imports this fil
 Two API planes, one `sk_live_` key — the navigation mirrors this split:
 
 - **Hosting API** (`https://api.agent37.com/v1`) — manage instances: instances, templates, exec, budgets, plus billing and errors reference.
-- **Agent API** (`https://{instanceId}.agent37.app/v1`) — talk to one instance's agent: chat (responses), streaming, sessions.
+- **Agent API** (`https://{instanceId}.agent37.app/v1`) — talk to one instance's agent: chat (responses), streaming, sessions, files.
 
 The API reference is **hand-authored MDX** — there is no OpenAPI spec to regenerate from. Endpoint pages use `<ParamField>`/`<ResponseField>` and show curl, Python, and Node examples. If a page is renamed or moved, add a redirect in `docs.json` so old URLs keep working (several exist already).
 
@@ -40,7 +40,7 @@ Use these exactly; consistent terms are what make `llms-full.txt` usable as a sp
 
 - Document **only the two public planes**. The dashboard, internal/admin APIs, and fleet/host architecture are out of scope.
 - The OpenClaw setup guides (`openclaw/`, `channels/`, `models/`, `runtime/`, `networking/`, `tailscale/`) are intentionally hidden from the nav but searchable — they serve existing OpenClaw customers. Don't surface them in the Agents API nav and don't delete them.
-- "Coming soon" catalog entries (the non-Hermes agent templates) are deliberately marked inactive — don't document them as available.
+- The system template catalog has one entry, `agent37-hermes`; the coming-soon agents (OpenClaw, Claude Code, Codex) are absent from the API entirely — mention them as coming, never as available.
 - Drafts go in `drafts/` or `*.draft.mdx` (ignored via `.mintignore`).
 
 ## Style

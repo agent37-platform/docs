@@ -39,7 +39,7 @@ The default port owns the bare instance URL (`https://{instanceId}.agent37.app`)
 
 | Port | URL | Serves |
 | --- | --- | --- |
-| `3737` | `https://ab12cd34ef.agent37.app` (default) | The gateway: [chat](/agents-api/chat) at `/v1/responses`, plus sessions, models, health |
+| `3737` | `https://ab12cd34ef.agent37.app` (default) | The gateway: [chat](/agents-api/chat) at `/v1/responses`, plus sessions, [files](/agents-api/files), models, health |
 | `9119` | `https://ab12cd34ef-9119.agent37.app` | Hermes dashboard (browser) |
 | `7681` | `https://ab12cd34ef-7681.agent37.app` | A shell in the container (browser) |
 | `8080` | `https://ab12cd34ef-8080.agent37.app` | File browser for the workspace (browser) |
@@ -122,7 +122,7 @@ console.log((await res.json()).url);
   Unix seconds when the URL stops working. Mint a fresh one when it expires.
 </ResponseField>
 
-The instance must be running, and `port` must be one it exposes (any port from the `ports` array, named or not). An optional `ttl_seconds` sets how long the URL lives, default `3600` (one hour), clamped to `[60, 86400]` (one minute to one day); pass a short value for a quick preview link or the max for a day-long share link. An unexposed or missing port, or a `ttl_seconds` that is not a positive integer, returns `400`; an unknown or cross-workspace instance returns `404`.
+The instance must be running, and `port` must be one it exposes (any port from the `ports` array, default or not). An optional `ttl_seconds` sets how long the URL lives, default `3600` (one hour), clamped to `[60, 86400]` (one minute to one day); pass a short value for a quick preview link or the max for a day-long share link. An unexposed or missing port, or a `ttl_seconds` that is not a positive integer, returns `400`; an unknown or cross-workspace instance returns `404`.
 
 The token rides in the `a37_token` query param. The edge consumes it (promoting it to the cookie) and strips it before forwarding, so it never reaches the instance and never collides with a query param your own app uses.
 
@@ -161,6 +161,10 @@ console.log(await res.json());
 ```
 
 </CodeGroup>
+
+<Note>
+  Use the gateway's `/v1/health` for this, not `/health`: the bare path `/health` is reserved by the platform edge, which answers `{ "ok": true }` itself — without authentication and without reaching your instance.
+</Note>
 
 ## HTTP, SSE, and WebSocket
 

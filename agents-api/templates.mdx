@@ -17,18 +17,14 @@ Templates come in two scopes. `system` templates are the built-in catalog, the s
 
 ## System catalog
 
-The `agent37-` prefix is reserved for system templates. The catalog has five entries:
+The `agent37-` prefix is reserved for system templates. The catalog has one entry today, the default:
 
-| Template | What it runs | Ports | Availability |
-| --- | --- | --- | --- |
-| `agent37-hermes` | Hermes, the general agent: chat, browsing, code, files. | `3737` (default), `9119`, `7681`, `8080` | Available today, the default |
-| `agent37-openclaw` | OpenClaw gateway agent. | `3737` (default), `7681`, `8080`, `6080` | Coming soon |
-| `agent37-claude-code` | Claude Code, for software work. | None yet | Coming soon |
-| `agent37-codex` | Codex, for software work. | None yet | Coming soon |
-| `agent37-all` | Hermes, Claude Code, Codex, and OpenClaw together. | None yet | Coming soon |
+| Template | What it runs | Ports |
+| --- | --- | --- |
+| `agent37-hermes` | Hermes, the general agent: chat, browsing, code, files. | `3737` (default), `9119`, `7681`, `8080` |
 
 <Note>
-  `GET /v1/templates` reports availability through `status`: `agent37-hermes` is `active`; coming-soon entries are `inactive` with `image_ref: null`. Creating an instance from a coming-soon template returns `409 template_unavailable`.
+  More system templates (OpenClaw, Claude Code, Codex) are coming; they will appear in `GET /v1/templates` when they are available. Passing any other `agent37-` name on instance create returns `400 invalid_request`, because the prefix is reserved.
 </Note>
 
 On `agent37-hermes`, port `3737` is the gateway: the [chat API](/agents-api/chat) at `https://{instanceId}.agent37.app`. Every declared port becomes an authenticated URL on the instance object after create; see [Instance URLs](/agents-api/urls).
@@ -132,7 +128,7 @@ Registration validates the reference's shape and stores the template as `active`
 `ghcr.io/agent37-platform/hermes-base` is the published FROM target for custom templates. It ships Hermes with its browser stack (Chromium, Playwright), the gateway that serves the [chat API](/agents-api/chat), and a general toolchain: git, Python 3 with uv, Node.js, build tools. There are no platform LLM credentials and no managed search or Composio integrations; you add your layers on top and bring your own model keys.
 
 ```dockerfile
-FROM ghcr.io/agent37-platform/hermes-base:2026.06.11a
+FROM ghcr.io/agent37-platform/hermes-base:2026.06.11c
 
 USER root
 RUN apt-get update && apt-get install -y postgresql-client
@@ -181,7 +177,7 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
   "scope": "system",
   "agents": ["hermes"],
   "status": "active",
-  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.11a",
+  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.11c",
   "description": "Hermes general agent: browser, code, files.",
   "ports": [
     { "port": 3737, "default": true },
@@ -201,13 +197,13 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
   `system` for built-in `agent37-` templates, `workspace` for ones you register.
 </ResponseField>
 <ResponseField name="agents" type="string[]">
-  The agents the template installs, for example `["hermes"]` on the system catalog.
+  The agents the template installs: `["hermes"]` on `agent37-hermes`. Workspace templates report `[]` — the platform does not inspect what your image installs.
 </ResponseField>
 <ResponseField name="status" type="string">
-  `active` (resolvable on instance create) or `inactive` (deactivated, or a catalog entry that is coming soon).
+  `active` (resolvable on instance create) or `inactive` (a deactivated workspace template).
 </ResponseField>
-<ResponseField name="image_ref" type="string | null">
-  The image the platform pulls. `null` on coming-soon catalog templates.
+<ResponseField name="image_ref" type="string">
+  The image the platform pulls.
 </ResponseField>
 <ResponseField name="description" type="string | null">
   Your optional description.
@@ -230,6 +226,6 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
 | `403` | `forbidden` | `PATCH` or `DELETE` on a system template: they are read-only |
 | `404` | `not_found` | Unknown template name; `DELETE` on an already-inactive template |
 | `409` | `template_conflict` | Create or rename onto a name that already exists |
-| `409` | `template_unavailable` | Instance create against a coming-soon catalog template or an inactive workspace template |
+| `409` | `template_unavailable` | Instance create or update against an inactive workspace template |
 
 See [Errors](/agents-api/errors) for the envelope and the full catalog.

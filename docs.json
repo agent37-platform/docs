@@ -43,7 +43,8 @@
         "group": "Agent API",
         "pages": [
           "agents-api/chat",
-          "agents-api/sessions"
+          "agents-api/sessions",
+          "agents-api/files"
         ]
       },
       {
@@ -119,7 +120,6 @@
   "redirects": [
     { "source": "/agents-api/quickstart", "destination": "/" },
     { "source": "/agents-api/messages", "destination": "/agents-api/chat" },
-    { "source": "/agents-api/files", "destination": "/agents-api/exec" },
     { "source": "/agents-api/embeds", "destination": "/agents-api/urls" },
     { "source": "/agents-api/scheduled-runs", "destination": "/agents-api/chat" },
     { "source": "/agents-api/integrations", "destination": "/agents-api/budgets" },
