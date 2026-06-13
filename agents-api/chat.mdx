@@ -1,13 +1,12 @@
 ---
 title: "Send a message"
 description: "The core call: POST /v1/responses on your instance URL runs a turn through your agent, streams or returns the result, and continues the thread."
+openapi: "/openapi/agent-api.json POST /v1/responses"
 ---
 
 `POST /v1/responses` is the core call. You make it against your instance, not against `api.agent37.com`: every instance serves its own chat API at `https://{instanceId}.agent37.app`, the `url` of the default port in the create response. This page uses `https://ab12cd34ef.agent37.app`. Authenticate with the same `sk_live_` key you use on the hosting API.
 
 The call is agentic by default: the agent can browse, run code, use a terminal, read and write files, call connected tools, and reason across many steps before answering.
-
-Omit `session_id` to start a conversation; the reply carries the `session_id` the gateway minted. Send it back to continue. The session keeps the full history, so you never resend a transcript: you send only the new input.
 
 ## Request body
 
@@ -293,20 +292,3 @@ A response moves from `in_progress` to exactly one terminal status.
 | `completed` | The turn finished and `output_text` holds the answer. |
 | `failed` | The turn ended on an error; `error` says why. |
 | `cancelled` | You stopped the turn with `cancel`. |
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Streaming" icon="activity" href="/agents-api/streaming">
-    The full event list and a client parser for `stream: true`.
-  </Card>
-  <Card title="Sessions" icon="history" href="/agents-api/sessions">
-    List threads, read history, delete a session, and pick a model.
-  </Card>
-  <Card title="Build a chat app" icon="messages" href="/agents-api/chat-app">
-    Put send, continue, and list together into a working chat.
-  </Card>
-  <Card title="Instances" icon="server" href="/agents-api/instances">
-    Create, size, and manage the computer a conversation runs on.
-  </Card>
-</CardGroup>

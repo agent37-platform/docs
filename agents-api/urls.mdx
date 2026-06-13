@@ -1,12 +1,13 @@
 ---
 title: "Instance URLs"
 description: "Reach the software running inside an instance over HTTPS, at a URL you can derive from the instance id."
+openapi: "/openapi/hosting-api.json POST /v1/instances/{id}/signed-url"
 ---
 
 Every instance with a default port is reachable at `https://{instanceId}.agent37.app`. The instance id is the DNS label, so instance `ab12cd34ef` lives at `https://ab12cd34ef.agent37.app`: you can construct the URL from the id alone, with no lookup step.
 
 <Info>
-  **Two planes, one key.** You manage instances on the hosting API at `https://api.agent37.com` (create, stop, delete). You talk to what runs inside an instance at its instance URL on `*.agent37.app`. The same `sk_live_` key authenticates both.
+  Instance URLs are the Agent API plane: you reach what runs *inside* an instance here, authenticated by the same `sk_live_` key as the hosting API. See [Core concepts](/agents-api/concepts).
 </Info>
 
 ## One URL per port
@@ -33,10 +34,6 @@ The default port owns the bare instance URL (`https://{instanceId}.agent37.app`)
 <ResponseField name="url" type="string">
   The HTTPS URL that routes to this port. Add the Bearer to call it directly, or mint a signed URL to open it in a browser.
 </ResponseField>
-
-<Tip>
-  You can construct any port's URL from the id and the port number — `https://{instanceId}-{port}.agent37.app` — or just read `url` from the `ports` array.
-</Tip>
 
 ### What `agent37-hermes` exposes
 
@@ -176,20 +173,3 @@ Plain HTTP requests, SSE streams, and WebSocket connections all pass end to end.
 ## Templates with no ports
 
 A [template](/agents-api/templates) that declares no ports produces a private sandbox: the instance runs, but nothing is routable and it has no URL at all (`ports` is empty). You can still drive it from the hosting API with [exec](/agents-api/exec), which runs shell commands inside the instance without any exposed port.
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Send a message" icon="send" href="/agents-api/chat">
-    Call `POST /v1/responses` on the bare instance URL.
-  </Card>
-  <Card title="Streaming" icon="activity" href="/agents-api/streaming">
-    Stream tokens over SSE from the same URL.
-  </Card>
-  <Card title="Templates" icon="template" href="/agents-api/templates">
-    Control which ports your instances expose.
-  </Card>
-  <Card title="Run commands" icon="terminal-2" href="/agents-api/exec">
-    Reach an instance with no ports at all.
-  </Card>
-</CardGroup>

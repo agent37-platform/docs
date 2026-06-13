@@ -1,0 +1,288 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Agent37 Hosting API",
+    "description": "The control plane: create and manage agent instances, templates, and budgets. Base URL https://api.agent37.com, authenticated with your sk_live_ key.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.agent37.com",
+      "description": "Hosting API (control plane)."
+    }
+  ],
+  "security": [
+    {
+      "apiKey": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Your Agent37 API key, prefixed with `Bearer ` — e.g. `Bearer sk_live_...`. Create one in the dashboard.",
+        "x-default": "Bearer "
+      }
+    },
+    "schemas": {
+      "Resources": {
+        "type": "object",
+        "description": "Instance shape. The cpu/memory pair must be one of 2/4, 4/8, 8/16; disk is GB within the shape's range.",
+        "properties": {
+          "cpu": { "type": "integer", "examples": [2] },
+          "memory": { "type": "integer", "description": "GB of RAM.", "examples": [4] },
+          "disk": { "type": "integer", "description": "GB of disk.", "examples": [6] }
+        }
+      },
+      "Budget": {
+        "type": "object",
+        "description": "Per-instance managed-spend caps, in micros (USD x 1,000,000).",
+        "properties": {
+          "monthly_cap_micros": { "type": "integer", "description": "Monthly managed-spend ceiling. Resets each UTC month. Default 0." },
+          "monthly_consumed_micros": { "type": "integer", "description": "Managed spend counted against the cap this month." },
+          "monthly_remaining_micros": { "type": "integer", "description": "Cap minus consumed, floored at 0." },
+          "monthly_period": { "type": "string", "description": "The UTC month the counters cover, formatted YYYY-MM." },
+          "topup_remaining_micros": { "type": "integer", "description": "One-time headroom left. Consumed after the monthly portion." },
+          "updated_at": { "type": ["integer", "null"], "description": "Epoch seconds of the last budget write; null if never written." }
+        }
+      },
+      "Instance": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "10-char lowercase alphanumeric id; doubles as the DNS label.", "examples": ["ab12cd34ef"] },
+          "status": { "type": "string", "enum": ["provisioning", "running", "stopping", "stopped", "starting", "restarting", "updating", "failed", "deleting", "deleted"] },
+          "template": { "type": "string", "examples": ["agent37-hermes"] },
+          "image_ref": { "type": "string" },
+          "resources": { "$ref": "#/components/schemas/Resources" },
+          "ports": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "port": { "type": "integer" },
+                "default": { "type": "boolean" },
+                "url": { "type": "string" }
+              }
+            }
+          },
+          "user": { "type": ["string", "null"], "description": "Your attribution tag, echoed back." },
+          "name": { "type": ["string", "null"] },
+          "metadata": { "type": ["object", "null"] },
+          "paid_through": { "type": ["integer", "null"], "description": "Epoch seconds when the prepaid compute day ends." },
+          "past_due": { "type": "boolean" },
+          "created": { "type": "integer", "description": "Creation time, epoch seconds." }
+        }
+      },
+      "Template": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "image_ref": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["active", "inactive"] },
+          "scope": { "type": "string", "enum": ["system", "workspace"] },
+          "ports": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "port": { "type": "integer" },
+                "default": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/v1/instances": {
+      "post": {
+        "summary": "Create an instance",
+        "description": "Provisions a computer running the agent and returns 201 once status is running. Every field is optional; a body-less POST creates the default template on the default shape. Debits one day of compute from the wallet.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "template": { "type": "string", "default": "agent37-hermes", "description": "A template name. Defaults to agent37-hermes. Direct image refs are rejected; register a template first." },
+                  "resources": { "$ref": "#/components/schemas/Resources" },
+                  "user": { "type": "string", "description": "An opaque attribution tag, typically your end user's id." },
+                  "name": { "type": "string" },
+                  "metadata": { "type": "object" },
+                  "budget": {
+                    "type": "object",
+                    "properties": {
+                      "monthly_cap_micros": { "type": "integer", "default": 0 },
+                      "topup_micros": { "type": "integer", "default": 0 }
+                    }
+                  }
+                }
+              },
+              "example": { "template": "agent37-hermes", "budget": { "topup_micros": 1000000 } }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "The instance, once running.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Instance" } } } }
+        }
+      },
+      "get": {
+        "summary": "List instances",
+        "description": "Returns { \"data\": [ ... ] }, newest first.",
+        "responses": {
+          "200": { "description": "The instance list.", "content": { "application/json": { "schema": { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Instance" } } } } } } }
+        }
+      }
+    },
+    "/v1/instances/{id}": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "The instance id." }],
+      "get": {
+        "summary": "Retrieve an instance",
+        "responses": { "200": { "description": "The instance.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Instance" } } } } }
+      },
+      "delete": {
+        "summary": "Delete an instance",
+        "description": "Stops billing and refunds the unused remainder, prorated. Acts once.",
+        "responses": { "200": { "description": "Deletion acknowledgement.", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "deleted": { "type": "boolean" } } } } } } }
+      }
+    },
+    "/v1/instances/{id}/stop": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "post": {
+        "summary": "Stop an instance",
+        "description": "Halts the container; data stays intact and the instance still bills. Takes no body.",
+        "responses": { "200": { "description": "Acknowledgement.", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "status": { "type": "string" } } } } } } }
+      }
+    },
+    "/v1/instances/{id}/start": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "post": {
+        "summary": "Start an instance",
+        "description": "Brings a stopped instance back up on its pinned host. Takes no body.",
+        "responses": { "200": { "description": "Acknowledgement.", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "status": { "type": "string" } } } } } } }
+      }
+    },
+    "/v1/instances/{id}/restart": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "post": {
+        "summary": "Restart an instance",
+        "description": "Recreates the container from the image already on the host. Takes no body.",
+        "responses": { "200": { "description": "Acknowledgement.", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "status": { "type": "string" } } } } } } }
+      }
+    },
+    "/v1/instances/{id}/update": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "post": {
+        "summary": "Update an instance to the template's current image",
+        "description": "Pulls the template's current image and recreates the container, preserving data. Must have no body.",
+        "responses": { "200": { "description": "Acknowledgement.", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "status": { "type": "string" }, "image_ref": { "type": "string" } } } } } } }
+      }
+    },
+    "/v1/instances/{id}/resize": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "post": {
+        "summary": "Resize an instance (grow only)",
+        "description": "Grows a running instance to a bigger shape. Omitted fields keep their current value. Resize only grows.",
+        "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Resources" }, "example": { "cpu": 4, "memory": 8 } } } },
+        "responses": { "200": { "description": "Acknowledgement.", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "status": { "type": "string" }, "resources": { "$ref": "#/components/schemas/Resources" } } } } } } }
+      }
+    },
+    "/v1/instances/{id}/exec": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "post": {
+        "summary": "Run a command",
+        "description": "Runs a shell command inside the instance via sh -c. A nonzero exit is still a 200; branch on exit_code.",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["command"], "properties": { "command": { "type": "string", "description": "The shell command, passed to sh -c." } } }, "example": { "command": "node --version" } } }
+        },
+        "responses": {
+          "200": { "description": "Command result.", "content": { "application/json": { "schema": { "type": "object", "properties": { "exit_code": { "type": "integer" }, "stdout": { "type": "string" }, "stderr": { "type": "string" }, "truncated": { "type": "boolean" } } } } } }
+        }
+      }
+    },
+    "/v1/instances/{id}/budget": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": {
+        "summary": "Read the budget",
+        "responses": { "200": { "description": "The budget object.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Budget" } } } } }
+      },
+      "patch": {
+        "summary": "Set the monthly cap",
+        "description": "Sets the cap for the current and future months. Takes effect immediately.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["monthly_cap_micros"], "properties": { "monthly_cap_micros": { "type": "integer", "description": "New monthly cap in micros. Non-negative." } } }, "example": { "monthly_cap_micros": 20000000 } } } },
+        "responses": { "200": { "description": "The budget object.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Budget" } } } } }
+      }
+    },
+    "/v1/instances/{id}/budget/top-up": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "post": {
+        "summary": "Add one-time headroom",
+        "description": "Adds to topup_remaining_micros. Pass an idempotency_key to make retries safe.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["amount_micros"], "properties": { "amount_micros": { "type": "integer", "description": "Headroom to add, in micros. Positive." }, "idempotency_key": { "type": "string", "description": "Up to 64 chars matching ^[A-Za-z0-9_-]{1,64}$." } } }, "example": { "amount_micros": 10000000, "idempotency_key": "june-burst-1" } } } },
+        "responses": { "200": { "description": "The budget object.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Budget" } } } } }
+      }
+    },
+    "/v1/instances/{id}/usage": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": {
+        "summary": "Read managed spend",
+        "description": "Returns the instance's managed-spend rollup for one UTC month.",
+        "parameters": [{ "name": "month", "in": "query", "required": false, "schema": { "type": "string" }, "description": "UTC month as YYYY-MM. Omit for the current month." }],
+        "responses": { "200": { "description": "The managed-spend rollup." } }
+      }
+    },
+    "/v1/instances/{id}/signed-url": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "post": {
+        "summary": "Mint a signed URL",
+        "description": "Returns a time-boxed, browser-openable URL for an exposed port, with no header needed. Hand it to a person's browser instead of sharing your key.",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["port"], "properties": { "port": { "type": "integer", "description": "A port the instance exposes." }, "ttl_seconds": { "type": "integer", "default": 3600, "description": "How long the URL lives. Clamped to [60, 86400]." } } }, "example": { "port": 9119 } } }
+        },
+        "responses": {
+          "200": { "description": "The signed URL.", "content": { "application/json": { "schema": { "type": "object", "properties": { "url": { "type": "string" }, "port": { "type": "integer" }, "expires_at": { "type": "integer", "description": "Unix seconds when the URL stops working." } } } } } }
+        }
+      }
+    },
+    "/v1/templates": {
+      "get": {
+        "summary": "List templates",
+        "description": "Returns { \"data\": [ ... ] }: the system catalog first, then your workspace templates sorted by name.",
+        "responses": { "200": { "description": "The template list.", "content": { "application/json": { "schema": { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Template" } } } } } } } }
+      },
+      "post": {
+        "summary": "Register a workspace template",
+        "description": "Registers a public amd64 image (<= 5 GB compressed) under a name you choose.",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["name", "image_ref"], "properties": { "name": { "type": "string", "description": "2-63 chars, ^[a-z][a-z0-9-]{1,62}$. The agent37- prefix is reserved." }, "image_ref": { "type": "string", "description": "Fully qualified public image reference, <= 255 chars, linux/amd64, <= 5 GB compressed." }, "description": { "type": "string" }, "ports": { "type": "array", "items": { "type": "object", "properties": { "port": { "type": "integer" }, "default": { "type": "boolean" } } } } } }, "example": { "name": "my-agent", "image_ref": "ghcr.io/acme/my-agent:v1", "ports": [{ "port": 8000, "default": true }] } } }
+        },
+        "responses": { "201": { "description": "The new workspace template.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Template" } } } } }
+      }
+    },
+    "/v1/templates/{name}": {
+      "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" }, "description": "The template name." }],
+      "get": {
+        "summary": "Retrieve a template",
+        "responses": { "200": { "description": "One template, system or workspace.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Template" } } } } }
+      },
+      "patch": {
+        "summary": "Update a template",
+        "description": "Changes any of name, image_ref, description, status, or ports. Send at least one field. System templates return 403.",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string" }, "image_ref": { "type": "string" }, "description": { "type": "string" }, "status": { "type": "string", "enum": ["active", "inactive"] }, "ports": { "type": "array", "items": { "type": "object", "properties": { "port": { "type": "integer" }, "default": { "type": "boolean" } } } } } }, "example": { "image_ref": "ghcr.io/acme/my-agent:v2" } } } },
+        "responses": { "200": { "description": "The updated template.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Template" } } } } }
+      },
+      "delete": {
+        "summary": "Deactivate a template",
+        "description": "Sets status to inactive. Acts once. System templates return 403.",
+        "responses": { "200": { "description": "Acknowledgement.", "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string" }, "deleted": { "type": "boolean" } } } } } } }
+      }
+    }
+  }
+}

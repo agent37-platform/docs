@@ -127,14 +127,3 @@ Upload, attach, fetch what the agent made:
 1. `POST /v1/files` with the input file; keep the returned `path`.
 2. `POST /v1/responses` with your `input` and the path in `files`.
 3. When the agent replies that it wrote a file, `GET /v1/files/content?path=…` to fetch it.
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Send a message" icon="send" href="/agents-api/chat">
-    The `files` field and every other dial on the core call.
-  </Card>
-  <Card title="Run commands" icon="terminal-2" href="/agents-api/exec">
-    The escape hatch for everything else, including quick text reads.
-  </Card>
-</CardGroup>

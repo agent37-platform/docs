@@ -10,6 +10,15 @@
   "icons": {
     "library": "tabler"
   },
+  "api": {
+    "playground": {
+      "display": "interactive",
+      "proxy": true
+    },
+    "examples": {
+      "languages": ["bash", "python", "javascript"]
+    }
+  },
   "favicon": "/favicon.svg",
   "navigation": {
     "groups": [
@@ -17,7 +26,6 @@
         "group": "Get started",
         "pages": [
           "index",
-          "agents-api/quickstart",
           "agents-api/concepts"
         ]
       },
@@ -35,7 +43,6 @@
         "group": "Agent API",
         "pages": [
           "agents-api/chat",
-          "agents-api/streaming",
           "agents-api/sessions",
           "agents-api/files"
         ]
@@ -49,6 +56,7 @@
       {
         "group": "Reference",
         "pages": [
+          "agents-api/streaming",
           "agents-api/billing",
           "agents-api/errors"
         ]
@@ -94,7 +102,7 @@
     "primary": {
       "type": "button",
       "label": "Open dashboard",
-      "href": "https://www.agent37.com/dashboard"
+      "href": "https://www.agent37.com/dashboard/cloud"
     }
   },
   "contextual": {
@@ -110,6 +118,7 @@
    ]
   },
   "redirects": [
+    { "source": "/agents-api/quickstart", "destination": "/" },
     { "source": "/agents-api/messages", "destination": "/agents-api/chat" },
     { "source": "/agents-api/embeds", "destination": "/agents-api/urls" },
     { "source": "/agents-api/scheduled-runs", "destination": "/agents-api/chat" },

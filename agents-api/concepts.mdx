@@ -3,7 +3,7 @@ title: "Core concepts"
 description: "The two planes, the resource model, and the money model behind every Agent37 Cloud call."
 ---
 
-Agent37 Cloud is two APIs that share one key, and three resources that nest. An **instance** is the agent's computer, a **session** is a conversation on it, and a **response** is a single turn.
+Agent37 Cloud is two APIs that share one key, and three resources that nest.
 
 ## Two planes, one key
 
@@ -36,7 +36,7 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 | **Response** | One agentic turn: your input, the agent's work, its reply. Stream it live or fetch it by id. |
 
 <Info>
-  **The agent is not the model.** The *template* installs the agent software, the *gateway* inside the instance runs your sessions on it (Hermes is the live agent today; OpenClaw, Claude Code, and Codex are coming soon), and the *model* is the LLM the agent thinks with, chosen per turn as `model` + `provider`. They are separate dials.
+  **The agent is not the model.** The *template* installs the agent software, the *gateway* inside the instance runs your sessions on it (Hermes is the live agent today; OpenClaw, Claude Code, and Codex are coming soon), and the *model* is the LLM the agent thinks with, chosen per turn as `model` + `provider`.
 </Info>
 
 ### How they fit together
@@ -61,7 +61,7 @@ Your workspace has exactly one pot of money: the wallet, funded by top-up from t
 - **Compute.** Each instance bills hourly, prepaid one day at a time: a day at create, then a day on each renewal. See [Billing](/agents-api/billing).
 - **Managed usage.** Every instance gets managed LLM, Brave search, and Composio credentials, metered at cost as the agent uses them.
 
-Per-instance [budgets](/agents-api/budgets) are caps, not money. A budget bounds how much managed spend an instance may pull from the wallet: a monthly cap that resets each UTC month (default $0) plus one-time top-up headroom. Raising a cap moves no funds; an instance with a generous cap and an empty wallet still gets refused.
+Per-instance [budgets](/agents-api/budgets) are caps, not money. A budget bounds how much managed spend an instance may pull from the wallet: a monthly cap that resets each UTC month (default \$0) plus one-time top-up headroom. Raising a cap moves no funds; an instance with a generous cap and an empty wallet still gets refused.
 
 ## Conventions
 

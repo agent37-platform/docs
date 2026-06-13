@@ -1,6 +1,7 @@
 ---
 title: "Templates"
 description: "Name an image and the ports it serves once, then create every instance from that name."
+openapi: "/openapi/hosting-api.json GET /v1/templates"
 ---
 
 A template is a named image plus the ports it serves. Instances are always created from template names: pass `template` on [`POST /v1/instances`](/agents-api/instances), or omit it for the default `agent37-hermes`. Direct image references are rejected with `400 invalid_request`; register a template first, then pass its name.
@@ -124,7 +125,7 @@ Registration validates the reference's shape and stores the template as `active`
 
 ## Build on the Hermes base image
 
-`ghcr.io/agent37-platform/hermes-base` is the published FROM target for custom templates. It ships Hermes with its browser stack (Chromium, Playwright), the gateway that serves the [chat API](/agents-api/chat), and a general toolchain: git, Python 3 with uv, Node.js, build tools. It is deliberately clean. There are no platform LLM credentials and no managed search or Composio integrations; you add your layers on top and bring your own model keys.
+`ghcr.io/agent37-platform/hermes-base` is the published FROM target for custom templates. It ships Hermes with its browser stack (Chromium, Playwright), the gateway that serves the [chat API](/agents-api/chat), and a general toolchain: git, Python 3 with uv, Node.js, build tools. There are no platform LLM credentials and no managed search or Composio integrations; you add your layers on top and bring your own model keys.
 
 ```dockerfile
 FROM ghcr.io/agent37-platform/hermes-base:2026.06.11c
@@ -228,20 +229,3 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
 | `409` | `template_unavailable` | Instance create or update against an inactive workspace template |
 
 See [Errors](/agents-api/errors) for the envelope and the full catalog.
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Instances" icon="server" href="/agents-api/instances">
-    Create an instance from your template, then size and manage it.
-  </Card>
-  <Card title="Instance URLs" icon="link" href="/agents-api/urls">
-    Where each declared port becomes an authenticated URL.
-  </Card>
-  <Card title="Run commands" icon="terminal-2" href="/agents-api/exec">
-    Reach any instance, including private sandboxes, with exec.
-  </Card>
-  <Card title="Errors" icon="alert-triangle" href="/agents-api/errors">
-    Every code the API returns and how to branch on it.
-  </Card>
-</CardGroup>

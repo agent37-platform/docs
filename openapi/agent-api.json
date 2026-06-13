@@ -1,0 +1,177 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Agent37 Agent API",
+    "description": "The data plane: talk to one instance's agent. Every instance serves this API at https://{instanceId}.agent37.app, authenticated with the same sk_live_ key as the Hosting API.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://{instanceId}.agent37.app",
+      "description": "A running instance. Fill in the instance id from the create response.",
+      "variables": {
+        "instanceId": {
+          "default": "ab12cd34ef",
+          "description": "The 10-character instance id (the default port's URL host)."
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "apiKey": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Your Agent37 API key, prefixed with `Bearer ` — e.g. `Bearer sk_live_...`. Create one in the dashboard.",
+        "x-default": "Bearer "
+      }
+    },
+    "schemas": {
+      "Response": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "The response id. 32-char hex." },
+          "session_id": { "type": "string", "description": "The conversation this turn belongs to." },
+          "status": { "type": "string", "enum": ["in_progress", "completed", "failed", "cancelled"] },
+          "agent": { "type": "string" },
+          "model": { "type": ["string", "null"] },
+          "provider": { "type": ["string", "null"] },
+          "output_text": { "type": "string", "description": "The agent's final answer. Empty if none." },
+          "usage": {
+            "type": ["object", "null"],
+            "properties": {
+              "input_tokens": { "type": "integer" },
+              "output_tokens": { "type": "integer" },
+              "cost_usd": { "type": ["number", "null"] }
+            }
+          },
+          "error": { "type": ["object", "null"] },
+          "metadata": { "type": ["object", "null"] },
+          "created": { "type": "number", "description": "Turn start, epoch milliseconds." }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/v1/responses": {
+      "post": {
+        "summary": "Send a message",
+        "description": "Run one agentic turn. Omit session_id to start a conversation; reuse it to continue. A failed turn still returns HTTP 200 with status \"failed\".",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["input"],
+                "properties": {
+                  "input": { "type": "string", "description": "The message or task. Text only." },
+                  "session_id": { "type": "string", "description": "Continue an existing conversation. Omit to start a new one." },
+                  "stream": { "type": "boolean", "default": false, "description": "true returns a Server-Sent Events stream." },
+                  "model": { "type": "string", "description": "The LLM for this turn. Omit to use the session's current model." },
+                  "provider": { "type": "string", "description": "The model's provider, e.g. anthropic." },
+                  "reasoning_effort": { "type": "string", "enum": ["none", "minimal", "low", "medium", "high", "xhigh"] },
+                  "metadata": { "type": "object", "description": "Up to 16 key/value pairs, echoed back." },
+                  "agent": { "type": "string", "default": "hermes" },
+                  "mode": { "type": "string", "default": "chat", "enum": ["chat"] }
+                }
+              },
+              "example": {
+                "input": "Research the top 3 EV makers, write a memo."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The response object.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Response" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/responses/{id}": {
+      "get": {
+        "summary": "Fetch a response",
+        "description": "Returns the response object at any time, before or after the turn finishes.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "The response id." }
+        ],
+        "responses": {
+          "200": {
+            "description": "The response object.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Response" } } }
+          }
+        }
+      }
+    },
+    "/v1/responses/{id}/cancel": {
+      "post": {
+        "summary": "Cancel a running turn",
+        "description": "Best-effort stop of a running turn. Takes no body. Returns 200 with the current response object.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "The response id." }
+        ],
+        "responses": {
+          "200": {
+            "description": "The response object.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Response" } } }
+          }
+        }
+      }
+    },
+    "/v1/sessions": {
+      "get": {
+        "summary": "List sessions",
+        "description": "Every session on the instance, newest first, wrapped in { \"data\": [...] }. Metadata only, no history.",
+        "responses": {
+          "200": {
+            "description": "The session list.",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "data": { "type": "array", "items": { "type": "object" } } } } } }
+          }
+        }
+      }
+    },
+    "/v1/sessions/{id}": {
+      "get": {
+        "summary": "Retrieve a session with history",
+        "description": "Returns the session object plus history: the full transcript, in order.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "The session id." }
+        ],
+        "responses": {
+          "200": { "description": "The session object with history." }
+        }
+      },
+      "delete": {
+        "summary": "Delete a session",
+        "description": "Removes the conversation. Returns { \"id\": \"...\", \"deleted\": true }. Acts once.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "The session id." }
+        ],
+        "responses": {
+          "200": { "description": "Deletion acknowledgement." }
+        }
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "summary": "List models",
+        "description": "The models the instance's agent can run. Cached for about 60 seconds.",
+        "responses": {
+          "200": { "description": "The model list." }
+        }
+      }
+    }
+  }
+}

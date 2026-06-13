@@ -6,7 +6,7 @@ description: "Stable, machine-readable error codes on both planes: branch on the
 Every error uses a standard HTTP status code and returns a stable, machine-readable code in a JSON `error` field — an object with a `code` on both API catalogs, a flat string on transport failures between you and the gateway. Branch on the code, never on `message` or the HTTP status alone. There are two catalogs because there are two planes, plus a short list of transport errors.
 
 <Info>
-  The **Hosting API** (`https://api.agent37.com/v1/*`) manages instances, templates, and budgets. The **Agent API** is served by the gateway inside each instance at `https://{instanceId}.agent37.app` and handles chat, sessions, and models. Both take the same `sk_live_` Bearer key, but their error envelopes differ: the Agent API adds optional `param` and `hint` fields.
+  Both planes take the same `sk_live_` Bearer key, but their error envelopes differ: the Agent API adds optional `param` and `hint` fields. See [Core concepts](/agents-api/concepts) for the two planes.
 </Info>
 
 ## Hosting API errors
@@ -191,7 +191,7 @@ The same grouping works on the Hosting API: `insufficient_balance` sends your us
 
 <AccordionGroup>
   <Accordion title="insufficient_balance (402): the workspace wallet is empty" icon="wallet">
-    The workspace wallet cannot cover a charge. You see it in four places: at create, when the first day (billed in advance) cannot be debited; at create or resize beyond one instance, when the balance does not hold 30 days of compute for the whole fleet (the message names the exact amount); at `start`, when a `past_due` instance's next day cannot be re-debited; and inside agent behavior, when a managed call (LLM, Brave search, Composio) finds the wallet empty. The fix is the same everywhere: top up the wallet at `https://www.agent37.com/dashboard/cloud/billing` ($5 minimum, $1000 max per top-up), and enable [automatic top-up](/agents-api/billing#automatic-top-up) so it does not recur. See [Billing](/agents-api/billing).
+    The workspace wallet cannot cover a charge. You see it in four places: at create, when the first day (billed in advance) cannot be debited; at create or resize beyond one instance, when the balance does not hold 30 days of compute for the whole fleet (the message names the exact amount); at `start`, when a `past_due` instance's next day cannot be re-debited; and inside agent behavior, when a managed call (LLM, Brave search, Composio) finds the wallet empty. The fix is the same everywhere: top up the wallet at `https://www.agent37.com/dashboard/cloud/billing` (\$5 minimum, \$1000 max per top-up), and enable [automatic top-up](/agents-api/billing#automatic-top-up) so it does not recur. See [Billing](/agents-api/billing).
   </Accordion>
   <Accordion title="instance_budget_exhausted (402): this instance hit its budget" icon="gauge">
     The wallet has funds, but this instance has used up its own managed-spend budget: the monthly cap is consumed and no one-time top-up headroom remains. Only managed calls are refused; the instance keeps running and compute billing is unaffected. Raise the cap with `PATCH /v1/instances/{id}/budget` or add headroom with `POST /v1/instances/{id}/budget/top-up`. See [Budgets](/agents-api/budgets). You will not see this code on Hosting API calls: it surfaces when the agent's managed calls are refused mid-turn.
@@ -207,20 +207,3 @@ The same grouping works on the Hosting API: `insufficient_balance` sends your us
 <Note>
   Both 402 reasons are billing limits, not bugs. When a managed call is refused mid-turn, the refusal shows up in agent behavior (the turn fails or the agent reports it); the instance itself never goes down over managed spend.
 </Note>
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Billing" icon="credit-card" href="/agents-api/billing">
-    The prepaid wallet, top-ups, and monthly compute billing.
-  </Card>
-  <Card title="Budgets" icon="wallet" href="/agents-api/budgets">
-    Cap each instance's managed spend with monthly caps and top-ups.
-  </Card>
-  <Card title="Send a message" icon="send" href="/agents-api/chat">
-    The core call, its fields, and the response object.
-  </Card>
-  <Card title="Instances" icon="server" href="/agents-api/instances">
-    Create, size, and manage your agent's computer.
-  </Card>
-</CardGroup>

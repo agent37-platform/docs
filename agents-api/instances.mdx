@@ -1,6 +1,7 @@
 ---
 title: "Instances"
 description: "Create, size, and manage the persistent computer that runs your agent."
+openapi: "/openapi/hosting-api.json POST /v1/instances"
 ---
 
 An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance's computer is up and the agent inside finishes booting moments later — poll `GET /v1/health` on the instance URL until it answers `{ "ok": true }`, then message it at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance URLs](/agents-api/urls)).
@@ -39,15 +40,15 @@ Creating an instance debits one day of compute from your workspace wallet, and t
 
 | cpu | memory | disk | Price at the default disk |
 | --- | --- | --- | --- |
-| 2 | 4 GB | 6-20 GB | $4.94 per month (default) |
-| 4 | 8 GB | 20-40 GB | $10.60 per month |
-| 8 | 16 GB | 40-80 GB | $21.20 per month |
+| 2 | 4 GB | 6-20 GB | \$4.94 per month (default) |
+| 4 | 8 GB | 20-40 GB | \$10.60 per month |
+| 8 | 16 GB | 40-80 GB | \$21.20 per month |
 
-Disk above the range minimum adds $0.09 per GB per month. Compute bills hourly and is prepaid one day at a time: a day at create, then a day on each renewal. An instance bills for as long as it exists, stopped or running; deleting it refunds the unused remainder. See [Billing](/agents-api/billing).
+Disk above the range minimum adds \$0.09 per GB per month. Compute bills hourly and is prepaid one day at a time: a day at create, then a day on each renewal. An instance bills for as long as it exists, stopped or running; deleting it refunds the unused remainder. See [Billing](/agents-api/billing).
 
 ### Example
 
-The `topup_micros` of `1000000` gives the instance $1 of managed-spend headroom so its first chat works out of the box.
+The `topup_micros` of `1000000` gives the instance \$1 of managed-spend headroom so its first chat works out of the box.
 
 <CodeGroup>
 ```bash curl
@@ -139,7 +140,7 @@ const instance = await res.json();
 </ResponseField>
 
 <ResponseField name="ports" type="object[]">
-  The instance's routed ports, each `{ port, default, url }`. The default port's URL uses the instance id (`https://ab12cd34ef.agent37.app`, where the agent's chat API lives); every other port is reached at `https://{instanceId}-{port}.agent37.app`. Open any of them in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). See [Instance URLs](/agents-api/urls).
+  The instance's routed ports, each `{ port, default, url }`. The default port's URL uses the instance id (`https://ab12cd34ef.agent37.app`, where the agent's chat API lives); every other port is reached at `https://{instanceId}-{port}.agent37.app`. Open any of them in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). See [Instance URLs](/agents-api/urls) for the routing scheme.
 </ResponseField>
 
 <ResponseField name="user" type="string | null">
@@ -165,10 +166,6 @@ const instance = await res.json();
 <ResponseField name="created" type="integer">
   Creation time in epoch seconds.
 </ResponseField>
-
-<Note>
-  Hosting API timestamps are epoch seconds. Money fields are integers in micros, USD times 1e6.
-</Note>
 
 ## List, get, delete
 
@@ -279,20 +276,3 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
 | `409 capacity_unavailable` | Start when the pinned host cannot re-reserve the instance's compute, or resize when it cannot fit the increase. |
 
 See [Errors](/agents-api/errors) for the full catalog and the error envelope.
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Send a message" icon="send" href="/agents-api/chat">
-    Send the instance its first message at its own URL.
-  </Card>
-  <Card title="Instance URLs" icon="link" href="/agents-api/urls">
-    How the id becomes a URL, and what the other ports are.
-  </Card>
-  <Card title="Budgets" icon="wallet" href="/agents-api/budgets">
-    Cap and top up each instance's managed spend.
-  </Card>
-  <Card title="Billing" icon="credit-card" href="/agents-api/billing">
-    The wallet, daily compute prepay, and refunds.
-  </Card>
-</CardGroup>

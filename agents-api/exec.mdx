@@ -1,11 +1,12 @@
 ---
 title: "Run commands"
 description: "Run any shell command inside an instance from your backend, the escape hatch for anything the API does not wrap."
+openapi: "/openapi/hosting-api.json POST /v1/instances/{id}/exec"
 ---
 
 `POST /v1/instances/{id}/exec` runs a shell command inside the instance, straight from your backend. It is the escape hatch for anything the API does not wrap as its own call.
 
-The command runs through `sh -c` as the image's default user, on the same box the agent works on, so it sees the agent's files, tools, and credentials. Anything you would do in a terminal, you do here without one: install a package, write a config file, run a script, or inspect state while debugging.
+The command runs through `sh -c` as the image's default user, on the same box the agent works on, so it sees the agent's files, tools, and credentials.
 
 <Warning>
   `exec` takes your `sk_live_` key and runs arbitrary commands inside the instance. Keep it server-side, behind your own checks. There is no end-user token for it.
@@ -111,16 +112,3 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
 ```
 
 For binary or large files, use the [files endpoints](/agents-api/files) on the instance URL instead — `GET /v1/files/content` streams a download of any size, with no 512 KB cap — or stage them at a URL your backend controls and `curl` them down from inside the instance.
-
-It is also how you edit the agent's config or bring your own provider keys from your backend, with no terminal in the loop.
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Send a message" icon="send" href="/agents-api/chat">
-    Talk to the agent itself at `https://ab12cd34ef.agent37.app`.
-  </Card>
-  <Card title="Instance URLs" icon="link" href="/agents-api/urls">
-    How every instance and port gets its own routed URL.
-  </Card>
-</CardGroup>
