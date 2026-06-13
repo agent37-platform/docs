@@ -54,7 +54,7 @@ You create an agent with one call, then talk to it with the next. Files, connect
       "id": "ab12cd34ef",
       "status": "running",
       "template": "agent37-hermes",
-      "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.09",
+      "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.11c",
       "resources": { "cpu": 2, "memory": 4, "disk": 6 },
       "ports": [
         { "port": 3737, "default": true, "url": "https://ab12cd34ef.agent37.app" },
@@ -65,9 +65,9 @@ You create an agent with one call, then talk to it with the next. Files, connect
       "user": null,
       "name": null,
       "metadata": null,
-      "paid_through": 1783641600,
+      "paid_through": 1781308800,
       "past_due": false,
-      "created": 1781049600
+      "created": 1781222400
     }
     ```
     </CodeGroup>
@@ -150,7 +150,7 @@ You create an agent with one call, then talk to it with the next. Files, connect
 </Steps>
 
 <Note>
-  Done experimenting? `DELETE /v1/instances/{id}` refunds the unused remainder of the month to your wallet, prorated to the exact time used. See [Billing](/agents-api/billing).
+  Done experimenting? `DELETE /v1/instances/{id}` refunds the unused remainder of the instance's prepaid day to your wallet, prorated (a minimum of one hour is billed). See [Billing](/agents-api/billing).
 </Note>
 
 ## Next steps

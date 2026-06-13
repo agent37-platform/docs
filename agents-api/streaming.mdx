@@ -5,7 +5,7 @@ description: "Stream a reply as named Server-Sent Events from your instance URL,
 
 Send `stream: true` on [a message](/agents-api/chat) and the reply comes back as Server-Sent Events. Each event is named, so you can render text, reasoning, and tool activity live. Events arrive in order, and the terminal `response.completed` event carries the final `output_text` and `usage`.
 
-The base URL is your instance URL: `https://{instanceId}.agent37.app`, with the same `sk_live_` Bearer on every request. This page documents the streaming contract of gateway v0.1.0, the API every instance serves.
+The base URL is your instance URL: `https://{instanceId}.agent37.app`, with the same `sk_live_` Bearer on every request. This page documents the gateway's streaming contract, the API every instance serves.
 
 ## Start a stream
 
@@ -64,7 +64,7 @@ There are exactly eight event types:
 
 Rules the stream always follows:
 
-- `response.created` is always first, and exactly one terminal event (`response.completed` or `response.failed`) ends every stream.
+- `response.created` is always first, and exactly one terminal event (`response.completed` or `response.failed`) ends every live stream.
 - Every 30 seconds the gateway writes the comment line `:keepalive`, whether or not events are flowing. Comments are not events: ignore any line starting with `:`.
 - There is no `[DONE]` sentinel. The server closes the connection right after the terminal event; terminal event plus close is end of stream.
 - Once streaming starts, failures arrive as a `response.failed` event with the standard error body, never as an HTTP error status.
@@ -86,7 +86,7 @@ curl -N https://ab12cd34ef.agent37.app/v1/responses/c91d2a7e84f04b6f9a3d5e1c0b87
   -H "Authorization: Bearer sk_live_..."
 ```
 
-While the run is live, the gateway replays the entire ordered event buffer from `response.created` onward, then stays attached for the rest of the run. If the run just finished, it replays the buffer and ends.
+While the run is live, the gateway replays the entire ordered event buffer from `response.created` onward, then stays attached for the rest of the run. If the run just finished, it replays the buffer and ends. The buffer holds up to 100,000 events per run; the rare run that exceeds it stops buffering, so a reconnect replays the first 100,000 events and may end without the terminal event. The finished turn — terminal event and all — is always available from `GET /v1/responses/{id}`.
 
 <Note>
   **The answer is never lost.** Reconnect any time and you get the final `output_text`, even after the turn is over. One caveat: about 60 seconds after a turn finishes, the in-memory buffer expires and the replay is synthesized from storage as `response.created`, one `response.output_text.delta` carrying the full text (omitted when the turn produced none), then the terminal event. Reasoning and tool-call events from the original run are not preserved in that synthesized replay.

@@ -28,15 +28,15 @@ Compute is priced from the instance's `resources`:
 | RAM | $0.70 per GB per month |
 | Disk | $0.09 per GB per month |
 
-Applied to the three valid shapes:
+Applied to the three shapes at their default disk:
 
-| Shape | Price per month |
-| ----- | --------------- |
-| 2 vCPU / 4 GB RAM / 6 GB disk (default) | $4.94 |
-| 4 vCPU / 8 GB RAM / 20 GB disk | $10.60 |
-| 8 vCPU / 16 GB RAM / 40 GB disk | $21.20 |
+| Shape | Price at the default disk |
+| ----- | ------------------------- |
+| 2 vCPU / 4 GB RAM / 6-20 GB disk (default) | $4.94 |
+| 4 vCPU / 8 GB RAM / 20-40 GB disk | $10.60 |
+| 8 vCPU / 16 GB RAM / 40-80 GB disk | $21.20 |
 
-See [Instances](/agents-api/instances) for how to pick a shape with `resources` on create.
+Disk is any whole number of GB within the shape's range and defaults to the range minimum; disk above the minimum adds $0.09 per GB per month. See [Instances](/agents-api/instances) for how to pick a shape with `resources` on create.
 
 ## The daily cycle
 
@@ -104,7 +104,7 @@ Managed LLM, Brave search, and Composio calls debit the same wallet at cost, but
 
 ## Ledger and spend visibility
 
-Every wallet movement lands in an append-only ledger: top-ups, the signup credit, day debits, prorated refunds, and managed usage. Review the ledger, your balance, and a per-instance spend breakdown at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). For managed spend on a single instance, `GET /v1/instances/{id}/usage` returns a monthly rollup; compute prepay is dashboard-only and never appears there.
+Every wallet movement is recorded: top-ups, the signup credit, day debits, and prorated refunds land in an append-only ledger, while managed usage is metered per call into its own usage ledger and shown as a per-instance spend breakdown. Review the ledger, your balance, and the spend breakdown at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). For managed spend on a single instance, `GET /v1/instances/{id}/usage` returns a monthly rollup; compute prepay is dashboard-only and never appears there.
 
 ## Next steps
 
