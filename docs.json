@@ -64,7 +64,6 @@
       {
         "group": "OpenClaw setup",
         "hidden": true,
-        "searchable": true,
         "pages": [
           "openclaw/overview",
           "channels/how-to-setup-whatsapp-openclaw",
