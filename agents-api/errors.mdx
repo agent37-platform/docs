@@ -29,7 +29,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
   A human-readable description. Safe to show, but do not parse it.
 </ResponseField>
 
-### Codes
+### Hosting API codes
 
 | Code | HTTP | When |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ Auth, instance lookup, and routing happen on the platform between you and the ga
 | `upstream_timeout` | 504 | A call produced no response headers for ~100 seconds — typically a wedged instance. The turn may still be running: recover the result through its session, and prefer `stream: true` to see progress. |
 | `internal_error` | 500 | Unexpected platform error. |
 
-### Codes
+### Agent API codes
 
 | Code | HTTP | When |
 | --- | --- | --- |
