@@ -1,7 +1,6 @@
 ---
 title: "Managed services & budgets"
 description: "Every instance ships with managed LLM, Brave search, and Composio credentials: metered at cost, gated by a per-instance budget you control."
-openapi: "/openapi/hosting-api.json GET /v1/instances/{id}/budget"
 ---
 
 Every instance is created with managed credentials for three services: LLM calls, web search (Brave), and app integrations (Composio). The agent uses them out of the box. Managed calls route and meter through Agent37, so there are no provider or integration keys for you to manage.
@@ -84,12 +83,12 @@ const instance = await (await fetch("https://api.agent37.com/v1/instances", {
 
 ## Endpoints
 
-| Action | Endpoint |
-| --- | --- |
-| Read the budget | `GET /v1/instances/{id}/budget` |
-| Set the monthly cap | `PATCH /v1/instances/{id}/budget` |
-| Add one-time headroom | `POST /v1/instances/{id}/budget/top-up` |
-| Read managed spend | `GET /v1/instances/{id}/usage` |
+| Method | Path | Returns |
+| --- | --- | --- |
+| `GET` | `/v1/instances/{id}/budget` | `200` the budget object |
+| `PATCH` | `/v1/instances/{id}/budget` | `200` the updated budget object |
+| `POST` | `/v1/instances/{id}/budget/top-up` | `200` the updated budget object |
+| `GET` | `/v1/instances/{id}/usage` | `200` `{ period, total_micros, by_integration }` |
 
 All three budget endpoints return the same budget object.
 

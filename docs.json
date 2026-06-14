@@ -10,15 +10,6 @@
   "icons": {
     "library": "tabler"
   },
-  "api": {
-    "playground": {
-      "display": "interactive",
-      "proxy": true
-    },
-    "examples": {
-      "languages": ["bash", "python", "javascript"]
-    }
-  },
   "favicon": "/favicon.svg",
   "navigation": {
     "groups": [

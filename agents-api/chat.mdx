@@ -1,7 +1,6 @@
 ---
 title: "Send a message"
 description: "The core call: POST /v1/responses on your instance URL runs a turn through your agent, streams or returns the result, and continues the thread."
-openapi: "/openapi/agent-api.json POST /v1/responses"
 ---
 
 `POST /v1/responses` is the core call. You make it against your instance, not against `api.agent37.com`: every instance serves its own chat API at `https://{instanceId}.agent37.app`, the `url` of the default port in the create response. This page uses `https://ab12cd34ef.agent37.app`. Authenticate with the same `sk_live_` key you use on the hosting API.
@@ -114,64 +113,58 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
 
 ## Example
 
-<Tabs>
-  <Tab title="Request">
-    <CodeGroup>
-    ```bash curl
-    curl https://ab12cd34ef.agent37.app/v1/responses \
-      -H "Authorization: Bearer sk_live_..." \
-      -H "Content-Type: application/json" \
-      -d '{
-        "input": "Research the top 3 EV makers, write a memo."
-      }'
-    ```
+<CodeGroup>
+```bash curl
+curl https://ab12cd34ef.agent37.app/v1/responses \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "Research the top 3 EV makers, write a memo."
+  }'
+```
 
-    ```python python
-    import requests
+```python python
+import requests
 
-    r = requests.post(
-        "https://ab12cd34ef.agent37.app/v1/responses",
-        headers={
-            "Authorization": "Bearer sk_live_...",
-            "Content-Type": "application/json",
-        },
-        json={"input": "Research the top 3 EV makers, write a memo."},
-    ).json()
-    ```
-
-    ```javascript node
-    const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
-      method: "POST",
-      headers: {
+r = requests.post(
+    "https://ab12cd34ef.agent37.app/v1/responses",
+    headers={
         "Authorization": "Bearer sk_live_...",
         "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        input: "Research the top 3 EV makers, write a memo.",
-      }),
-    })).json();
-    ```
-    </CodeGroup>
-  </Tab>
+    },
+    json={"input": "Research the top 3 EV makers, write a memo."},
+).json()
+```
 
-  <Tab title="Response">
-    ```json
-    {
-      "id": "c91d2a7e84f04b6f9a3d5e1c0b87f4a2",
-      "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
-      "status": "completed",
-      "agent": "hermes",
-      "model": null,
-      "provider": null,
-      "output_text": "Memo: the top 3 EV makers...",
-      "usage": { "input_tokens": 1840, "output_tokens": 920, "cost_usd": 0.0137 },
-      "error": null,
-      "metadata": null,
-      "created": 1781136000000
-    }
-    ```
-  </Tab>
-</Tabs>
+```javascript node
+const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer sk_live_...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    input: "Research the top 3 EV makers, write a memo.",
+  }),
+})).json();
+```
+
+```json response
+{
+  "id": "c91d2a7e84f04b6f9a3d5e1c0b87f4a2",
+  "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+  "status": "completed",
+  "agent": "hermes",
+  "model": null,
+  "provider": null,
+  "output_text": "Memo: the top 3 EV makers...",
+  "usage": { "input_tokens": 1840, "output_tokens": 920, "cost_usd": 0.0137 },
+  "error": null,
+  "metadata": null,
+  "created": 1781136000000
+}
+```
+</CodeGroup>
 
 <Tip>
   Set `stream: true` to receive Server-Sent Events as the agent reasons, calls tools, and writes its answer. The terminal event carries the final `output_text` and `usage`. See [Streaming](/agents-api/streaming).
@@ -266,11 +259,11 @@ To list a user's threads, read a thread's history, delete one, or pick a model, 
 
 Every response has an id you can use after the call returns.
 
-| Action | Endpoint |
-| --- | --- |
-| Fetch it again | `GET /v1/responses/{id}` |
-| Reconnect a dropped stream | `GET /v1/responses/{id}/stream` |
-| Stop a running turn | `POST /v1/responses/{id}/cancel` |
+| Method | Path | Returns |
+| --- | --- | --- |
+| `GET` | `/v1/responses/{id}` | `200` the response object |
+| `GET` | `/v1/responses/{id}/stream` | `200` an SSE stream: replays all events, then attaches live |
+| `POST` | `/v1/responses/{id}/cancel` | `200` the current response object |
 
 `GET /v1/responses/{id}` returns the response object at any time, before or after the turn finishes.
 

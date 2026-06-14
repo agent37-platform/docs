@@ -1,20 +1,22 @@
 ---
 title: "Sessions & models"
 description: "List, read, and delete conversations on an instance, and see which models its agent can run."
-openapi: "/openapi/agent-api.json GET /v1/sessions"
 ---
 
 A session is one conversation on an instance. An instance holds many sessions, one per thread, and each session keeps its own full history, so you only ever send the new input. These endpoints are served by the gateway running inside the instance.
 
 Everything on this page lives on the instance URL, not the hosting API: the base is `https://{instanceId}.agent37.app`, with the same `Authorization: Bearer sk_live_...` header. The platform edge authenticates the key and checks the instance belongs to your workspace, then the gateway answers. See [Instance URLs](/agents-api/urls).
 
-| Action | Endpoint |
-| --- | --- |
-| List sessions | `GET /v1/sessions` |
-| Retrieve, with history | `GET /v1/sessions/{id}` |
-| Delete | `DELETE /v1/sessions/{id}` |
-| List models | `GET /v1/models` |
-| Health and version | `GET /v1/health` · `GET /v1/version` |
+## Endpoints
+
+| Method | Path | Returns |
+| --- | --- | --- |
+| `GET` | `/v1/sessions` | `200` `{ "data": [...] }`, newest first, each the session object |
+| `GET` | `/v1/sessions/{id}` | `200` the session object with its full `history` |
+| `DELETE` | `/v1/sessions/{id}` | `200` `{ "id": "...", "deleted": true }` |
+| `GET` | `/v1/models` | `200` `{ default_model, default_provider, data }` |
+| `GET` | `/v1/health` | `200` `{ "ok": true, "hermes": true }` |
+| `GET` | `/v1/version` | `200` `{ name, version }` |
 
 <Note>
   You never create a session directly. The first [`POST /v1/responses`](/agents-api/chat) without a `session_id` mints one and returns its id; reuse that id to continue the thread.
