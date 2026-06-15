@@ -7,10 +7,6 @@ description: "Run any shell command inside an instance from your backend, the es
 
 The command runs through `sh -c` as the image's default user, on the same box the agent works on, so it sees the agent's files, tools, and credentials.
 
-<Warning>
-  `exec` takes your `sk_live_` key and runs arbitrary commands inside the instance. Keep it server-side, behind your own checks. There is no end-user token for it.
-</Warning>
-
 ## Request
 
 <ParamField body="command" type="string" required>

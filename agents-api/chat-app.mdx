@@ -19,7 +19,7 @@ The snippets below use a small shorthand client so the calls stay readable. `api
 
 ```javascript node
 const HEADERS = {
-  Authorization: `Bearer ${process.env.AGENT37_API_KEY}`, // sk_live_..., server-side only
+  Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
   "Content-Type": "application/json",
 };
 
@@ -39,10 +39,6 @@ const api = makeClient("https://api.agent37.com");
 const agentOf = (id) => makeClient(`https://${id}.agent37.app`);
 ```
 
-<Warning>
-  Route every call through your server. The `sk_live_` key is workspace-scoped — it can read and manage every instance in your workspace — so it must never reach the browser.
-</Warning>
-
 ## The shape of it
 
 <Steps>
@@ -61,7 +57,7 @@ const agentOf = (id) => makeClient(`https://${id}.agent37.app`);
     // https://ab12cd34ef.agent37.app
     ```
 
-    Omitting `template` gives you `agent37-hermes`, the default, on the default 2 vCPU / 4 GB RAM / 6 GB disk shape, billed at \$4.94 per month from your workspace wallet (see [Billing](/agents-api/billing)). The \$1 `budget.topup_micros` grants one-time managed-spend headroom so the agent's LLM calls work from the first message; without it the per-instance [budget](/agents-api/budgets) defaults to \$0.
+    Omitting `template` gives you `agent37-hermes`, the default, on the default 2 vCPU / 4 GB RAM / 6 GB disk shape, billed from your workspace wallet (see [Billing](/agents-api/billing)). The `budget.topup_micros` field grants one-time managed-spend headroom so the agent's LLM calls work from the first message; without it the per-instance [budget](/agents-api/budgets) defaults to \$0.
 
     The call is synchronous and returns `201` with `status: "running"`: the instance's computer is up. The agent inside is still booting — usually seconds, but up to a few minutes on a cold host — so before the first message poll `GET /v1/health` on the instance URL until it answers with `"ok": true` (see [Health and version](/agents-api/sessions#health-and-version)). Store `inst.id` on the user row.
   </Step>

@@ -49,7 +49,7 @@ So for the default [template](/agents-api/templates), chat is just the bare URL 
 
 A port accepts either credential, so you can reach the same port two ways:
 
-- **Bearer** for programmatic, server-side calls.
+- **Bearer** for API calls.
 - **Signed URL** for handing a browser tab to a person.
 
 ### Bearer (programmatic)
@@ -62,11 +62,7 @@ Authorization: Bearer sk_live_...
 
 The platform edge authenticates the key, checks that the instance belongs to your workspace, and forwards the request to the instance's port. A request without a credential gets `401`; a key from another workspace gets `404`.
 
-The Bearer is a header, so it is for server-side and programmatic use: a plain browser tab has no way to send it on navigation. To open a browser surface like the dashboard, terminal, or file browser, mint a signed URL instead.
-
-<Warning>
-  The Bearer token is your workspace API key. Never embed an instance URL plus the key in client side code; anyone holding the key can call every instance in the workspace.
-</Warning>
+The Bearer is a header. To open a browser surface like the dashboard, terminal, or file browser, mint a signed URL instead.
 
 ### Browser access with signed URLs
 
@@ -125,7 +121,7 @@ The instance must be running, and `port` must be one it exposes (any port from t
 
 The token rides in the `a37_token` query param. The edge consumes it (promoting it to the cookie) and strips it before forwarding, so it never reaches the instance and never collides with a query param your own app uses.
 
-This is how you give your own users browser access without sharing the `sk_live_` key: your backend holds the key, mints a signed URL on demand, and hands the link to the browser. The link is the only credential it carries, and it expires.
+For user-facing browser access, mint the signed URL on demand and hand the link to the browser. The link is the only credential it carries, and it expires.
 
 ## Call an instance
 
