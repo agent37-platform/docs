@@ -16,11 +16,14 @@ Templates come in two scopes. `system` templates are the built-in catalog, the s
 
 ## System catalog
 
-The `agent37-` prefix is reserved for system templates. The catalog has one entry today, the default:
+The `agent37-` prefix is reserved for system templates. The catalog has two entries today:
 
 | Template | What it runs | Ports |
 | --- | --- | --- |
 | `agent37-hermes` | Hermes, the general agent: chat, browsing, code, files. | `3737` (default), `9119`, `7681`, `8080` |
+| `agent37-hermes-small` | Hermes, lean: chat, code, files, shell. No browser or desktop. | `3737` (default), `7681`, `8080` |
+
+`agent37-hermes-small` is the only template that can run on the sub-floor 1 vCPU / 2 GB and 1 vCPU / 3 GB shapes, from \$2.74 per month; see [sizing](/agents-api/instances). Standard and custom templates start at 2 vCPU / 4 GB.
 
 <Note>
   More system templates (OpenClaw, Claude Code, Codex) are coming; they will appear in `GET /v1/templates` when they are available. Passing any other `agent37-` name on instance create returns `400 invalid_request`, because the prefix is reserved.
@@ -127,7 +130,7 @@ Registration validates the reference's shape and stores the template. The image 
 `ghcr.io/agent37-platform/hermes-base` is the published FROM target for custom templates. It ships Hermes with its browser stack (Chromium, Playwright), the gateway that serves the [chat API](/agents-api/chat), and a general toolchain: git, Python 3 with uv, Node.js, build tools. There are no platform LLM credentials and no managed search or Composio integrations; you add your layers on top and bring your own model keys.
 
 ```dockerfile
-FROM ghcr.io/agent37-platform/hermes-base:2026.06.11c
+FROM ghcr.io/agent37-platform/hermes-base:2026.06.14
 
 USER root
 RUN apt-get update && apt-get install -y postgresql-client
@@ -175,7 +178,7 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
   "name": "agent37-hermes",
   "scope": "system",
   "agents": ["hermes"],
-  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.11c",
+  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.14",
   "description": "Hermes general agent: browser, code, files.",
   "ports": [
     { "port": 3737, "default": true },
