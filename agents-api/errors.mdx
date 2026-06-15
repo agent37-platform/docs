@@ -73,11 +73,11 @@ Errors from the gateway at `https://{instanceId}.agent37.app/v1/*` use the same 
 
 ### Transport errors
 
-Auth, instance lookup, and routing happen on the platform between you and the gateway, and rejections there use a flat string instead of the envelope: `{"error": "<code>"}`. Check whether `error` is a string before reading `code`.
+Auth, instance lookup, and routing happen on the platform between you and the gateway, and rejections there use a flat string instead of the envelope: `{"error": "<code>"}`. Some carry a human-readable `message` (and, on a 401 with no credentials, a `docs` link); branch on the code, not on either. Check whether `error` is a string before reading `code`.
 
 | Code | HTTP | When |
 | --- | --- | --- |
-| `invalid_api_key` | 401 | Missing or invalid key. |
+| `invalid_api_key` | 401 | No credential, or a key or signed URL that did not verify. The `message` says which, and how to authenticate a browser request. |
 | `not_found` | 404 | An instance URL that does not route: unknown, deleted, `failed`, or another workspace's. |
 | `container_unavailable` | 502 | The instance is not running, typically `stopped`. Start it and retry. |
 | `container_unreachable` | 502 | The instance is up but its service did not answer on the routed port — common briefly during a restart or update. Transient; retry. |
