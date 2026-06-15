@@ -12,18 +12,14 @@ Agent37 Cloud gives every user their own hosted agent computer. Create an instan
 ![Agent37 Cloud routes requests from your app to isolated agent instances.](/images/agent37-gateway-flow.svg)
 
 <Steps>
-  <Step title="Get a key and fund your wallet">
+  <Step title="Get a key">
     Mint an API key at [www.agent37.com/dashboard/cloud/api-keys](https://www.agent37.com/dashboard/cloud/api-keys). The full `sk_live_...` key is shown once, at creation. Send it as a Bearer token on every request.
 
-    Then add funds to your workspace wallet at [www.agent37.com/dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). New workspaces start with a \$1 credit, enough to create an instance; add about \$10 so the agent's managed LLM calls have room to run. [Billing](/agents-api/billing) covers pricing, fleet balance, and top-up rules.
-
-    <Warning>
-      Keep the key server-side. Never ship it to a browser or end user: it controls every instance in your workspace.
-    </Warning>
+    New workspaces include enough credit to create one instance. Add funds from [billing](https://www.agent37.com/dashboard/cloud/billing) before you run more than one instance. [Billing](/agents-api/billing) covers pricing, fleet balance, and top-up rules.
   </Step>
 
   <Step title="Create an instance">
-    `POST /v1/instances` provisions a computer running the default `agent37-hermes` template and returns `201` once its `status` is `running`. Every field is optional, but include a small budget top-up: managed LLM calls are off until you give the instance spending headroom, and \$1 (`1000000` micros) is plenty to start.
+    `POST /v1/instances` provisions a computer running the default `agent37-hermes` template and returns `201` once its `status` is `running`. Every field is optional, but include managed-spend headroom if you want built-in LLM calls to work from the first message.
 
     <CodeGroup>
     ```bash curl
