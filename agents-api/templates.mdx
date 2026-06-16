@@ -112,7 +112,7 @@ console.log(await resp.json());
 
 </CodeGroup>
 
-Registration validates the reference's shape and stores the template as `active` right away. The image is pulled lazily, the first time you create or update an instance from the template. A bad reference surfaces there as a failed create: the create returns `502 provisioning_failed` and the prepaid day is refunded in full.
+Registration validates the reference's shape and stores the template. The image is pulled lazily, the first time you create or update an instance from the template. A bad reference surfaces there as a failed create: the create returns `502 provisioning_failed` and the prepaid day is refunded in full.
 
 <Tip>
   Pin a tag on `image_ref`; do not rely on `latest`. A pinned tag makes rollback a one-field `PATCH` and keeps every instance you create reproducible.
@@ -148,7 +148,7 @@ The contract:
 
 ## Update a template
 
-`PATCH /v1/templates/{name}` changes any of `name`, `image_ref`, `description`, `status` (`active` or `inactive`), or `ports`. Send at least one field. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
+`PATCH /v1/templates/{name}` changes any of `name`, `image_ref`, `description`, or `ports`. Send at least one field. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
 
 ```bash curl
 curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
@@ -157,11 +157,11 @@ curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
   -d '{ "image_ref": "ghcr.io/acme/my-agent:v2" }'
 ```
 
-Point `image_ref` at an older tag to roll back, or set `status` to `inactive` to stop new instances from resolving the template (instance create against an inactive template returns `409 template_unavailable`). Existing instances keep running on the image they already pulled; [update each instance](/agents-api/instances) to recreate it from the template's current `image_ref`.
+Point `image_ref` at an older tag to roll back. Existing instances keep running on the image they already pulled; [update each instance](/agents-api/instances) to recreate it from the template's current `image_ref`.
 
-## Deactivate a template
+## Delete a template
 
-`DELETE /v1/templates/{name}` deactivates the template (sets `status` to `inactive`) and acts once: the first call returns `200` with `{ "name": "my-agent", "deleted": true }`, and a repeat or an already-inactive template returns `404`. System templates return `403`. Existing instances created from it keep running.
+`DELETE /v1/templates/{name}` removes the workspace template and acts once: the first call returns `200` with `{ "name": "my-agent", "deleted": true }`, and a repeat returns `404`. System templates return `403`. Existing instances created from it keep running.
 
 ```bash curl
 curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
@@ -175,7 +175,6 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
   "name": "agent37-hermes",
   "scope": "system",
   "agents": ["hermes"],
-  "status": "active",
   "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.11c",
   "description": "Hermes general agent: browser, code, files.",
   "ports": [
@@ -198,9 +197,6 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
 <ResponseField name="agents" type="string[]">
   The agents the template installs: `["hermes"]` on `agent37-hermes`. Workspace templates report `[]` — the platform does not inspect what your image installs.
 </ResponseField>
-<ResponseField name="status" type="string">
-  `active` (resolvable on instance create) or `inactive` (a deactivated workspace template).
-</ResponseField>
 <ResponseField name="image_ref" type="string">
   The image the platform pulls.
 </ResponseField>
@@ -221,10 +217,9 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
 
 | Status | Code | When |
 | --- | --- | --- |
-| `400` | `invalid_request` | Bad `name`, `image_ref`, `ports`, or `status`; a direct image reference passed as `template` on instance create |
+| `400` | `invalid_request` | Bad `name`, `image_ref`, or `ports`; a direct image reference passed as `template` on instance create |
 | `403` | `forbidden` | `PATCH` or `DELETE` on a system template: they are read-only |
-| `404` | `not_found` | Unknown template name; `DELETE` on an already-inactive template |
+| `404` | `not_found` | Unknown template name; repeat `DELETE` |
 | `409` | `template_conflict` | Create or rename onto a name that already exists |
-| `409` | `template_unavailable` | Instance create or update against an inactive workspace template |
 
 See [Errors](/agents-api/errors) for the envelope and the full catalog.

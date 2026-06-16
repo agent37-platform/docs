@@ -41,7 +41,6 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | `instance_limit_reached` | 409 | The workspace is at its instance limit: one instance on the free credit, 10 once you have topped up. Contact support to raise it. |
 | `capacity_unavailable` | 409 | `start` or `resize`: the pinned host cannot re-reserve this instance's compute, or fit the resize increase, right now. |
 | `template_conflict` | 409 | A template create or rename targets a name that already exists. |
-| `template_unavailable` | 409 | An instance create or update names a workspace template that is inactive. |
 | `no_capacity` | 503 | Create only: no host can fit the requested shape right now. Safe to retry. |
 | `provisioning_failed` | 502/500 | A container or host operation failed (image pull, container start, lifecycle action). Failed creates are fully refunded. |
 
