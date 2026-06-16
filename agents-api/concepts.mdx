@@ -49,7 +49,7 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 
 A template declares which ports its image listens on, with at most one marked `default`. When you create an instance, it snapshots the template's ports, and the instance object returns a URL per port:
 
-- The **default port** gets the instance's own URL, `https://{instanceId}.agent37.app`. The default template, `agent37-hermes`, serves the gateway there, so the default port URL is the chat URL.
+- The **default port** gets the instance's own URL, `https://{instanceId}.agent37.app`. The default template, `agent37-hermes-small`, serves the gateway there, so the default port URL is the chat URL.
 - **Non-default ports** each get a derivable handle URL, `https://{instanceId}-{port}.agent37.app` — for example `https://ab12cd34ef-9119.agent37.app`.
 
 See [Instance URLs](/agents-api/urls) for how routing works, and [Templates](/agents-api/templates) for declaring ports on your own images.

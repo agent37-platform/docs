@@ -7,7 +7,7 @@ Billing is prepaid. You top up one workspace wallet in the dashboard, and everyt
 
 ## How the balance works
 
-- **\$1 free to start.** Your first visit to the dashboard grants a one-time \$1 credit, enough to run your first instance for days. Until your first real top-up, the workspace is capped at one instance.
+- **\$1 free to start.** Your first visit to the dashboard grants a one-time \$1 credit, enough to run your first instance for days. Until your first real top-up, the workspace runs one instance of the lean `agent37-hermes-small` template at the 1 vCPU shapes; a larger template or shape returns `403 tier_limit`. Your first top-up unlocks every template and shape, and up to 10 instances.
 - **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are \$5 to \$1000 each, paid through Stripe.
 - **Or top up automatically.** Set a rule once and the wallet refills itself; see [Automatic top-up](#automatic-top-up).
 - **Instances draw it down.** Compute bills hourly, prepaid one day at a time, for as long as the instance exists, stopped or running.
@@ -34,7 +34,7 @@ Applied to the shapes at their default disk:
 | ----- | ------------------------- |
 | 1 vCPU / 2 GB RAM / 6-20 GB disk (`agent37-hermes-small` only) | \$2.74 |
 | 1 vCPU / 3 GB RAM / 6-20 GB disk (`agent37-hermes-small` only) | \$3.44 |
-| 2 vCPU / 4 GB RAM / 6-20 GB disk (default) | \$4.94 |
+| 2 vCPU / 4 GB RAM / 6-20 GB disk (default for standard templates) | \$4.94 |
 | 4 vCPU / 8 GB RAM / 20-40 GB disk | \$10.60 |
 | 8 vCPU / 16 GB RAM / 40-80 GB disk | \$21.20 |
 
