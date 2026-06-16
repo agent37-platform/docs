@@ -23,7 +23,7 @@ The `agent37-` prefix is reserved for system templates. The catalog has two entr
 | `agent37-hermes` | Hermes, the general agent: chat, browsing, code, files. | `3737` (default), `9119`, `7681`, `8080` |
 | `agent37-hermes-small` | Hermes, lean: chat, code, files, shell. No browser or desktop. | `3737` (default), `9119`, `7681`, `8080` |
 
-`agent37-hermes-small` is the only template that can run on the sub-floor 1 vCPU / 2 GB and 1 vCPU / 3 GB shapes, from \$2.74 per month; see [sizing](/agents-api/instances). Standard and custom templates start at 2 vCPU / 4 GB.
+`agent37-hermes-small` is the only template that can run on the sub-floor 1 vCPU / 3 GB shape, from \$3.44 per month; see [sizing](/agents-api/instances). Standard and custom templates start at 2 vCPU / 4 GB.
 
 <Note>
   More system templates (OpenClaw, Claude Code, Codex) are coming; they will appear in `GET /v1/templates` when they are available. Passing any other `agent37-` name on instance create returns `400 invalid_request`, because the prefix is reserved.
