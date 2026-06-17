@@ -75,13 +75,13 @@ curl -X POST https://api.agent37.com/v1/instances/<id>/exec \
 ```yaml
 model:
   provider: "custom:MyProvider"
-  default: "openai/gpt-4o-mini"        # the model id your endpoint serves
+  default: "moonshotai/kimi-k2.7-code"        # the model id your endpoint serves
 custom_providers:
   - name: "MyProvider"
     base_url: "https://your-llm-proxy.example.com/v1"   # must end in /v1
     api_key: "your-proxy-token"
     api_mode: "chat_completions"
-    model: "openai/gpt-4o-mini"
+    model: "moonshotai/kimi-k2.7-code"
 ```
 
 Your endpoint must serve the two OpenAI-compatible routes Hermes uses: `GET /v1/models` (to resolve the model id) and `POST /v1/chat/completions` (the turn). The example folder includes a ~40-line `llm-proxy/` that implements exactly these and forwards to OpenRouter with your key — a minimal pattern to deploy and adapt.
