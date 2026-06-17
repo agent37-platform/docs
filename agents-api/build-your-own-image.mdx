@@ -1,0 +1,97 @@
+---
+title: "Build your own agent image"
+description: "Start from the Hermes base, add your tools and skills, publish to a public registry, and run instances from your own image — optionally on your own model."
+---
+
+You can run instances on your own Docker image: start from the Hermes base, add the CLIs, skills, and config your agent needs, publish it to a public registry, and [register it as a template](/agents-api/templates). You can also point the agent at your own model. A complete, copy-able example — a `Dockerfile`, an example skill, a `register.sh`, and a tiny LLM proxy — ships in the Agent37 white-label starter under `examples/custom-agent-image/`.
+
+This page is the walkthrough; [Templates → build on the Hermes base image](/agents-api/templates#build-on-the-hermes-base-image) is the reference for the contract.
+
+## 1. Start from the base
+
+Your `Dockerfile` builds on `ghcr.io/agent37-platform/hermes-base` and adds your layers. This example installs a CLI into `/usr/local/bin` and a skill into the default-skills directory:
+
+```dockerfile
+FROM ghcr.io/agent37-platform/hermes-base:latest
+
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends your-cli \
+ && rm -rf /var/lib/apt/lists/*
+COPY your-skill/ /usr/local/share/agent37/default-skills/your-skill/
+USER node
+```
+
+Bake binaries into `/usr/local/bin`, skills into `/usr/local/share/agent37/default-skills/` (the entrypoint copies them to `~/.hermes/skills` at boot), and everything else into `/usr/local` or `/opt` — never `/home/node` or `/home/linuxbrew`, which are masked at runtime. Keep the base `ENTRYPOINT`. See [the contract](/agents-api/templates#build-on-the-hermes-base-image).
+
+<Tip>
+  `:latest` tracks the newest base, so getting-started builds never go stale. For reproducible production builds, pin a date tag instead — the current one is on the [Templates](/agents-api/templates#build-on-the-hermes-base-image) page.
+</Tip>
+
+Test the build before you publish:
+
+```bash
+docker build --platform linux/amd64 -t my-agent .
+```
+
+## 2. Publish to a public registry
+
+Push the image to any public registry. GitHub Container Registry is the least setup, because GitHub Actions can build and push it with the built-in token — no secrets. The example folder ships a reference workflow that does exactly this.
+
+The image must be **public**, built for **`linux/amd64`**, and **at most 5 GB** compressed. On GHCR, make the package public once after the first push (Packages → Package settings → Change visibility → Public); Agent37 pulls anonymously.
+
+<Note>
+  Build for `linux/amd64` even on an Apple Silicon Mac (`docker build --platform=linux/amd64 ...`). A stray arm64 image fails to start.
+</Note>
+
+## 3. Register and run
+
+Register the published image as a template (pin a tag, not `latest`), then create an instance:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/templates \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "my-custom-agent", "image_ref": "ghcr.io/you/my-agent:<tag>" }'
+
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "my-custom-agent" }'
+```
+
+The result is a standard Agent37 instance running your image: same [lifecycle](/agents-api/instances), [exec](/agents-api/exec), and routed URLs as any other. Confirm your CLI shipped, without needing a model:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/<id>/exec \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "your-cli --version" }'
+```
+
+## 4. Bring your own model
+
+`hermes-base` is clean: it boots with no LLM provider (standard Agent37 instances use Agent37's managed model; this base is for bringing your own). To run an instance on your own model, point Hermes at any OpenAI-compatible endpoint — your own proxy, or a provider directly — by writing `~/.hermes/config.yaml` on the instance:
+
+```yaml
+model:
+  provider: "custom:MyProvider"
+  default: "openai/gpt-4o-mini"        # the model id your endpoint serves
+custom_providers:
+  - name: "MyProvider"
+    base_url: "https://your-llm-proxy.example.com/v1"   # must end in /v1
+    api_key: "your-proxy-token"
+    api_mode: "chat_completions"
+    model: "openai/gpt-4o-mini"
+```
+
+Your endpoint must serve the two OpenAI-compatible routes Hermes uses: `GET /v1/models` (to resolve the model id) and `POST /v1/chat/completions` (the turn). The example folder includes a ~40-line `llm-proxy/` that implements exactly these and forwards to OpenRouter with your key — a minimal pattern to deploy and adapt.
+
+Write the config over [exec](/agents-api/exec) or the instance terminal; it lives on the persistent volume, so it survives restarts. Then [send a message](/agents-api/chat) and the agent runs on your model.
+
+<Tip>
+  Want chat to work out of the box on Agent37's managed model instead? Build `FROM ghcr.io/agent37-platform/hermes:<tag>` — the full image wires the managed model — and pass a [budget](/agents-api/budgets) on create.
+</Tip>
+
+## Keep it current
+
+Pin the base tag; `latest` floats. When you change your image, republish, point the template at the new tag with `PATCH /v1/templates/{name}`, and [update each instance](/agents-api/instances) to pick it up. A skill already seeded into an instance's `~/.hermes/skills` is not overwritten on update — only fresh instances get a changed skill.
