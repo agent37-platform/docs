@@ -9,14 +9,14 @@ Creating an instance debits one day of compute from your workspace wallet, and t
 
 ## Create an instance
 
-`POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-hermes-small`) on its smallest shape, 1 vCPU / 2 GB.
+`POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-hermes-small`) on its smallest shape, 1 vCPU / 3 GB.
 
 <ParamField body="template" type="string" default="agent37-hermes-small">
   A template name. `agent37-hermes-small` (the lean image) is the default; `agent37-hermes` (full, with browser and desktop) is the other system template. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Unknown names return `400 invalid_request`. Direct image references are rejected with `400`: register a template first, then pass its name.
 </ParamField>
 
 <ParamField body="resources" type="object">
-  The instance shape, for example `{ "cpu": 2, "memory": 4, "disk": 6 }`. Omitted, it uses the template's smallest shape: 1 vCPU / 2 GB on `agent37-hermes-small`, 2 vCPU / 4 GB on standard templates. `agent37-hermes-small` unlocks the sub-floor 1 vCPU / 2 GB and 1 vCPU / 3 GB shapes; standard templates use one of the three shapes below. Free workspaces (before your first top-up) can use up to the 2 vCPU / 4 GB shape; the larger 4/8 and 8/16 shapes return `403 tier_limit` until you top up. Disk is any whole number of GB within the shape's range, and defaults to the range minimum when omitted. Any other combination returns `400 invalid_request` listing the valid shapes.
+  The instance shape, for example `{ "cpu": 2, "memory": 4, "disk": 6 }`. Omitted, it uses the template's smallest shape: 1 vCPU / 3 GB on `agent37-hermes-small`, 2 vCPU / 4 GB on standard templates. `agent37-hermes-small` unlocks the sub-floor 1 vCPU / 3 GB shape; standard templates use one of the three shapes below. Free workspaces (before your first top-up) can use up to the 2 vCPU / 4 GB shape; the larger 4/8 and 8/16 shapes return `403 tier_limit` until you top up. Disk is any whole number of GB within the shape's range, and defaults to the range minimum when omitted. Any other combination returns `400 invalid_request` listing the valid shapes.
 </ParamField>
 
 <ParamField body="user" type="string">
@@ -39,7 +39,6 @@ Creating an instance debits one day of compute from your workspace wallet, and t
 
 | cpu | memory | disk | Price at the default disk |
 | --- | --- | --- | --- |
-| 1 | 2 GB | 6-20 GB | \$2.74 per month (`agent37-hermes-small` only) |
 | 1 | 3 GB | 6-20 GB | \$3.44 per month (`agent37-hermes-small` only) |
 | 2 | 4 GB | 6-20 GB | \$4.94 per month (default for standard templates) |
 | 4 | 8 GB | 20-40 GB | \$10.60 per month |
@@ -101,7 +100,7 @@ const instance = await res.json();
   "status": "running",
   "template": "agent37-hermes-small",
   "image_ref": "ghcr.io/agent37-platform/hermes-small:2026.06.14",
-  "resources": { "cpu": 1, "memory": 2, "disk": 6 },
+  "resources": { "cpu": 1, "memory": 3, "disk": 6 },
   "ports": [
     { "port": 3737, "default": true, "url": "https://ab12cd34ef.agent37.app" },
     { "port": 9119, "default": false, "url": "https://ab12cd34ef-9119.agent37.app" },
@@ -234,7 +233,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
 
 ### Update
 
-`POST /v1/instances/{id}/update` pulls the template's current image, recreates the container on it, and preserves the data. Use it to move an instance onto a newer version after you point its template at a new tag. The instance must be `running`, and the request must have no body (a body with any fields returns `400`; an empty `{}` is accepted). The ack carries the `image_ref` now running. A bad image reference on the template surfaces here as a `502 provisioning_failed`.
+`POST /v1/instances/{id}/update` pulls the template's current image and preserves the data. Use it to move an instance onto a newer version after you point its template at a new tag, or to recover a failed/stuck instance. A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts. The request must have no body (a body with any fields returns `400`; an empty `{}` is accepted). The ack carries the resulting `status` and new `image_ref`. A bad image reference on the template surfaces here as a `502 provisioning_failed`.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
