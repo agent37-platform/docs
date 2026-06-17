@@ -41,7 +41,8 @@
       {
         "group": "Guides",
         "pages": [
-          "agents-api/chat-app"
+          "agents-api/chat-app",
+          "agents-api/build-your-own-image"
         ]
       },
       {
