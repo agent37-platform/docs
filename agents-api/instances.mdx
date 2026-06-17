@@ -12,11 +12,11 @@ Creating an instance debits one day of compute from your workspace wallet, and t
 `POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-hermes-small`) on its smallest shape, 1 vCPU / 3 GB.
 
 <ParamField body="template" type="string" default="agent37-hermes-small">
-  A template name. `agent37-hermes-small` (the lean image) is the default; `agent37-hermes` (full, with browser and desktop) is the other system template. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Free workspaces (before your first top-up) can create only `agent37-hermes-small`; any other template returns `403 tier_limit` until you top up. Unknown names return `400 invalid_request`. Direct image references are rejected with `400`: register a template first, then pass its name.
+  A template name. `agent37-hermes-small` (the lean image) is the default; `agent37-hermes` (full, with browser and desktop) is the other system template. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Unknown names return `400 invalid_request`. Direct image references are rejected with `400`: register a template first, then pass its name.
 </ParamField>
 
 <ParamField body="resources" type="object">
-  The instance shape, for example `{ "cpu": 2, "memory": 4, "disk": 6 }`. Omitted, it uses the template's smallest shape: 1 vCPU / 3 GB on `agent37-hermes-small`, 2 vCPU / 4 GB on standard templates. `agent37-hermes-small` unlocks the sub-floor 1 vCPU / 3 GB shape; standard templates use one of the three shapes below. Free workspaces are limited to the 1 vCPU shape; a larger shape returns `403 tier_limit` until you top up. Disk is any whole number of GB within the shape's range, and defaults to the range minimum when omitted. Any other combination returns `400 invalid_request` listing the valid shapes.
+  The instance shape, for example `{ "cpu": 2, "memory": 4, "disk": 6 }`. Omitted, it uses the template's smallest shape: 1 vCPU / 3 GB on `agent37-hermes-small`, 2 vCPU / 4 GB on standard templates. `agent37-hermes-small` unlocks the sub-floor 1 vCPU / 3 GB shape; standard templates use one of the three shapes below. Free workspaces (before your first top-up) can use up to the 2 vCPU / 4 GB shape; the larger 4/8 and 8/16 shapes return `403 tier_limit` until you top up. Disk is any whole number of GB within the shape's range, and defaults to the range minimum when omitted. Any other combination returns `400 invalid_request` listing the valid shapes.
 </ParamField>
 
 <ParamField body="user" type="string">
@@ -280,7 +280,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
 | --- | --- |
 | `402 insufficient_balance` | Create when the wallet cannot cover the first day, create or resize beyond one instance when the balance does not hold 30 days for the fleet, or start of a past-due instance without funds. |
 | `409 instance_limit_reached` | Create when the workspace is at its instance cap: one instance on the free credit, 10 once topped up (contact support to raise it). |
-| `403 tier_limit` | Create or resize asks for a template or shape your plan does not include. Free workspaces run only `agent37-hermes-small` at the 1 vCPU shapes; a top-up unlocks the rest. |
+| `403 tier_limit` | Create or resize asks for a shape larger than your plan includes. Free workspaces run any template up to the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
 | `503 no_capacity` | Create when no host has capacity for the requested shape right now. |
 | `409 capacity_unavailable` | Start when the pinned host cannot re-reserve the instance's compute, or resize when it cannot fit the increase. |
 
