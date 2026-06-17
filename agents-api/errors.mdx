@@ -39,7 +39,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | `not_found` | 404 | No instance or template with that id or name in your workspace, or an unknown `/v1` path. |
 | `insufficient_balance` | 402 | The wallet cannot cover a day of compute (at create, or at `start` of a `past_due` instance), or does not hold 30 days of compute for the whole fleet when creating or resizing beyond one instance. |
 | `instance_limit_reached` | 409 | The workspace is at its instance limit: one instance on the free credit, 10 once you have topped up. Contact support to raise it. |
-| `tier_limit` | 403 | Create or resize asks for a template or shape your plan does not include. Free workspaces (before your first top-up) run only `agent37-hermes-small` at the 1 vCPU shapes; a top-up unlocks every template and shape. |
+| `tier_limit` | 403 | Create or resize asks for a shape larger than your plan includes. Free workspaces (before your first top-up) run any template up to the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
 | `capacity_unavailable` | 409 | `start` or `resize`: the pinned host cannot re-reserve this instance's compute, or fit the resize increase, right now. |
 | `template_conflict` | 409 | A template create or rename targets a name that already exists. |
 | `no_capacity` | 503 | Create only: no host can fit the requested shape right now. Safe to retry. |
