@@ -44,7 +44,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="agent" type="string" default="hermes">
-  Which agent runs the turn. `hermes` is the default and the only agent today.
+  Which agent runs the turn. `hermes` is the default and the only agent today. The agent is fixed when the session is created: on a continuation (`session_id` set) this field is ignored and the turn runs on the session's original agent.
 </ParamField>
 
 <ParamField body="mode" type="string" default="chat">
