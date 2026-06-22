@@ -174,6 +174,7 @@ const instance = await res.json();
 | `POST` | `/v1/instances` | `201` with the full instance object |
 | `GET` | `/v1/instances` | `200` `{ "data": [...] }`, newest first, each the full instance object |
 | `GET` | `/v1/instances/{id}` | `200` with the full instance object |
+| `PATCH` | `/v1/instances/{id}` | `200` with the full instance object |
 | `DELETE` | `/v1/instances/{id}` | `200` `{ "id": "...", "deleted": true }` |
 | `POST` | `/v1/instances/{id}/stop` | `200` `{ id, status }` ack |
 | `POST` | `/v1/instances/{id}/start` | `200` `{ id, status }` ack |
@@ -196,6 +197,84 @@ curl -X DELETE https://api.agent37.com/v1/instances/ab12cd34ef \
 <Warning>
   Delete is destructive: the instance's files, memory, and sessions are gone. To pause work while keeping everything, `stop` it instead. A stopped instance still bills compute, because it still exists; delete is what stops billing.
 </Warning>
+
+## Edit name, tag, and metadata
+
+`PATCH /v1/instances/{id}` edits the instance's `name`, `user` tag, and `metadata` after creation. These are the same three fields you can set at create, and they are the only things this call changes: it never touches the running container. It returns `200` with the full instance object, the same shape as `GET`.
+
+The patch is partial: only the keys you send change, the rest are left alone. Send a string to set a field, or `null` (or `""`) to clear it. You must send at least one of `name`, `user`, or `metadata`; an empty body returns `400 invalid_request`.
+
+<ParamField body="name" type="string | null">
+  A label for the instance, up to 60 characters. `null` or `""` clears it.
+</ParamField>
+
+<ParamField body="user" type="string | null">
+  Your attribution tag, up to 200 characters. `null` or `""` clears it.
+</ParamField>
+
+<ParamField body="metadata" type="object | null">
+  Your key/value pairs, up to 4 KB serialized. The object replaces the stored one, it is not merged. `null` or `{}` clears it.
+</ParamField>
+
+Editing labels never bills and never recreates the container, and it works in any state except `deleted`. Unknown, deleted, or other-workspace ids return `404 not_found`.
+
+<CodeGroup>
+```bash curl
+curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Production agent", "user": "u_882", "metadata": { "plan": "pro" } }'
+```
+
+```python python
+import requests
+
+resp = requests.patch(
+    "https://api.agent37.com/v1/instances/ab12cd34ef",
+    headers={"Authorization": "Bearer sk_live_..."},
+    json={"name": "Production agent", "user": "u_882", "metadata": {"plan": "pro"}},
+)
+instance = resp.json()
+```
+
+```javascript node
+const res = await fetch("https://api.agent37.com/v1/instances/ab12cd34ef", {
+  method: "PATCH",
+  headers: {
+    Authorization: "Bearer sk_live_...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    name: "Production agent",
+    user: "u_882",
+    metadata: { plan: "pro" },
+  }),
+});
+const instance = await res.json();
+```
+
+```json response
+{
+  "id": "ab12cd34ef",
+  "status": "running",
+  "template": "agent37-hermes-small",
+  "image_ref": "ghcr.io/agent37-platform/hermes-small:2026.06.14",
+  "resources": { "cpu": 1, "memory": 3, "disk": 6 },
+  "ports": [
+    { "port": 3737, "default": true, "url": "https://ab12cd34ef.agent37.app" },
+    { "port": 9119, "default": false, "url": "https://ab12cd34ef-9119.agent37.app" },
+    { "port": 7681, "default": false, "url": "https://ab12cd34ef-7681.agent37.app" },
+    { "port": 8080, "default": false, "url": "https://ab12cd34ef-8080.agent37.app" }
+  ],
+  "user": "u_882",
+  "name": "Production agent",
+  "metadata": { "plan": "pro" },
+  "paid_through": 1781308800,
+  "past_due": false,
+  "created": 1781222400
+}
+```
+</CodeGroup>
 
 ## Lifecycle
 
