@@ -24,7 +24,7 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 ```
 
 <Note>
-  Instance URLs require auth on every request: the `Authorization` Bearer for API calls, or a time-boxed [signed URL](/agents-api/urls) to open one in a browser tab. An unauthenticated request gets a 401.
+  Instance URLs require auth on every request: the `Authorization` Bearer for API calls, or a time-boxed [signed URL](/agents-api/urls#browser-access-with-signed-urls) to open a preview URL in a browser tab. An unauthenticated request gets a 401.
 </Note>
 
 ## The resource model
@@ -50,9 +50,9 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 A template declares which ports its image listens on, with at most one marked `default`. When you create an instance, it snapshots the template's ports, and the instance object returns a URL per port:
 
 - The **default port** gets the instance's own URL, `https://{instanceId}.agent37.app`. The default template, `agent37-hermes`, serves the gateway there, so the default port URL is the chat URL.
-- **Non-default ports** each get a derivable handle URL, `https://{instanceId}-{port}.agent37.app` — for example `https://ab12cd34ef-9119.agent37.app`.
+- **Non-default ports** each get a derivable **preview URL**, `https://{instanceId}-{port}.agent37.app` — for example `https://ab12cd34ef-9119.agent37.app`.
 
-See [Instance URLs](/agents-api/urls) for how routing works, and [Templates](/agents-api/templates) for declaring ports on your own images.
+See [Instance and preview URLs](/agents-api/urls) for how routing works, and [Templates](/agents-api/templates) for declaring ports on your own images.
 
 ## One wallet, per-instance caps
 
