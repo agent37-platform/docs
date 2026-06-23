@@ -1,9 +1,9 @@
 ---
-title: "Build your own agent image"
+title: "Custom agent image"
 description: "Start from the Hermes base, add your tools and skills, publish to a public registry, and run instances from your own image — optionally on your own model."
 ---
 
-You can run instances on your own Docker image: start from the Hermes base, add the CLIs, skills, and config your agent needs, publish it to a public registry, and [register it as a template](/agents-api/templates). You can also point the agent at your own model. A complete, copy-able example — a `Dockerfile`, an example skill, a `register.sh`, and a tiny LLM proxy — ships in the [Agent37 white-label starter](https://github.com/agent37-platform/whitelabel) under [`examples/custom-agent-image/`](https://github.com/agent37-platform/whitelabel/tree/main/examples/custom-agent-image).
+You can run instances on your own Docker image: start from the Hermes base, add the CLIs, skills, and config your agent needs, publish it to a public registry, and [register it as a template](/agents-api/templates). You can also point the agent at your own model. A complete, copy-able example — a `Dockerfile`, an example skill, a `register.sh`, and a tiny LLM proxy — lives in [`custom-agent-image/`](https://github.com/agent37-platform/whitelabel/tree/main/examples/custom-agent-image), ready to copy into your own repo.
 
 This page is the walkthrough; [Templates → build on the Hermes base image](/agents-api/templates#build-on-the-hermes-base-image) is the reference for the contract.
 
@@ -37,7 +37,7 @@ docker build --platform linux/amd64 -t my-agent .
 
 Push the image to any public registry. GitHub Container Registry is the least setup, because GitHub Actions can build and push it with the built-in token — no secrets. The example folder ships a reference workflow that does exactly this.
 
-The image must be **public**, built for **`linux/amd64`**, and **at most 5 GB** compressed. On GHCR, make the package public once after the first push (Packages → Package settings → Change visibility → Public); Agent37 pulls anonymously.
+The image must be **public**, built for **`linux/amd64`**, and **at most 5 GB** compressed. On GHCR, make the package public once after the first push (**Packages** → **Package settings** → **Change visibility** → **Public**); Agent37 pulls anonymously.
 
 <Note>
   Build for `linux/amd64` even on an Apple Silicon Mac (`docker build --platform=linux/amd64 ...`). A stray arm64 image fails to start.

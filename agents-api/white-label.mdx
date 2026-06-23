@@ -1,0 +1,69 @@
+---
+title: "White-label starter"
+description: "Fork a multi-tenant agent dashboard, point it at your API key, rebrand it, and ship — the fastest way to put Agent37 in front of your users."
+---
+
+The white-label starter is a complete, multi-tenant dashboard for creating and managing agent [instances](/agents-api/instances) on the Hosting API. Fork it, point it at your `sk_live_` key, change the name and logo, and deploy — you get a branded product on top of Agent37 without building the control plane yourself.
+
+<Card title="agent37-platform/whitelabel" icon="github" href="https://github.com/agent37-platform/whitelabel" horizontal>
+  The dashboard, ready to fork. Next.js and Supabase, deploys to Vercel. Clone it, add your keys, run `npm run setup`, and rebrand.
+</Card>
+
+<Frame caption="One dashboard: instance management, team members, a rebranded tenant, and each agent's own terminal, chat, and file browser.">
+  ![The white-label dashboard](/images/white-label-dashboard.png)
+</Frame>
+
+## What you get
+
+- **Multi-tenant from the start.** Workspaces, team members, and invitations, with row-level security in Postgres. Each agent is scoped to a workspace, and one user can belong to several.
+- **Full instance management.** Create, start, stop, restart, resize, roll to a new image, and delete instances — every [instance](/agents-api/instances) action wrapped in a UI, with per-agent [budgets](/agents-api/budgets) and usage.
+- **Each agent's own UIs, one click away.** The dashboard mints [signed URLs](/agents-api/urls#browser-access-with-signed-urls) to open an instance's built-in Hermes chat, terminal, and file browser — it brokers the instance's native interfaces rather than reimplementing them.
+- **Auth and branding handled.** Email magic-link sign-in through Supabase, and the app name and logo are env-driven, so rebranding is config, not code.
+- **Your key stays server-side.** Every Agent37 call goes through the app's own backend; the `sk_live_` key is never exposed to the browser.
+
+## Get started
+
+<Steps>
+  <Step title="Get your keys">
+    You need a funded workspace and an `sk_live_` [API key](https://www.agent37.com/dashboard/cloud/api-keys), plus a Supabase access token — the starter provisions a free Supabase project for you. See [Billing](/agents-api/billing) to fund the wallet.
+  </Step>
+
+  <Step title="Clone it">
+    ```bash
+    git clone https://github.com/agent37-platform/whitelabel
+    cd whitelabel
+    ```
+  </Step>
+
+  <Step title="Run setup">
+    The fastest path is agent-driven: open the folder in Claude Code or Codex and paste the setup prompt from the README. It installs dependencies, asks for your keys, provisions Supabase, and starts the app.
+
+    To do it by hand, run `npm install`, then `npm run setup` and paste your two keys when prompted — it provisions Supabase and runs the migration.
+  </Step>
+
+  <Step title="Run it">
+    ```bash
+    npm run dev
+    ```
+
+    Open `http://localhost:3000` and sign in with a magic link. The repo's `SETUP.md` has the authoritative steps and a manual Supabase path.
+  </Step>
+</Steps>
+
+## Make it yours
+
+Rebranding is the point, and most of it is configuration:
+
+- **Name and logo** — set `NEXT_PUBLIC_APP_NAME` and `NEXT_PUBLIC_LOGO_URL` (and the rest of the branding config) in your environment.
+- **Colors and theme** — Tailwind, in the app's styles.
+- **Your domain** — deploy to Vercel and point your domain at it.
+
+When you deploy, set `AGENT37_API_KEY` and the public Supabase variables, and keep the setup-only secrets (the Supabase access token and database password) out of production. The repo's `SETUP.md` lists exactly which variables to set where.
+
+## What it does and doesn't do
+
+The dashboard runs entirely on your Agent37 [wallet and budgets](/agents-api/billing): it sets a managed-spend cap per agent and shows usage, but it does not bill your end users — add your own billing if you charge them. It also doesn't ship its own chat UI; chat is each instance's built-in Hermes interface, opened through a signed URL.
+
+<Note>
+  Want to build the experience yourself instead of forking a dashboard? See [Build a chat app](/agents-api/chat-app) for the integration pattern, or [Custom agent image](/agents-api/custom-image) to change what the agent can do.
+</Note>
