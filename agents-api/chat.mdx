@@ -43,8 +43,8 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
   Up to 16 key/value pairs, at most 64 KB serialized. Echoed back on the response object, never interpreted.
 </ParamField>
 
-<ParamField body="agent" type="string" default="hermes">
-  Which agent runs the turn. `hermes` is the default and the only agent today. The agent is fixed when the session is created: on a continuation (`session_id` set) this field is ignored and the turn runs on the session's original agent.
+<ParamField body="agent" type="string">
+  Which agent runs the turn. It defaults to the agent your instance's template installs (`hermes` on `agent37-hermes`, `openclaw` on `agent37-openclaw`), so you normally omit it. The agent is fixed when the session is created: on a continuation (`session_id` set) this field is ignored and the turn runs on the session's original agent.
 </ParamField>
 
 <ParamField body="mode" type="string" default="chat">
@@ -72,7 +72,7 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
 </ResponseField>
 
 <ResponseField name="agent" type="string">
-  The agent that ran the turn, `hermes` today.
+  The agent that ran the turn, `hermes` or `openclaw`.
 </ResponseField>
 
 <ResponseField name="model" type="string | null">

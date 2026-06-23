@@ -16,17 +16,18 @@ Templates come in two scopes. `system` templates are the built-in catalog, the s
 
 ## System catalog
 
-The `agent37-` prefix is reserved for system templates. The catalog has two entries today:
+The `agent37-` prefix is reserved for system templates. The catalog has three entries today:
 
 | Template | What it runs | Ports |
 | --- | --- | --- |
 | `agent37-hermes` | Hermes, the general agent: chat, browsing, code, files. | `3737` (default), `9119`, `7681`, `8080` |
 | `agent37-hermes-small` | Hermes, lean: chat, code, files, shell. No browser or desktop. | `3737` (default), `9119`, `7681`, `8080` |
+| `agent37-openclaw` | OpenClaw, the general agent: chat, headless browsing, code, files. | `3737` (default), `7681`, `8080` |
 
 `agent37-hermes-small` is the only template that can run on the sub-floor 1 vCPU / 3 GB shape, from \$3.44 per month; see [sizing](/agents-api/instances). Standard and custom templates start at 2 vCPU / 4 GB.
 
 <Note>
-  More system templates (OpenClaw, Claude Code, Codex) are coming; they will appear in `GET /v1/templates` when they are available. Passing any other `agent37-` name on instance create returns `400 invalid_request`, because the prefix is reserved.
+  More system templates (Claude Code, Codex) are coming; they will appear in `GET /v1/templates` when they are available. Passing any other `agent37-` name on instance create returns `400 invalid_request`, because the prefix is reserved.
 </Note>
 
 On `agent37-hermes`, port `3737` is the gateway: the [chat API](/agents-api/chat) at `https://{instanceId}.agent37.app`. Every declared port becomes an authenticated URL on the instance object after create; see [Instance URLs](/agents-api/urls).

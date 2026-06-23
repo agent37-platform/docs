@@ -59,7 +59,7 @@ There are exactly eight event types:
 | `response.failed` | `{ error: { code, message, param?, hint? } }`, terminal |
 
 <Info>
-  These event names and payloads are the gateway's streaming contract, not a per-agent detail. Hermes emits them today, and the agents that follow will emit the same eight, so your client code does not change when you switch templates.
+  These event names and payloads are the gateway's streaming contract, not a per-agent detail. Hermes and OpenClaw emit them today, and the agents that follow will emit the same eight, so your client code does not change when you switch templates.
 </Info>
 
 Rules the stream always follows:
