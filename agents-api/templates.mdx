@@ -3,7 +3,7 @@ title: "Templates"
 description: "Name an image and the ports it serves once, then create every instance from that name."
 ---
 
-A template is a named image plus the ports it serves. Instances are always created from template names: pass `template` on [`POST /v1/instances`](/agents-api/instances), or omit it for the default `agent37-hermes-small`. Direct image references are rejected with `400 invalid_request`; register a template first, then pass its name.
+A template is a named image plus the ports it serves. Instances are always created from template names: pass `template` on [`POST /v1/instances`](/agents-api/instances), or omit it for the default `agent37-hermes`. Direct image references are rejected with `400 invalid_request`; register a template first, then pass its name.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances \
@@ -20,9 +20,9 @@ The `agent37-` prefix is reserved for system templates. The catalog has three en
 
 | Template | What it runs | Ports |
 | --- | --- | --- |
-| `agent37-hermes` | Hermes, the general agent: chat, browsing, code, files. | `3737` (default), `9119`, `7681`, `8080` |
+| `agent37-hermes` | Hermes, the general agent: chat, browsing, code, files. The default. | `3737` (default), `9119`, `7681`, `8080` |
 | `agent37-hermes-small` | Hermes, lean: chat, code, files, shell. No browser or desktop. | `3737` (default), `9119`, `7681`, `8080` |
-| `agent37-openclaw` | OpenClaw, the general agent: chat, headless browsing, code, files. | `3737` (default), `7681`, `8080` |
+| `agent37-openclaw` | OpenClaw, the general agent: chat, headless browsing, code, files. | `3737` (default), `18789`, `7681`, `8080` |
 
 `agent37-hermes-small` is the only template that can run on the sub-floor 1 vCPU / 3 GB shape, from \$3.44 per month; see [sizing](/agents-api/instances). Standard and custom templates start at 2 vCPU / 4 GB.
 
@@ -141,7 +141,7 @@ USER node
 
 Build it for `linux/amd64`, push it to a public registry, register it as a workspace template, and create instances from it.
 
-See [Build your own agent image](/agents-api/build-your-own-image) for the step-by-step walkthrough, with a copy-able example — a `Dockerfile`, an example skill, a `register.sh`, and a tiny bring-your-own-model proxy.
+See [Custom agent image](/agents-api/custom-image) for the step-by-step walkthrough, with a copy-able example — a `Dockerfile`, an example skill, a `register.sh`, and a tiny bring-your-own-model proxy.
 
 The contract:
 

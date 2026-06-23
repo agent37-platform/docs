@@ -9,10 +9,10 @@ Creating an instance debits one day of compute from your workspace wallet, and t
 
 ## Create an instance
 
-`POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-hermes-small`) on its smallest shape, 1 vCPU / 3 GB.
+`POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-hermes`) on its smallest shape, 2 vCPU / 4 GB.
 
-<ParamField body="template" type="string" default="agent37-hermes-small">
-  A template name. `agent37-hermes-small` (the lean image) is the default; `agent37-hermes` (full Hermes, with browser and desktop) and `agent37-openclaw` (OpenClaw, with a headless browser) are the other system templates. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Unknown names return `400 invalid_request`. Direct image references are rejected with `400`: register a template first, then pass its name.
+<ParamField body="template" type="string" default="agent37-hermes">
+  A template name. `agent37-hermes` (full Hermes, with browser and desktop) is the default; `agent37-hermes-small` (the lean image, no browser or desktop) and `agent37-openclaw` (OpenClaw, with a headless browser) are the other system templates. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Unknown names return `400 invalid_request`. Direct image references are rejected with `400`: register a template first, then pass its name.
 </ParamField>
 
 <ParamField body="resources" type="object">
@@ -56,7 +56,7 @@ curl -X POST https://api.agent37.com/v1/instances \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "template": "agent37-hermes-small",
+    "template": "agent37-hermes",
     "user": "u_882",
     "budget": { "topup_micros": 1000000 }
   }'
@@ -69,7 +69,7 @@ resp = requests.post(
     "https://api.agent37.com/v1/instances",
     headers={"Authorization": "Bearer sk_live_..."},
     json={
-        "template": "agent37-hermes-small",
+        "template": "agent37-hermes",
         "user": "u_882",
         "budget": {"topup_micros": 1000000},
     },
@@ -86,7 +86,7 @@ const res = await fetch("https://api.agent37.com/v1/instances", {
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    template: "agent37-hermes-small",
+    template: "agent37-hermes",
     user: "u_882",
     budget: { topup_micros: 1000000 },
   }),
@@ -98,9 +98,9 @@ const instance = await res.json();
 {
   "id": "ab12cd34ef",
   "status": "running",
-  "template": "agent37-hermes-small",
-  "image_ref": "ghcr.io/agent37-platform/hermes-small:2026.06.14",
-  "resources": { "cpu": 1, "memory": 3, "disk": 6 },
+  "template": "agent37-hermes",
+  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.14",
+  "resources": { "cpu": 2, "memory": 4, "disk": 6 },
   "ports": [
     { "port": 3737, "default": true, "url": "https://ab12cd34ef.agent37.app" },
     { "port": 9119, "default": false, "url": "https://ab12cd34ef-9119.agent37.app" },
@@ -257,9 +257,9 @@ const instance = await res.json();
 {
   "id": "ab12cd34ef",
   "status": "running",
-  "template": "agent37-hermes-small",
-  "image_ref": "ghcr.io/agent37-platform/hermes-small:2026.06.14",
-  "resources": { "cpu": 1, "memory": 3, "disk": 6 },
+  "template": "agent37-hermes",
+  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.14",
+  "resources": { "cpu": 2, "memory": 4, "disk": 6 },
   "ports": [
     { "port": 3737, "default": true, "url": "https://ab12cd34ef.agent37.app" },
     { "port": 9119, "default": false, "url": "https://ab12cd34ef-9119.agent37.app" },

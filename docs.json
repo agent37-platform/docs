@@ -25,6 +25,7 @@
         "pages": [
           "agents-api/instances",
           "agents-api/templates",
+          "agents-api/custom-image",
           "agents-api/urls",
           "agents-api/exec",
           "agents-api/budgets"
@@ -39,10 +40,10 @@
         ]
       },
       {
-        "group": "Guides",
+        "group": "Build with Agent37",
         "pages": [
-          "agents-api/chat-app",
-          "agents-api/build-your-own-image"
+          "agents-api/white-label",
+          "agents-api/chat-app"
         ]
       },
       {
@@ -114,7 +115,8 @@
     { "source": "/agents-api/embeds", "destination": "/agents-api/urls" },
     { "source": "/agents-api/scheduled-runs", "destination": "/agents-api/chat" },
     { "source": "/agents-api/integrations", "destination": "/agents-api/budgets" },
-    { "source": "/agents-api/skills", "destination": "/agents-api/templates" }
+    { "source": "/agents-api/skills", "destination": "/agents-api/templates" },
+    { "source": "/agents-api/build-your-own-image", "destination": "/agents-api/custom-image" }
   ],
   "footer": {
     "socials": {
