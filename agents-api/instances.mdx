@@ -3,7 +3,7 @@ title: "Instances"
 description: "Create, size, and manage the persistent computer that runs your agent."
 ---
 
-An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance's computer is up and the agent inside finishes booting moments later — poll `GET /v1/health` on the instance URL until it answers `{ "ok": true }`, then message it at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance URLs](/agents-api/urls)).
+An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance's computer is up and the agent inside finishes booting moments later — poll `GET /v1/health` on the instance URL until it answers `{ "ok": true }`, then message it at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance and preview URLs](/agents-api/urls)).
 
 Creating an instance debits one day of compute from your workspace wallet, and that debit is the create gate: if the wallet cannot cover it, the create fails with `402 insufficient_balance` and nothing is provisioned. A failed create is fully refunded. From your second concurrent instance on, your balance must also hold 30 days of compute for the whole fleet; nothing extra is charged, it just has to be there. See [Billing](/agents-api/billing).
 
@@ -140,7 +140,7 @@ const instance = await res.json();
 </ResponseField>
 
 <ResponseField name="ports" type="object[]">
-  The instance's routed ports, each `{ port, default, url }`. The default port's URL uses the instance id (`https://ab12cd34ef.agent37.app`, where the agent's chat API lives); every other port is reached at `https://{instanceId}-{port}.agent37.app`. Open any of them in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). See [Instance URLs](/agents-api/urls) for the routing scheme.
+  The instance's routed ports, each `{ port, default, url }`. The default port's URL uses the instance id (`https://ab12cd34ef.agent37.app`, where the agent's chat API lives); every other port gets a **preview URL**, `https://{instanceId}-{port}.agent37.app`. Open any of them in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). See [Instance and preview URLs](/agents-api/urls) for the routing scheme.
 </ResponseField>
 
 <ResponseField name="user" type="string | null">

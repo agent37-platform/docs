@@ -33,6 +33,7 @@ Use these exactly; consistent terms are what make `llms-full.txt` usable as a sp
 - **Instance** — an agent's always-on computer at `https://{instanceId}.agent37.app`. **Session** — one conversation on an instance. **Response** — one agentic turn within a session.
 - **Agent** vs **model**: the agent is the software running on the instance (Hermes today; OpenClaw, Claude Code, Codex coming soon); the model is the LLM chosen per turn (`model` + `provider`).
 - **Template** — names the image an instance runs and declares its ports. **Gateway** — serves the Agent API inside the instance.
+- **Instance URL** — an instance's base address, `https://{instanceId}.agent37.app` (the default port, where the agent's API lives). **Preview URL** — a non-default port's address, `https://{instanceId}-{port}.agent37.app`, where a service or UI on that port is reachable. **Signed URL** — a time-boxed, tokenized form of either, mintable via `POST /v1/instances/{id}/signed-url`, that a browser can open without a header.
 - Billing: **wallet** (workspace money), **budget** (per-instance managed-spend cap plus **top-up** headroom), **managed services** (LLM / search / Composio through built-in credentials), **micros** (USD × 1,000,000), **past due** (renewal failed; instance force-stopped until a funded start).
 - Conventions: instance ids are 10-char lowercase alphanumeric; session/response ids are 32-char hex; Hosting API timestamps are epoch **seconds**, Agent API timestamps epoch **milliseconds**; list endpoints wrap results in `{ "data": [...] }`, newest first.
 
