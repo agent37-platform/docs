@@ -89,15 +89,15 @@ const agentOf = (id) => makeClient(`https://${id}.agent37.app`);
   </Step>
 
   <Step title="List threads for the sidebar">
-    `GET /v1/sessions` on the instance URL lists every session, newest first, without history.
+    `GET /v1/sessions` on the instance URL lists the harness's sessions, newest first, without history.
 
     ```javascript node
-    const { data } = await agentOf(user.instanceId).get("/v1/sessions");
-    // [{ id, agent, model, provider, created, last_response_at }]
+    const { agent, data } = await agentOf(user.instanceId).get("/v1/sessions");
+    // Hermes: [{ id, title, model, message_count, started_at, last_active, preview }]
     // timestamps are epoch milliseconds
     ```
 
-    The list carries no titles, so keep thread titles in your own database, keyed by `session_id`. The first user message usually makes a good default title.
+    On Hermes the list already carries a `title`, and you can set it with `PATCH /v1/sessions/{id}` (`{ "title": "..." }`) — the first user message usually makes a good default. Harnesses that do not store a title answer `405`; for those, keep titles in your own database keyed by `session_id`.
   </Step>
 
   <Step title="Load a thread when it opens">

@@ -20,7 +20,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="session_id" type="string">
-  Continue an existing conversation. Omit it to start a new one; the response returns the new session's id. An unknown id returns `404 session_not_found`.
+  Continue an existing conversation. Omit it to start a new one; the response returns the new session's id. The harness owns sessions and creates one on first use, so an id it has not seen simply starts a fresh thread under that id rather than erroring.
 </ParamField>
 
 <ParamField body="stream" type="boolean" default="false">
@@ -44,7 +44,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="agent" type="string">
-  Which agent runs the turn. It defaults to the agent your instance's template installs (`hermes` on `agent37-hermes`, `openclaw` on `agent37-openclaw`), so you normally omit it. The agent is fixed when the session is created: on a continuation (`session_id` set) this field is ignored and the turn runs on the session's original agent.
+  Which agent harness runs the turn, `hermes` or `openclaw`. Omit it to use the instance's configured default (`hermes` on `agent37-hermes`). Routing is per request: the gateway keeps no session-to-agent binding, so if a session runs on a non-default harness, send `agent` on every turn of it. Targeting a harness the instance was not provisioned with returns `503 agent_unavailable`.
 </ParamField>
 
 <ParamField body="mode" type="string" default="chat">
@@ -60,7 +60,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 The response object. Ids are 32-character hex strings; timestamps from the gateway are epoch milliseconds.
 
 <ResponseField name="id" type="string">
-  The response id. Use it to fetch, reconnect, or cancel the turn.
+  The response id. Use it to reconnect or cancel the turn.
 </ResponseField>
 
 <ResponseField name="session_id" type="string">
@@ -261,13 +261,10 @@ Every response has an id you can use after the call returns.
 
 | Method | Path | Returns |
 | --- | --- | --- |
-| `GET` | `/v1/responses/{id}` | `200` the response object |
 | `GET` | `/v1/responses/{id}/stream` | `200` an SSE stream: replays all events, then attaches live |
 | `POST` | `/v1/responses/{id}/cancel` | `200` the current response object |
 
-`GET /v1/responses/{id}` returns the response object at any time, before or after the turn finishes.
-
-`GET /v1/responses/{id}/stream` replays every event so far in order, then stays attached live, so a dropped connection never loses the answer. See [Streaming](/agents-api/streaming) for the replay window.
+`GET /v1/responses/{id}/stream` replays every event so far in order, then stays attached live, so a dropped connection never loses the answer — including after the turn has finished, while the response is still retained. See [Streaming](/agents-api/streaming) for the replay window.
 
 `POST /v1/responses/{id}/cancel` takes no body and stops a running turn, best effort. It returns 200 with the current response object. Cancelling a finished response is a no-op that returns its terminal state, still 200.
 

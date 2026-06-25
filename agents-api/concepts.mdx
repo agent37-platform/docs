@@ -33,7 +33,7 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 | --- | --- |
 | **Instance** | An isolated, always-on computer that runs your agent. Built from a [template](/agents-api/templates). Persistent until you delete it, and billed hourly — prepaid a day at a time — for as long as it exists. Create one per end user. |
 | **Session** | One conversation on an instance. A message starts one; reuse its `session_id` to continue. An instance can hold many. |
-| **Response** | One agentic turn: your input, the agent's work, its reply. Stream it live or fetch it by id. |
+| **Response** | One agentic turn: your input, the agent's work, its reply. Stream it live, or reconnect to its stream by id. |
 
 <Info>
   **The agent is not the model.** The *template* installs the agent software, the *gateway* inside the instance runs your sessions on it (Hermes and OpenClaw are the live agents today; Claude Code and Codex are coming soon), and the *model* is the LLM the agent thinks with, chosen per turn as `model` + `provider`.
@@ -43,7 +43,7 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 
 - Create an **instance** once per end user with `POST /v1/instances` on the hosting API. It keeps files, connected accounts, and memory across every session.
 - Start a **session** by sending a message to the instance's own URL: `POST https://{instanceId}.agent37.app/v1/responses`. Omit `session_id` and the gateway mints a new session; the reply carries the `session_id` you reuse to continue the thread. See [Sessions](/agents-api/sessions).
-- Each message produces a **response**. Stream it live with `stream: true` (see [Streaming](/agents-api/streaming)), fetch it later with `GET /v1/responses/{id}`, or reconnect a dropped stream with `GET /v1/responses/{id}/stream`.
+- Each message produces a **response**. Stream it live with `stream: true` (see [Streaming](/agents-api/streaming)), or reconnect a dropped stream with `GET /v1/responses/{id}/stream`.
 
 ## Templates declare ports, instances snapshot them
 
