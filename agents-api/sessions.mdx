@@ -1,9 +1,11 @@
 ---
 title: "Sessions & models"
-description: "List, read, and delete conversations on an instance, and see which models its agent can run."
+description: "List, read, rename, and delete conversations on an instance, and see which models a harness can run."
 ---
 
 A session is one conversation on an instance. An instance holds many sessions, one per thread, and each session keeps its own full history, so you only ever send the new input. These endpoints are served by the gateway running inside the instance.
+
+The gateway keeps no session index of its own. The agent harness owns both the transcript and the list — Hermes' session store, OpenClaw's history — and the gateway projects them on read. So a session's fields are the harness's own, and a list or read always reflects the live state of that harness.
 
 Everything on this page lives on the instance URL, not the hosting API: the base is `https://{instanceId}.agent37.app`, with the same `Authorization: Bearer sk_live_...` header. The platform edge authenticates the key and checks the instance belongs to your workspace, then the gateway answers. See [Instance and preview URLs](/agents-api/urls).
 
@@ -11,10 +13,11 @@ Everything on this page lives on the instance URL, not the hosting API: the base
 
 | Method | Path | Returns |
 | --- | --- | --- |
-| `GET` | `/v1/sessions` | `200` `{ "data": [...] }`, newest first, each the session object |
-| `GET` | `/v1/sessions/{id}` | `200` the session object with its full `history` |
+| `GET` | `/v1/sessions` | `200` `{ "agent": "...", "data": [...] }`, the harness's session list, newest first |
+| `GET` | `/v1/sessions/{id}` | `200` `{ "id", "agent", "history" }` — the conversation's full transcript |
+| `PATCH` | `/v1/sessions/{id}` | `200` `{ "id", "agent", "renamed" }` — rename a session (Hermes) |
 | `DELETE` | `/v1/sessions/{id}` | `200` `{ "id": "...", "deleted": true }` |
-| `GET` | `/v1/models` | `200` `{ default_model, default_provider, data }` |
+| `GET` | `/v1/models` | `200` `{ object, agent, default_model, default_provider, data }` |
 | `GET` | `/v1/health` | `200` `{ "ok": true, "agent": "hermes", "healthy": true, "hermes": true }` |
 | `GET` | `/v1/version` | `200` `{ name, version }` |
 
@@ -22,35 +25,23 @@ Everything on this page lives on the instance URL, not the hosting API: the base
   You never create a session directly. The first [`POST /v1/responses`](/agents-api/chat) without a `session_id` mints one and returns its id; reuse that id to continue the thread.
 </Note>
 
+## Choosing the harness
+
+Every read on this page takes an optional `?agent=` query — `hermes` or `openclaw` — that selects which harness on the instance answers. Omit it (or send it empty) and the instance's configured default harness answers; the response echoes which `agent` it was. An unknown value is `400 validation_error`. On the data reads (`/v1/sessions`, `/v1/sessions/{id}`, `/v1/models`), targeting a harness the instance was not provisioned with is `503 agent_unavailable`; `/v1/health` instead reports an unreachable or unprovisioned harness as `healthy: false` with a `200`. Your `agent37-hermes` Cloud instances serve Hermes, so you can leave `?agent=` off.
+
 ## The session object
 
+There is no gateway-defined session shape. `GET /v1/sessions` passes each entry through from the harness's own store, native fields untouched, so the exact fields depend on the harness and can evolve with it.
+
 <ResponseField name="id" type="string">
-  The session id: 32 hex characters, no prefix. Every response in the conversation carries it as `session_id`.
+  The only field the gateway guarantees across harnesses. It is the session id you pass back to `GET`, `PATCH`, and `DELETE /v1/sessions/{id}`, and the `session_id` every response in the conversation carries. 32 hex characters, no prefix.
 </ResponseField>
 
-<ResponseField name="agent" type="string">
-  The agent the session runs, `hermes` or `openclaw`.
-</ResponseField>
-
-<ResponseField name="model" type="string | null">
-  The session's current model. Sending `model` on a turn updates it; `null` until a turn sets one.
-</ResponseField>
-
-<ResponseField name="provider" type="string | null">
-  The current model's provider, e.g. `anthropic`.
-</ResponseField>
-
-<ResponseField name="created" type="number">
-  When the session started, in epoch milliseconds.
-</ResponseField>
-
-<ResponseField name="last_response_at" type="number | null">
-  When the last turn finished, in epoch milliseconds. Failed turns do not update it; `null` until the first turn completes.
-</ResponseField>
+A Hermes session object also carries Hermes' own fields — `title`, `model`, `message_count`, `started_at`, `last_active`, and `preview` (see the example below). OpenClaw returns its own native fields. These come straight from the harness; the gateway does not normalize them, so field names, types, and timestamp units track the harness rather than this API (unlike a history message's `created_at`, which the gateway does normalize to epoch milliseconds). Read what you need by name; don't assume a field exists on every harness.
 
 ## List sessions
 
-`GET /v1/sessions` returns every session on the instance, newest first, wrapped in `{ "data": [...] }`. Pass `?agent=hermes` or `?agent=openclaw` to return only that agent's sessions; an unknown agent is a `400`. The list carries session metadata only, never history, so it stays cheap to poll for a sidebar.
+`GET /v1/sessions` returns the harness's sessions, newest first (Hermes orders by most recent activity), wrapped in `{ "agent": "...", "data": [...] }`. The `agent` names which harness the list is for. Pass `?agent=hermes` or `?agent=openclaw` to pick a harness; omit it for the instance default. The list carries session metadata only, never history, so it stays cheap to poll for a sidebar. A harness without a list API returns `data: []`.
 
 <CodeGroup>
 ```bash curl
@@ -76,14 +67,16 @@ const { data: sessions } = await (await fetch(
 
 ```json response
 {
+  "agent": "hermes",
   "data": [
     {
       "id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
-      "agent": "hermes",
+      "title": "EV makers memo",
       "model": "claude-sonnet-4-5",
-      "provider": "anthropic",
-      "created": 1781049600000,
-      "last_response_at": 1781049642000
+      "message_count": 4,
+      "started_at": 1781049600000,
+      "last_active": 1781049642000,
+      "preview": "Research the top 3 EV makers, write a memo."
     }
   ]
 }
@@ -92,7 +85,7 @@ const { data: sessions } = await (await fetch(
 
 ## Retrieve a session with history
 
-`GET /v1/sessions/{id}` returns the session object plus `history`: the full transcript, in order. You read it for display or audit; you never resend it, because the session already holds it. A session with `last_response_at: null` (no turn has finished yet) returns `history: []`. An unknown id returns `404 session_not_found`.
+`GET /v1/sessions/{id}` returns `{ "id", "agent", "history" }`: `history` is the full transcript, in order, projected from the harness. You read it for display or audit; you never resend it, because the session already holds it. An unknown id returns an empty `history` rather than a `404` — the harness owns whether a session exists. Pass `?agent=` to pick the harness.
 
 Each entry in `history` is a message:
 
@@ -130,10 +123,6 @@ curl https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726
 {
   "id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
   "agent": "hermes",
-  "model": "claude-sonnet-4-5",
-  "provider": "anthropic",
-  "created": 1781049600000,
-  "last_response_at": 1781049642000,
   "history": [
     {
       "id": "hermes:7f3e0b6c52a949d2b1c4a8e9d0f31726:1",
@@ -155,9 +144,32 @@ curl https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726
 ```
 </CodeGroup>
 
+## Rename a session
+
+`PATCH /v1/sessions/{id}` sets a session's title, writing it straight into the harness's own store, and returns `{ "id", "agent", "renamed" }`. `renamed` is `false` when no session matched the id. Send the new title in the body:
+
+<ParamField body="title" type="string" required>
+  The new title. Cannot be empty. Hermes enforces a unique, length-capped title: a title already used by another session returns `409 title_conflict`, and an over-long one returns `400 validation_error`.
+</ParamField>
+
+Rename is only available on harnesses that natively store an editable title. Hermes supports it; a harness that does not returns `405 rename_unsupported`. Pass `?agent=` to pick the harness.
+
+<CodeGroup>
+```bash curl
+curl -X PATCH https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "title": "EV makers memo" }'
+```
+
+```json response
+{ "id": "7f3e0b6c52a949d2b1c4a8e9d0f31726", "agent": "hermes", "renamed": true }
+```
+</CodeGroup>
+
 ## Delete a session
 
-`DELETE /v1/sessions/{id}` removes the conversation and returns exactly `{ "id": "...", "deleted": true }`. The delete acts once: repeating it returns `404 session_not_found`.
+`DELETE /v1/sessions/{id}` is a best-effort removal from the harness's store and returns `{ "id": "...", "deleted": true|false }`. `deleted` is `true` when a transcript was removed and `false` when nothing matched the id, so the call is idempotent: repeating it simply returns `deleted: false` rather than erroring. A harness with no delete route (OpenClaw) always returns `deleted: false` and keeps its copy. Pass `?agent=` to pick the harness.
 
 <CodeGroup>
 ```bash curl
@@ -171,7 +183,7 @@ curl -X DELETE https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8
 </CodeGroup>
 
 <Warning>
-  Deleting a session is permanent. It removes the conversation, its history, and the stored response objects for its turns — `GET /v1/responses/{id}` for those turns returns `404 response_not_found` afterwards — but leaves the instance (its files, memory, and connected accounts) untouched.
+  Deleting a session removes the conversation and its history from the harness, but leaves the instance (its files, memory, and connected accounts) untouched. The per-turn response receipts are in-memory and short-lived; they expire on their own.
 </Warning>
 
 ## One turn at a time
@@ -180,7 +192,15 @@ A session runs one response at a time. Posting new input while a turn is in flig
 
 ## List models
 
-`GET /v1/models` lists the models the instance's agent can run. The result is cached for about 60 seconds, so a newly available model can take up to a minute to appear.
+`GET /v1/models` lists the models a harness can run, in the OpenAI list shape — `{ "object": "list", "data": [...] }` — so any OpenAI-compatible client works against it. It reports on one harness: the instance default, or the one named by `?agent=` (e.g. `?agent=openclaw`), and the response echoes which `agent` answered. The result is cached for about 60 seconds, so a newly available model can take up to a minute to appear.
+
+<ResponseField name="object" type="string">
+  Always `"list"`.
+</ResponseField>
+
+<ResponseField name="agent" type="string">
+  Which harness this list is for, `hermes` or `openclaw`.
+</ResponseField>
 
 <ResponseField name="default_model" type="string | null">
   The model used when a turn does not name one.
@@ -191,7 +211,15 @@ A session runs one response at a time. Posting new input while a turn is in flig
 </ResponseField>
 
 <ResponseField name="data" type="array">
-  One entry per model: `{ "id", "label", "provider", "is_default" }`. Pass an entry's `id` as `model` (with its `provider`) on a turn.
+  One entry per model. Each is an OpenAI-compatible model object plus a few additive fields a UI can group and label on:
+
+  - `id` — the model id. Pass it as `model` on a turn.
+  - `object` — always `"model"`.
+  - `created` — Unix seconds. We don't track per-model creation time, so this is a stable placeholder (`0`).
+  - `owned_by` — the upstream provider, e.g. `nous` or `anthropic`.
+  - `label` — a human-readable name.
+  - `source` — where the entry comes from: `current`, `catalog`, `custom`, or `alias`.
+  - `is_default` — `true` for the default model.
 </ResponseField>
 
 <CodeGroup>
@@ -218,20 +246,40 @@ const models = await (await fetch(
 
 ```json response
 {
+  "object": "list",
+  "agent": "hermes",
   "default_model": "claude-sonnet-4-5",
   "default_provider": "anthropic",
   "data": [
-    { "id": "claude-sonnet-4-5", "label": "Claude Sonnet 4.5", "provider": "anthropic", "is_default": true },
-    { "id": "gpt-5.2", "label": "GPT-5.2", "provider": "openai", "is_default": false }
+    {
+      "id": "claude-sonnet-4-5",
+      "object": "model",
+      "created": 0,
+      "owned_by": "anthropic",
+      "label": "Claude Sonnet 4.5",
+      "source": "catalog",
+      "is_default": true
+    },
+    {
+      "id": "gpt-5.2",
+      "object": "model",
+      "created": 0,
+      "owned_by": "openai",
+      "label": "GPT-5.2",
+      "source": "catalog",
+      "is_default": false
+    }
   ]
 }
 ```
 </CodeGroup>
 
-`model` and `provider` are dials you set per turn on [`POST /v1/responses`](/agents-api/chat): omit them to keep the session's current model, or send them to switch. A continuation that sets them updates the session's stored model and provider for the turns that follow.
+`model` and `provider` are dials you set per turn on [`POST /v1/responses`](/agents-api/chat): omit them to keep the session's current model, or send them to switch. A continuation that sets them updates the session's model for the turns that follow.
 
 ## Health and version
 
-`GET /v1/health` returns `{ "ok": true, "agent": "hermes", "healthy": true, "hermes": true }`. `ok` is true whenever the gateway is up; `agent` is the instance's agent (`hermes` or `openclaw`), and `healthy` reports whether that agent behind it is reachable. Hermes instances also return a `hermes` field mirroring `healthy`, kept for backward compatibility; an `openclaw` instance returns the same body without the `hermes` field. Use it as a readiness probe after [create or start](/agents-api/instances).
+`GET /v1/health` returns `{ "ok": true, "agent": "hermes", "healthy": true, "hermes": true }`. `ok` is true whenever the gateway is up; `agent` is the harness that was probed, and `healthy` reports whether that harness behind it is reachable. By default it probes the instance's configured harness; pass `?agent=` to probe a specific one. When Hermes is probed, the body also carries a `hermes` field mirroring `healthy`, kept for backward compatibility; other harnesses omit it. Use it as a readiness probe after [create or start](/agents-api/instances).
 
 `GET /v1/version` returns the gateway build, e.g. `{ "name": "agent37-gateway", "version": "0.1.3" }`.
+</content>
+</invoke>
