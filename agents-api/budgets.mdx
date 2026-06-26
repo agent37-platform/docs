@@ -22,7 +22,7 @@ All money fields are integer micros: USD x 1,000,000, so \$1.00 is `1000000`. Ma
 A budget has two parts:
 
 - **Monthly cap.** A spending ceiling that resets at the start of each UTC month. It defaults to \$0, so managed calls are refused until you grant headroom.
-- **One-time top-up headroom.** A ceiling that persists across months and is consumed only after the monthly portion is exhausted.
+- **One-time credit.** A ceiling that persists across months and is consumed only after the monthly portion is exhausted.
 
 <Info>
   Budget figures are ceilings, not money. The workspace wallet is the only pot of dollars; raising a cap or topping up an instance moves no funds. The sum of caps across your instances can exceed the wallet balance, which is fine: caps bound each instance, the wallet bounds the total.
@@ -36,7 +36,7 @@ Pass `budget` in the create body to grant headroom from the first call.
   Monthly managed-spend cap in micros. Resets each UTC month.
 </ParamField>
 
-<ParamField body="budget.topup_micros" type="integer" default="0">
+<ParamField body="budget.credit_micros" type="integer" default="0">
   One-time headroom in micros. Persists until consumed.
 </ParamField>
 
@@ -47,7 +47,7 @@ curl -X POST https://api.agent37.com/v1/instances \
   -H "Content-Type: application/json" \
   -d '{
     "name": "research-bot",
-    "budget": { "monthly_cap_micros": 5000000, "topup_micros": 1000000 }
+    "budget": { "monthly_cap_micros": 5000000, "credit_micros": 1000000 }
   }'
 ```
 
@@ -60,7 +60,7 @@ instance = requests.post(
     headers=H,
     json={
         "name": "research-bot",
-        "budget": {"monthly_cap_micros": 5000000, "topup_micros": 1000000},
+        "budget": {"monthly_cap_micros": 5000000, "credit_micros": 1000000},
     },
 ).json()
 ```
@@ -75,7 +75,7 @@ const instance = await (await fetch("https://api.agent37.com/v1/instances", {
   headers: H,
   body: JSON.stringify({
     name: "research-bot",
-    budget: { monthly_cap_micros: 5000000, topup_micros: 1000000 },
+    budget: { monthly_cap_micros: 5000000, credit_micros: 1000000 },
   }),
 })).json();
 ```
@@ -110,7 +110,7 @@ All three budget endpoints return the same budget object.
   The UTC month the counters cover, formatted `YYYY-MM`.
 </ResponseField>
 
-<ResponseField name="topup_remaining_micros" type="integer">
+<ResponseField name="credit_remaining_micros" type="integer">
   One-time headroom left. Consumed only after the monthly portion is exhausted.
 </ResponseField>
 
@@ -130,7 +130,7 @@ curl https://api.agent37.com/v1/instances/ab12cd34ef/budget \
   "monthly_consumed_micros": 412380,
   "monthly_remaining_micros": 4587620,
   "monthly_period": "2026-06",
-  "topup_remaining_micros": 1000000,
+  "credit_remaining_micros": 1000000,
   "updated_at": 1781136000
 }
 ```
@@ -176,7 +176,7 @@ Setting the cap to `0` turns managed services off for the instance once any rema
 
 ## Add one-time headroom
 
-`POST /v1/instances/{id}/budget/top-up` adds to `topup_remaining_micros`. Use it for a burst of work you don't want to bake into the monthly cap.
+`POST /v1/instances/{id}/budget/top-up` adds to `credit_remaining_micros`. Use it for a burst of work you don't want to bake into the monthly cap.
 
 <ParamField body="amount_micros" type="integer" required>
   Headroom to add, in micros. Must be a positive integer.

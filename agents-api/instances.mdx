@@ -32,7 +32,7 @@ Creating an instance debits one day of compute from your workspace wallet, and t
 </ParamField>
 
 <ParamField body="budget" type="object">
-  Caps on this instance's managed usage (managed LLM, Brave search, and Composio calls), in micros (millionths of a dollar): `monthly_cap_micros` resets each UTC month, `topup_micros` adds one-time headroom that persists until spent. Both default to `0`, so managed calls are refused until you raise one. These are ceilings, not money; spend still draws the workspace wallet. See [Budgets](/agents-api/budgets).
+  Caps on this instance's managed usage (managed LLM, Brave search, and Composio calls), in micros (millionths of a dollar): `monthly_cap_micros` resets each UTC month, `credit_micros` adds one-time headroom that persists until spent. Both default to `0`, so managed calls are refused until you raise one. These are ceilings, not money; spend still draws the workspace wallet. See [Budgets](/agents-api/budgets).
 </ParamField>
 
 ### Shapes and pricing
@@ -48,7 +48,7 @@ Disk above the range minimum adds \$0.09 per GB per month. Compute bills hourly 
 
 ### Example
 
-The `topup_micros` of `1000000` gives the instance \$1 of managed-spend headroom so its first chat works out of the box.
+The `credit_micros` of `1000000` gives the instance \$1 of managed-spend headroom so its first chat works out of the box.
 
 <CodeGroup>
 ```bash curl
@@ -58,7 +58,7 @@ curl -X POST https://api.agent37.com/v1/instances \
   -d '{
     "template": "agent37-hermes",
     "user": "u_882",
-    "budget": { "topup_micros": 1000000 }
+    "budget": { "credit_micros": 1000000 }
   }'
 ```
 
@@ -71,7 +71,7 @@ resp = requests.post(
     json={
         "template": "agent37-hermes",
         "user": "u_882",
-        "budget": {"topup_micros": 1000000},
+        "budget": {"credit_micros": 1000000},
     },
 )
 instance = resp.json()
@@ -88,7 +88,7 @@ const res = await fetch("https://api.agent37.com/v1/instances", {
   body: JSON.stringify({
     template: "agent37-hermes",
     user: "u_882",
-    budget: { topup_micros: 1000000 },
+    budget: { credit_micros: 1000000 },
   }),
 });
 const instance = await res.json();
