@@ -7,7 +7,7 @@ Billing is prepaid. You top up one workspace wallet in the dashboard, and everyt
 
 ## How the balance works
 
-- **\$1 free to start.** Your first visit to the dashboard grants a one-time \$1 credit, enough to run your first instance for days. Until your first real top-up, the workspace runs one instance of any template, up to the 2 vCPU / 4 GB shape; a larger shape returns `403 tier_limit`. Your first top-up unlocks the 4/8 and 8/16 shapes, and up to 10 instances.
+- **\$1 free to start.** Your first visit to the dashboard grants a one-time \$1 credit, enough to run your first instance for days. Until your first real top-up, the workspace runs one instance of any template, up to the 2 vCPU / 4 GB shape; a larger shape returns `403 tier_limit`. Your first top-up unlocks the 4/8 and 8/16 shapes, and up to 10 instances; once your top-ups total \$500 the cap rises to 50. See [Instance limits](#instance-limits).
 - **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are \$5 to \$1000 each, paid through Stripe.
 - **Or top up automatically.** Set a rule once and the wallet refills itself; see [Automatic top-up](#automatic-top-up).
 - **Instances draw it down.** Compute bills hourly, prepaid one day at a time, for as long as the instance exists, stopped or running.
@@ -17,6 +17,20 @@ Billing is prepaid. You top up one workspace wallet in the dashboard, and everyt
 <Note>
   There are no balance or billing endpoints on `/v1`. The wallet, top-ups, and the ledger are managed entirely in the [dashboard](https://www.agent37.com/dashboard/cloud/billing).
 </Note>
+
+## Instance limits
+
+How many instances a workspace can run at once depends only on how much it has topped up:
+
+| Workspace | Instances |
+| --- | --- |
+| Free (before your first top-up) | 1, up to the 2 vCPU / 4 GB shape |
+| Topped up at least once (any amount) | 10, all shapes |
+| Top-ups total \$500 or more | 50, all shapes |
+
+The cap rises on its own: your first top-up lifts the workspace to 10 instances, and once your top-ups total \$500 it becomes 50 — nothing to request or configure. Need more than 50? Email [vishnu@agent37.com](mailto:vishnu@agent37.com) or use the chat bubble in the dashboard.
+
+These are caps on how many instances you can run at once, not a balance requirement: each instance simply [bills its own compute](#the-daily-cycle) from the wallet (a day at create, then a day per renewal), with no extra reserve for holding several.
 
 ## Compute pricing
 
@@ -56,7 +70,7 @@ The monthly price is the rate; the wallet is debited one day at a time (the hour
 
 If provisioning fails after the debit, for example a custom template's image cannot be pulled, the day is refunded in full.
 
-**More instances need more balance.** From your second concurrent instance on, your balance must hold 30 days of compute for the whole fleet, the new instance included: two small instances need about \$9.74 in balance, five about \$24.36. Nothing extra is charged, the balance just has to be there, and billing continues a day at a time. A create (or a resize, counted at the new size) that would leave the fleet uncovered returns `402 insufficient_balance` with the exact amount in the message. Workspaces are also capped at 10 instances; contact support@agent37.com to raise it.
+**Each instance bills on its own.** Every instance you run debits its own day at create and then a day per renewal — there is no extra balance reserve for running several at once. How many you can run at once is set by your [instance limit](#instance-limits), not by your balance.
 
 **Renewal every 24 hours.** Each renewal extends the paid period by exactly 24 hours from the previous `paid_through` and debits one more day, on the instance's own schedule.
 
