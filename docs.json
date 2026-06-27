@@ -28,7 +28,8 @@
           "agents-api/custom-image",
           "agents-api/urls",
           "agents-api/exec",
-          "agents-api/budgets"
+          "agents-api/budgets",
+          "agents-api/integrations"
         ]
       },
       {
@@ -114,7 +115,6 @@
     { "source": "/agents-api/messages", "destination": "/agents-api/chat" },
     { "source": "/agents-api/embeds", "destination": "/agents-api/urls" },
     { "source": "/agents-api/scheduled-runs", "destination": "/agents-api/chat" },
-    { "source": "/agents-api/integrations", "destination": "/agents-api/budgets" },
     { "source": "/agents-api/skills", "destination": "/agents-api/templates" },
     { "source": "/agents-api/build-your-own-image", "destination": "/agents-api/custom-image" }
   ],

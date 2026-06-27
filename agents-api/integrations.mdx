@@ -1,0 +1,274 @@
+---
+title: "App integrations"
+description: "Connect Gmail, Slack, Notion, and 250+ other apps to an instance over the Hosting API — managed Composio, one entity per instance, OAuth handled for you."
+---
+
+Every instance ships with managed [Composio](https://composio.dev) credentials, so the agent can call real apps — Gmail, Slack, Notion, GitHub, Google Calendar, and hundreds more — without you wiring up OAuth or holding any provider tokens. The agent can connect apps in conversation, but you can also drive the whole flow over the Hosting API: browse the catalog, start a connection, list what's connected, and disconnect.
+
+These endpoints live under each instance and operate on that instance's own Composio entity.
+
+<Info>
+  Browsing, connecting, listing, and disconnecting are **free** — they never debit the wallet or the budget. Only the agent's actual tool calls at runtime are metered, as managed Composio spend. See [Billing](#billing) below for the rate.
+</Info>
+
+## The entity model
+
+Each instance maps to exactly one Composio entity, derived from your workspace and the instance id. You never construct or pass it — every endpoint here resolves it from the path instance. The practical consequences:
+
+- **Per-instance isolation.** Create one instance per end user (as in [Instances](/agents-api/instances)) and their connected accounts never leak across users.
+- **Multiple accounts of the same app.** Connect the same toolkit more than once to attach, say, two Gmail accounts to one instance. Each call returns a distinct `connectedAccountId`; the agent chooses between them per tool call by `connected_account_id`.
+- **Survives restarts and rolls.** Connections belong to the entity, not the running container, so they persist across stop/start and image updates.
+
+## Endpoints
+
+| Method | Path | Returns |
+| --- | --- | --- |
+| `GET` | `/v1/instances/{id}/integrations/toolkits` | `200` a page of available apps |
+| `POST` | `/v1/instances/{id}/integrations/connect` | `200` an authorization link |
+| `GET` | `/v1/instances/{id}/integrations/connections` | `200` connected accounts |
+| `DELETE` | `/v1/instances/{id}/integrations/connections/{connectedAccountId}` | `200` deletion confirmation |
+
+All four require the `sk_live_` key, and the path instance must belong to your workspace — otherwise the call returns `404`.
+
+## Browse the app catalog
+
+`GET /v1/instances/{id}/integrations/toolkits` lists the apps you can connect, newest-relevant first, paginated by cursor.
+
+<ParamField query="search" type="string">
+  Filter the catalog by name or slug. Must be at least 3 characters; a shorter value returns `400`.
+</ParamField>
+
+<ParamField query="limit" type="integer" default="12">
+  Page size, clamped to `1`–`24`.
+</ParamField>
+
+<ParamField query="cursor" type="string">
+  The `nextCursor` from a previous page. Omit for the first page.
+</ParamField>
+
+<ResponseField name="items" type="array">
+  The page of toolkits. Each carries `slug`, `name`, `description`, `logo`, `enabled`, `isNoAuth`, and `authSchemes`.
+</ResponseField>
+
+<ResponseField name="nextCursor" type="string | null">
+  Pass back as `cursor` to fetch the next page. `null` on the last page.
+</ResponseField>
+
+<ResponseField name="totalItems" type="integer">
+  Total matches for the query.
+</ResponseField>
+
+<CodeGroup>
+```bash curl
+curl "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/toolkits?search=gmail&limit=5" \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python python
+import requests
+
+H = {"Authorization": "Bearer sk_live_..."}
+page = requests.get(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/toolkits",
+    headers=H,
+    params={"search": "gmail", "limit": 5},
+).json()
+```
+
+```javascript node
+const H = { Authorization: "Bearer sk_live_..." };
+const page = await (await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/toolkits?search=gmail&limit=5",
+  { headers: H },
+)).json();
+```
+
+```json response
+{
+  "items": [
+    {
+      "slug": "gmail",
+      "name": "Gmail",
+      "description": "Send, read, and search email.",
+      "logo": "https://logos.composio.dev/api/gmail",
+      "enabled": true,
+      "isNoAuth": false,
+      "authSchemes": ["OAUTH2"]
+    }
+  ],
+  "nextCursor": null,
+  "totalItems": 1
+}
+```
+</CodeGroup>
+
+## Connect an app
+
+`POST /v1/instances/{id}/integrations/connect` starts an OAuth connection for one toolkit and returns an authorization link. Open `redirectUrl` in a browser, grant access, and the connection becomes active for this instance's entity.
+
+<ParamField body="toolkit" type="string" required>
+  The toolkit slug to connect, for example `gmail` (from the catalog's `slug`).
+</ParamField>
+
+<ParamField body="callbackUrl" type="string">
+  Where to send the user after they grant access. If present it **must** be an absolute `https://` URL (anything else returns `400`). Omit it to use Composio's hosted "you can close this window" page — no callback needed.
+</ParamField>
+
+The workspace's own Composio auth configs are applied automatically, so toolkits you've set up with custom OAuth credentials use them transparently.
+
+<ResponseField name="toolkit" type="string">
+  The toolkit slug, echoed back.
+</ResponseField>
+
+<ResponseField name="connectedAccountId" type="string">
+  The id of the pending connected account. Becomes active once the user completes the link, and identifies this account in [connections](#list-connections) and at tool-call time.
+</ResponseField>
+
+<ResponseField name="redirectUrl" type="string">
+  The authorization URL to open in a browser.
+</ResponseField>
+
+<CodeGroup>
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connect \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "toolkit": "gmail" }'
+```
+
+```python python
+conn = requests.post(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connect",
+    headers={**H, "Content-Type": "application/json"},
+    json={"toolkit": "gmail"},
+).json()
+# Send the user to conn["redirectUrl"].
+```
+
+```javascript node
+const conn = await (await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connect",
+  {
+    method: "POST",
+    headers: { ...H, "Content-Type": "application/json" },
+    body: JSON.stringify({ toolkit: "gmail" }),
+  },
+)).json();
+```
+
+```json response
+{
+  "toolkit": "gmail",
+  "connectedAccountId": "ca_7f3a9b21",
+  "redirectUrl": "https://backend.composio.dev/api/v3/.../authorize"
+}
+```
+</CodeGroup>
+
+Pass a `callbackUrl` to return the user to your own app after they grant access:
+
+```json
+{ "toolkit": "gmail", "callbackUrl": "https://app.example.com/integrations/done" }
+```
+
+### Multiple accounts of one app
+
+Call `connect` again for the same toolkit to add a second account — a second Gmail inbox, say. You get a fresh `connectedAccountId`, and both stay attached to the instance. The agent picks which to use per tool call via `connected_account_id`, so "send from my work address" and "send from my personal address" both work on one instance.
+
+### When a toolkit needs your own credentials
+
+Some toolkits have no managed OAuth app and require your own credentials. For those, `connect` returns `422`:
+
+```json
+{ "error": "custom_auth_required", "toolkit": "salesforce" }
+```
+
+Configure the toolkit's auth config for your workspace, then retry. If managed Composio isn't configured at all (or is temporarily unavailable), the call returns `503`.
+
+## List connections
+
+`GET /v1/instances/{id}/integrations/connections` returns the accounts connected to this instance. Pass `toolkit` to filter to one app.
+
+<ParamField query="toolkit" type="string">
+  Return only connections for this toolkit slug.
+</ParamField>
+
+<ResponseField name="connections" type="array">
+  Composio connected-account objects, passed through as-is. Each carries `id`, `toolkitSlug`, `toolkitName`, `status`, and the account's auth and timestamp metadata. Because this is Composio's native shape, its fields follow Composio's naming and its timestamps are epoch **milliseconds** (not the Hosting API's usual seconds).
+</ResponseField>
+
+<CodeGroup>
+```bash curl
+curl "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections?toolkit=gmail" \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python python
+conns = requests.get(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections",
+    headers=H,
+    params={"toolkit": "gmail"},
+).json()
+```
+
+```javascript node
+const conns = await (await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections?toolkit=gmail",
+  { headers: H },
+)).json();
+```
+
+```json response
+{
+  "connections": [
+    {
+      "id": "ca_7f3a9b21",
+      "toolkitSlug": "gmail",
+      "toolkitName": "Gmail",
+      "status": "ACTIVE",
+      "authConfigId": "ac_managed_gmail",
+      "authScheme": "OAUTH2",
+      "isDisabled": false,
+      "createdAt": 1781222400000,
+      "updatedAt": 1781222480000
+    }
+  ]
+}
+```
+</CodeGroup>
+
+## Disconnect an app
+
+`DELETE /v1/instances/{id}/integrations/connections/{connectedAccountId}` removes one connected account. The account must belong to this instance's entity, or the call returns `404`. After deletion the agent can no longer use that account; other accounts on the instance are untouched.
+
+<CodeGroup>
+```bash curl
+curl -X DELETE \
+  https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections/ca_7f3a9b21 \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python python
+res = requests.delete(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections/ca_7f3a9b21",
+    headers=H,
+).json()
+```
+
+```javascript node
+const res = await (await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections/ca_7f3a9b21",
+  { method: "DELETE", headers: H },
+)).json();
+```
+
+```json response
+{ "id": "ca_7f3a9b21", "deleted": true }
+```
+</CodeGroup>
+
+## Billing
+
+Managing integrations is free — nothing on this page debits the budget or the wallet. Only the agent actually calling a connected app at runtime is metered, at \$0.000114 per call (114 micros), drawn from the instance [budget](/agents-api/budgets) and the workspace wallet like any other managed service.
+
+That spend shows up in `GET /v1/instances/{id}/usage` under `by_integration.composio`. See [Managed services & budgets](/agents-api/budgets) for the rate, the usage shape, and the `402` refusal that keeps the instance running when the budget or wallet can't cover a tool call.

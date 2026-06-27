@@ -68,8 +68,8 @@ Per-instance [budgets](/agents-api/budgets) are caps, not money. A budget bounds
 - **Instance ids** are bare 10-character lowercase alphanumerics, like `ab12cd34ef`. No prefixes. The id doubles as the DNS label in the instance URL.
 - **Session and response ids** are 32-character hex strings minted by the gateway, like `7f3e0b6c52a949d2b1c4a8e9d0f31726`.
 - **Money** is integer micros: USD x 1e6, in `*_micros` fields.
-- **Timestamps** are epoch seconds on the hosting API and epoch milliseconds on the agent API.
-- **Lists** wrap results in `{ "data": [...] }`. Instance and session lists are newest first.
+- **Timestamps** are epoch seconds on the hosting API and epoch milliseconds on the agent API. The [App integrations](/agents-api/integrations) endpoints are the exception: they pass Composio's native shapes through unchanged, with millisecond timestamps.
+- **Lists** wrap results in `{ "data": [...] }`. Instance and session lists are newest first. (The App integrations endpoints again pass Composio's native paginated and connection shapes through instead.)
 
 An instance's `status` is one of `provisioning`, `running`, `stopping`, `stopped`, `starting`, `restarting`, `updating`, `failed`, `deleting`, or `deleted`; a response's `status` is `in_progress`, `completed`, `failed`, or `cancelled`.
 
