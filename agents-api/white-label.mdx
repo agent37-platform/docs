@@ -18,6 +18,7 @@ The white-label starter is a complete, multi-tenant dashboard for creating and m
 - **Multi-tenant from the start.** Workspaces, team members, and invitations, with row-level security in Postgres. Each agent is scoped to a workspace, and one user can belong to several.
 - **Full instance management.** Create, start, stop, restart, resize, roll to a new image, and delete instances — every [instance](/agents-api/instances) action wrapped in a UI, with per-agent [budgets](/agents-api/budgets) and usage.
 - **Each agent's own UIs, one click away.** The dashboard mints [signed URLs](/agents-api/urls#browser-access-with-signed-urls) to open an instance's built-in Hermes chat, terminal, and file browser — it brokers the instance's native interfaces rather than reimplementing them.
+- **App integrations per agent.** Connect Gmail, Slack, Notion, and more to each instance through the [App integrations](/agents-api/integrations) endpoints, so your users authorize their own accounts from your branded UI.
 - **Auth and branding handled.** Email magic-link sign-in through Supabase, and the app name and logo are env-driven, so rebranding is config, not code.
 - **Your key stays server-side.** Every Agent37 call goes through the app's own backend; the `sk_live_` key is never exposed to the browser.
 
