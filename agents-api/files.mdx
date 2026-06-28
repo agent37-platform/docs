@@ -1,6 +1,6 @@
 ---
 title: "Files"
-description: "Browse, read, write, move, and delete files on the instance's disk — straight from the instance URL."
+description: "Browse, read, write, move, delete, and download whole folders on the instance's disk — straight from the instance URL."
 ---
 
 Files live on the instance's disk. A file's absolute `path` is its identity: there are no file ids, so the path you list is the path you read, write, move, or delete. You write a file with one call, attach the returned `path` to [a message](/agents-api/chat), and download anything the agent produces by path.
@@ -160,6 +160,51 @@ await fs.promises.writeFile(
 <Warning>
   Serving an agent-produced file `inline` runs it on **your** origin. HTML, SVG, and similar can execute scripts in the page that opens them, so an instance whose agent writes attacker-controlled content can run code against your users. Render untrusted files in a sandboxed frame (`<iframe sandbox>`) on an isolated origin, or force a download with `disposition=attachment`.
 </Warning>
+
+## Download a folder
+
+`GET /v1/files/archive?path=…` streams a whole directory as a gzipped tar (`.tar.gz`) — the one call to pull a tree instead of walking it file by file. The archive is built on the fly and streamed, so any size works and the 512 KB [exec](/agents-api/exec) output cap does not apply. It unpacks to a single top-level folder named after the directory you packed.
+
+<ParamField query="path" type="string">
+  The directory to archive. Optional; defaults to the agent's workspace, `/home/user/.agent37-gateway/workspace`. Accepts absolute and `~/` paths. No directory at the path returns `404 file_not_found`; a path that exists but is not a directory returns `400 not_a_directory`.
+</ParamField>
+
+The response is `Content-Type: application/gzip` and a `Content-Disposition: attachment` whose download filename is the packed directory's name plus `.tar.gz` (characters outside `A–Z a–z 0–9 . _ -` and space are stripped, and an empty result falls back to `archive`). Symlinks are stored as links, not followed, so the archive never inlines a link target's bytes.
+
+<CodeGroup>
+```bash curl
+curl -G https://ab12cd34ef.agent37.app/v1/files/archive \
+  -H "Authorization: Bearer sk_live_..." \
+  --data-urlencode "path=/home/user/.agent37-gateway/workspace/reports" \
+  -o reports.tar.gz
+```
+
+```python python
+import requests
+
+r = requests.get(
+    "https://ab12cd34ef.agent37.app/v1/files/archive",
+    headers={"Authorization": "Bearer sk_live_..."},
+    params={"path": "/home/user/.agent37-gateway/workspace/reports"},
+)
+open("reports.tar.gz", "wb").write(r.content)
+```
+
+```javascript node
+import fs from "node:fs";
+
+const res = await fetch(
+  "https://ab12cd34ef.agent37.app/v1/files/archive?" +
+    new URLSearchParams({
+      path: "/home/user/.agent37-gateway/workspace/reports",
+    }),
+  { headers: { Authorization: "Bearer sk_live_..." } },
+);
+await fs.promises.writeFile("reports.tar.gz", Buffer.from(await res.arrayBuffer()));
+```
+</CodeGroup>
+
+Expand it with `tar -xzf reports.tar.gz`. There is no folder-upload counterpart: to upload a tree, recreate it with per-file `PUT /v1/files/content` calls — each creates any missing parent directories (`mkdir -p`).
 
 ## Write a file
 
