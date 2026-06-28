@@ -171,6 +171,13 @@ Pass a `callbackUrl` to return the user to your own app after they grant access:
 { "toolkit": "gmail", "callbackUrl": "https://app.example.com/integrations/done" }
 ```
 
+### Returning the user to your app
+
+`callbackUrl` is where Composio sends the user once they grant access — point it at a page in your own app to keep the flow seamless instead of leaving them on Composio's hosted page. Two things make the round-trip clean:
+
+- **Carry your own context.** Add query params to the `callbackUrl` you pass, so the page they land on knows what just happened — for example `https://app.example.com/integrations/done?toolkit=gmail`. The user returns to your URL with those params intact; Composio doesn't add any of its own, so put everything you need to know there yourself.
+- **Confirm it took.** Landing back on your page means the user finished the OAuth screens, not that the account is live. Verify by calling [`GET /v1/instances/{id}/integrations/connections`](#list-connections) — match the `connectedAccountId` you got from `connect` and check its `status` is `ACTIVE`. A new connection can take a moment to settle, so poll briefly if it isn't active on the first read.
+
 ### Multiple accounts of one app
 
 Call `connect` again for the same toolkit to add a second account — a second Gmail inbox, say. You get a fresh `connectedAccountId`, and both stay attached to the instance. The agent picks which to use per tool call via `connected_account_id`, so "send from my work address" and "send from my personal address" both work on one instance.
