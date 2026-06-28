@@ -16,7 +16,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="files" type="string[]">
-  Paths of files on the instance to attach to this turn, typically the `path` returned by [`POST /v1/files`](/agents-api/files). Each must name an existing file on the instance, or the call returns `400 validation_error`. The paths are appended to the input, and the agent reads them from disk.
+  Paths of files on the instance to attach to this turn, typically the `path` returned by [`PUT /v1/files/content`](/agents-api/files). Each must name an existing file on the instance, or the call returns `400 validation_error`. The paths are appended to the input, and the agent reads them from disk.
 </ParamField>
 
 <ParamField body="session_id" type="string">
