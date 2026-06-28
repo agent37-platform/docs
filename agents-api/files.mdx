@@ -1,97 +1,131 @@
 ---
 title: "Files"
-description: "Upload a file for the agent to work on, and download the files it produces, straight from the instance URL."
+description: "Browse, read, write, move, and delete files on the instance's disk — straight from the instance URL."
 ---
 
-Files live on the instance's disk, in the agent's workspace. A file's absolute path is its identity: there are no file ids. You upload with one call, attach the returned path to [a message](/agents-api/chat), and download anything the agent produces by path.
+Files live on the instance's disk. A file's absolute `path` is its identity: there are no file ids, so the path you list is the path you read, write, move, or delete. You write a file with one call, attach the returned `path` to [a message](/agents-api/chat), and download anything the agent produces by path.
 
-The base URL is your instance URL, `https://{instanceId}.agent37.app`, with the same `sk_live_` Bearer as every other call. This page uses `https://ab12cd34ef.agent37.app`.
+The base URL is your instance URL, `https://{instanceId}.agent37.app`, with the same `sk_live_` Bearer as every other call. This page uses `https://ab12cd34ef.agent37.app`. The agent's workspace — where it reads and writes by default — is `/home/user/.agent37-gateway/workspace`, and that is the default directory for a list with no `path`.
 
-## Upload a file
+These calls are not jailed to the workspace. The `sk_live_` key is the instance root: any path the key can reach on the instance's filesystem is fair game, with `~` expanding to the agent's home. Treat the key accordingly.
 
-`POST /v1/files` takes a multipart body with exactly one file in a `file` field and writes it into the agent's workspace, under `uploads/` with a short random prefix so repeated uploads of the same name don't overwrite each other. The response carries the absolute `path` you attach to a turn.
+<Note>
+  Every timestamp here is `modified`, the file's mtime in **epoch milliseconds** — the Agent API convention (the Hosting API uses seconds). It is a number, not an ISO string.
+</Note>
 
-<ParamField body="file" type="file" required>
-  The file, as a multipart form field named `file`. One file per request; a missing or extra file returns `400 validation_error`.
+## The file entry
+
+List responses and every write return the same `FileEntry` shape, so the `path` you get back from a write is ready to use on the next call.
+
+<ResponseField name="name" type="string">
+  The basename, e.g. `leads.csv`.
+</ResponseField>
+<ResponseField name="path" type="string">
+  The resolved absolute path on the instance. This is the identity you pass to every other call and to `files` on [`POST /v1/responses`](/agents-api/chat).
+</ResponseField>
+<ResponseField name="type" type="string">
+  `file`, `directory`, `symlink`, or `other` (sockets, devices, FIFOs).
+</ResponseField>
+<ResponseField name="size" type="integer | null">
+  Size in bytes; `null` for directories.
+</ResponseField>
+<ResponseField name="modified" type="number">
+  Last-modified time (mtime) in epoch milliseconds.
+</ResponseField>
+<ResponseField name="hidden" type="boolean">
+  `true` when the name starts with `.`.
+</ResponseField>
+
+## List a directory
+
+`GET /v1/files` lists one directory level. Omit `path` to list the agent's workspace; pass an absolute path or a `~/` path to list anywhere the key can reach. Entries are sorted directories first, then by name case-insensitively.
+
+<ParamField query="path" type="string">
+  The directory to list. Optional; defaults to the agent's workspace, `/home/user/.agent37-gateway/workspace`. Accepts absolute and `~/` paths. A path that exists but is not a directory returns `400 not_a_directory`.
 </ParamField>
 
 <CodeGroup>
 ```bash curl
-curl -X POST https://ab12cd34ef.agent37.app/v1/files \
+curl -G https://ab12cd34ef.agent37.app/v1/files \
   -H "Authorization: Bearer sk_live_..." \
-  -F "file=@leads.csv"
+  --data-urlencode "path=~/.agent37-gateway/workspace"
 ```
 
 ```python python
 import requests
 
-r = requests.post(
+listing = requests.get(
     "https://ab12cd34ef.agent37.app/v1/files",
     headers={"Authorization": "Bearer sk_live_..."},
-    files={"file": open("leads.csv", "rb")},
+    params={"path": "~/.agent37-gateway/workspace"},
 ).json()
 ```
 
 ```javascript node
-import fs from "node:fs";
-
-const form = new FormData();
-form.append("file", new Blob([await fs.promises.readFile("leads.csv")]), "leads.csv");
-const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/files", {
-  method: "POST",
-  headers: { Authorization: "Bearer sk_live_..." },
-  body: form,
-})).json();
+const listing = await (await fetch(
+  "https://ab12cd34ef.agent37.app/v1/files?" +
+    new URLSearchParams({ path: "~/.agent37-gateway/workspace" }),
+  { headers: { Authorization: "Bearer sk_live_..." } },
+)).json();
 ```
 
 ```json response
 {
-  "path": "/home/node/uploads/3f2a1b9c-leads.csv",
-  "filename": "leads.csv",
-  "bytes": 18244
+  "path": "/home/user/.agent37-gateway/workspace",
+  "parentPath": "/home/user/.agent37-gateway",
+  "entries": [
+    {
+      "name": "reports",
+      "path": "/home/user/.agent37-gateway/workspace/reports",
+      "type": "directory",
+      "size": null,
+      "modified": 1781049600000,
+      "hidden": false
+    },
+    {
+      "name": "leads.csv",
+      "path": "/home/user/.agent37-gateway/workspace/leads.csv",
+      "type": "file",
+      "size": 18244,
+      "modified": 1781049642000,
+      "hidden": false
+    }
+  ],
+  "truncated": false
 }
 ```
 </CodeGroup>
 
 <ResponseField name="path" type="string">
-  The file's absolute path on the instance. Pass it in `files` on [`POST /v1/responses`](/agents-api/chat).
+  The resolved absolute path of the directory you listed.
 </ResponseField>
-<ResponseField name="filename" type="string">
-  The original name you uploaded, without the storage prefix.
+<ResponseField name="parentPath" type="string | null">
+  The parent directory's absolute path, or `null` at the filesystem root.
 </ResponseField>
-<ResponseField name="bytes" type="integer">
-  The stored size in bytes.
+<ResponseField name="entries" type="array">
+  The directory's immediate children as [`FileEntry`](#the-file-entry) objects. One level only — this never recurses.
+</ResponseField>
+<ResponseField name="truncated" type="boolean">
+  `true` when the directory holds more than 1000 entries; only the first 1000 (after sorting) are returned.
 </ResponseField>
 
-<Note>
-  The 2 MB request-body cap applies to JSON bodies only; multipart uploads are exempt. Uploads are kept until you delete them from the instance's disk yourself — there is no garbage collection.
-</Note>
+## Read, preview, or download a file
 
-## Attach it to a turn
+`GET /v1/files/content?path=…` streams a file off the instance — typically one the agent told you it wrote. Any size; the 512 KB [exec](/agents-api/exec) output cap does not apply here. The `Content-Type` is set from the file extension.
 
-Pass the returned `path` in the `files` array on [`POST /v1/responses`](/agents-api/chat). The gateway appends the paths to your input and the agent reads them from disk:
+<ParamField query="path" type="string" required>
+  The file to read. Accepts absolute and `~/` paths. A missing or empty `path`, or a path that is not a regular file, returns `400 validation_error`; no file at the path returns `404 file_not_found`.
+</ParamField>
 
-```bash curl
-curl https://ab12cd34ef.agent37.app/v1/responses \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "input": "Summarize the attached spreadsheet.",
-    "files": ["/home/node/uploads/3f2a1b9c-leads.csv"]
-  }'
-```
-
-Each entry must name an existing file on the instance, or the call returns `400 validation_error` with the hint to upload it first.
-
-## Download a file
-
-`GET /v1/files/content?path=…` streams a file off the instance — typically one the agent told you it wrote. Any size; the 512 KB [exec](/agents-api/exec) output cap does not apply here.
+<ParamField query="disposition" type="string" default="attachment">
+  `attachment` sends `Content-Disposition: attachment` so a browser downloads the file. `inline` sends `Content-Disposition: inline` so a browser renders it (useful for previews).
+</ParamField>
 
 <CodeGroup>
 ```bash curl
 curl -G https://ab12cd34ef.agent37.app/v1/files/content \
   -H "Authorization: Bearer sk_live_..." \
-  --data-urlencode "path=~/reports/ev-makers-memo.md" \
+  --data-urlencode "path=~/.agent37-gateway/workspace/reports/ev-makers-memo.md" \
   -o ev-makers-memo.md
 ```
 
@@ -101,7 +135,7 @@ import requests
 r = requests.get(
     "https://ab12cd34ef.agent37.app/v1/files/content",
     headers={"Authorization": "Bearer sk_live_..."},
-    params={"path": "~/reports/ev-makers-memo.md"},
+    params={"path": "~/.agent37-gateway/workspace/reports/ev-makers-memo.md"},
 )
 open("ev-makers-memo.md", "wb").write(r.content)
 ```
@@ -111,19 +145,258 @@ import fs from "node:fs";
 
 const res = await fetch(
   "https://ab12cd34ef.agent37.app/v1/files/content?" +
-    new URLSearchParams({ path: "~/reports/ev-makers-memo.md" }),
+    new URLSearchParams({
+      path: "~/.agent37-gateway/workspace/reports/ev-makers-memo.md",
+    }),
   { headers: { Authorization: "Bearer sk_live_..." } },
 );
-await fs.promises.writeFile("ev-makers-memo.md", Buffer.from(await res.arrayBuffer()));
+await fs.promises.writeFile(
+  "ev-makers-memo.md",
+  Buffer.from(await res.arrayBuffer()),
+);
 ```
 </CodeGroup>
 
-`path` accepts absolute paths and `~/` paths (the agent's home). No file at the path returns `404 file_not_found`; a path that is not a regular file, or a missing `path` parameter, returns `400 validation_error`.
+<Warning>
+  Serving an agent-produced file `inline` runs it on **your** origin. HTML, SVG, and similar can execute scripts in the page that opens them, so an instance whose agent writes attacker-controlled content can run code against your users. Render untrusted files in a sandboxed frame (`<iframe sandbox>`) on an isolated origin, or force a download with `disposition=attachment`.
+</Warning>
+
+## Write a file
+
+`PUT /v1/files/content?path=…` writes the **raw request body** to `path` — this is the one call for create, overwrite, edit, and upload. It is not multipart: the body is the file's exact bytes. Missing parent directories are created (`mkdir -p`). The response is the written file's [`FileEntry`](#the-file-entry).
+
+<ParamField query="path" type="string" required>
+  Where to write. Accepts absolute and `~/` paths; parent directories are created as needed. A missing or empty `path` returns `400 validation_error`.
+</ParamField>
+
+<ParamField query="overwrite" type="boolean" default="true">
+  `true` replaces an existing file. `false` makes the write fail with `409 file_exists` if a file is already at `path`.
+</ParamField>
+
+<ParamField header="X-Expected-Mtime" type="integer">
+  Optional optimistic-concurrency guard, epoch milliseconds. When the file exists and its `modified` differs from this value, the write fails with `412 modified` — someone changed it since you read it. Ignored when the file does not exist (the write is treated as a create).
+</ParamField>
+
+<CodeGroup>
+```bash curl
+curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=/home/user/.agent37-gateway/workspace/leads.csv" \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: text/csv" \
+  --data-binary @leads.csv
+```
+
+```python python
+import requests
+
+entry = requests.put(
+    "https://ab12cd34ef.agent37.app/v1/files/content",
+    headers={"Authorization": "Bearer sk_live_..."},
+    params={"path": "/home/user/.agent37-gateway/workspace/leads.csv"},
+    data=open("leads.csv", "rb"),
+).json()
+```
+
+```javascript node
+import fs from "node:fs";
+
+const entry = await (await fetch(
+  "https://ab12cd34ef.agent37.app/v1/files/content?" +
+    new URLSearchParams({
+      path: "/home/user/.agent37-gateway/workspace/leads.csv",
+    }),
+  {
+    method: "PUT",
+    headers: { Authorization: "Bearer sk_live_..." },
+    body: await fs.promises.readFile("leads.csv"),
+  },
+)).json();
+```
+
+```json response
+{
+  "name": "leads.csv",
+  "path": "/home/user/.agent37-gateway/workspace/leads.csv",
+  "type": "file",
+  "size": 18244,
+  "modified": 1781049642000,
+  "hidden": false
+}
+```
+</CodeGroup>
+
+<Tip>
+  **Attach a file to a turn.** Write the bytes, then pass the returned `path` in the `files` array on [`POST /v1/responses`](/agents-api/chat):
+
+  ```bash
+  curl https://ab12cd34ef.agent37.app/v1/responses \
+    -H "Authorization: Bearer sk_live_..." \
+    -H "Content-Type: application/json" \
+    -d '{
+      "input": "Summarize the attached spreadsheet.",
+      "files": ["/home/user/.agent37-gateway/workspace/leads.csv"]
+    }'
+  ```
+
+  Each entry must name an existing file on the instance, or the call returns `400 validation_error`.
+</Tip>
+
+## Delete a file or directory
+
+`DELETE /v1/files?path=…` removes the path recursively and by force, like `rm -rf` — a directory and everything under it goes in one call. There is no confirmation and no guard, so a wrong `path` is unrecoverable. A symlink is removed itself, not followed. The response is `{ "ok": true }`.
+
+<ParamField query="path" type="string" required>
+  The file or directory to delete. Accepts absolute and `~/` paths. A missing or empty `path` returns `400 validation_error`.
+</ParamField>
+
+<CodeGroup>
+```bash curl
+curl -X DELETE -G https://ab12cd34ef.agent37.app/v1/files \
+  -H "Authorization: Bearer sk_live_..." \
+  --data-urlencode "path=/home/user/.agent37-gateway/workspace/reports"
+```
+
+```python python
+import requests
+
+requests.delete(
+    "https://ab12cd34ef.agent37.app/v1/files",
+    headers={"Authorization": "Bearer sk_live_..."},
+    params={"path": "/home/user/.agent37-gateway/workspace/reports"},
+)
+```
+
+```javascript node
+await fetch(
+  "https://ab12cd34ef.agent37.app/v1/files?" +
+    new URLSearchParams({
+      path: "/home/user/.agent37-gateway/workspace/reports",
+    }),
+  { method: "DELETE", headers: { Authorization: "Bearer sk_live_..." } },
+);
+```
+
+```json response
+{ "ok": true }
+```
+</CodeGroup>
+
+<Warning>
+  Delete is recursive and unguarded. It removes whatever the key can reach, including directories full of files, with no undo. Double-check `path` before you send it.
+</Warning>
+
+## Rename or move a file
+
+`PATCH /v1/files` renames or moves a path with `fs.rename`, taking a body of `{ "from", "to" }`. The OS decides the edge cases — overwriting an existing `to`, moving into a directory, crossing devices — so behavior matches a shell `mv`. The response is the [`FileEntry`](#the-file-entry) of the new path.
+
+<ParamField body="from" type="string" required>
+  The current path. Accepts absolute and `~/` paths. Empty returns `400 validation_error`.
+</ParamField>
+
+<ParamField body="to" type="string" required>
+  The new path. Accepts absolute and `~/` paths. Empty returns `400 validation_error`.
+</ParamField>
+
+<CodeGroup>
+```bash curl
+curl -X PATCH https://ab12cd34ef.agent37.app/v1/files \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "/home/user/.agent37-gateway/workspace/leads.csv",
+    "to": "/home/user/.agent37-gateway/workspace/archive/leads.csv"
+  }'
+```
+
+```python python
+import requests
+
+entry = requests.patch(
+    "https://ab12cd34ef.agent37.app/v1/files",
+    headers={"Authorization": "Bearer sk_live_..."},
+    json={
+        "from": "/home/user/.agent37-gateway/workspace/leads.csv",
+        "to": "/home/user/.agent37-gateway/workspace/archive/leads.csv",
+    },
+).json()
+```
+
+```javascript node
+const entry = await (await fetch("https://ab12cd34ef.agent37.app/v1/files", {
+  method: "PATCH",
+  headers: {
+    Authorization: "Bearer sk_live_...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    from: "/home/user/.agent37-gateway/workspace/leads.csv",
+    to: "/home/user/.agent37-gateway/workspace/archive/leads.csv",
+  }),
+})).json();
+```
+
+```json response
+{
+  "name": "leads.csv",
+  "path": "/home/user/.agent37-gateway/workspace/archive/leads.csv",
+  "type": "file",
+  "size": 18244,
+  "modified": 1781049642000,
+  "hidden": false
+}
+```
+</CodeGroup>
+
+## Create a directory
+
+`POST /v1/files/dir?path=…` creates a directory and any missing parents (`mkdir -p`). It is idempotent: a path that already exists returns its [`FileEntry`](#the-file-entry) rather than erroring.
+
+<ParamField query="path" type="string" required>
+  The directory to create. Accepts absolute and `~/` paths; parents are created as needed. A missing or empty `path` returns `400 validation_error`.
+</ParamField>
+
+<CodeGroup>
+```bash curl
+curl -X POST -G https://ab12cd34ef.agent37.app/v1/files/dir \
+  -H "Authorization: Bearer sk_live_..." \
+  --data-urlencode "path=/home/user/.agent37-gateway/workspace/archive"
+```
+
+```python python
+import requests
+
+entry = requests.post(
+    "https://ab12cd34ef.agent37.app/v1/files/dir",
+    headers={"Authorization": "Bearer sk_live_..."},
+    params={"path": "/home/user/.agent37-gateway/workspace/archive"},
+).json()
+```
+
+```javascript node
+const entry = await (await fetch(
+  "https://ab12cd34ef.agent37.app/v1/files/dir?" +
+    new URLSearchParams({
+      path: "/home/user/.agent37-gateway/workspace/archive",
+    }),
+  { method: "POST", headers: { Authorization: "Bearer sk_live_..." } },
+)).json();
+```
+
+```json response
+{
+  "name": "archive",
+  "path": "/home/user/.agent37-gateway/workspace/archive",
+  "type": "directory",
+  "size": null,
+  "modified": 1781049600000,
+  "hidden": false
+}
+```
+</CodeGroup>
 
 ## The loop
 
-Upload, attach, fetch what the agent made:
+The common cycle is write, attach, fetch:
 
-1. `POST /v1/files` with the input file; keep the returned `path`.
-2. `POST /v1/responses` with your `input` and the path in `files`.
-3. When the agent replies that it wrote a file, `GET /v1/files/content?path=…` to fetch it.
+1. `PUT /v1/files/content?path=…` with the input bytes; keep the returned `path`.
+2. `POST /v1/responses` with your `input` and that path in `files`.
+3. When the agent replies that it wrote a file, `GET /v1/files/content?path=…` to fetch it — or `GET /v1/files` to browse what it left behind.

@@ -88,7 +88,7 @@ console.log(result.exit_code, result.stdout);
 
 ## Build on exec
 
-Anything the API does not wrap as its own endpoint, you build on `exec`. For moving files, prefer the instance's own [files endpoints](/agents-api/files) at `https://{instanceId}.agent37.app` — `POST /v1/files` to upload, `GET /v1/files/content` to download — but a quick text read works over exec too. A "Download the report" button in your product can be one exec call that reads the file the agent wrote:
+Anything the API does not wrap as its own endpoint, you build on `exec`. For moving files, prefer the instance's own [files endpoints](/agents-api/files) at `https://{instanceId}.agent37.app` — `PUT /v1/files/content` to upload, `GET /v1/files/content` to download — but a quick text read works over exec too. A "Download the report" button in your product can be one exec call that reads the file the agent wrote:
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
