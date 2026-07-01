@@ -1,0 +1,107 @@
+---
+title: "Read logs"
+description: "Fetch an instance's boot and runtime logs from your backend to debug a container that will not start or crashed after booting."
+---
+
+`GET /v1/instances/{id}/logs` returns a snapshot of the container's own output, everything the entrypoint and the agent printed to stdout and stderr, plus a compact health readout. It is how you debug an instance that crashed after booting, or your own [custom image](/agents-api/custom-image) that will not come up.
+
+Unlike [exec](/agents-api/exec), which needs a `running` container, logs works in **any** state: `running`, `stopped`, or `failed`. That is the point. When a container will not stay up, exec has nothing to attach to, but its logs are still there.
+
+<Note>
+  A container that never got created at all (a bad image reference, or an `exec format error` from a wrong-architecture image) has no logs to show: `logs` is empty and `health` is `null`. The reason for that kind of failure lands in `status_reason` on the instance object, so fetch `GET /v1/instances/{id}` and read it. Logs cover the case where a container **did** start and then misbehaved.
+</Note>
+
+## Request
+
+<ParamField query="tail" type="integer" default="500">
+  How many of the most recent log lines to return. Defaults to 500, capped at 2000 (a larger value is clamped down). A value that is not a positive integer returns `400 invalid_request`.
+</ParamField>
+
+## Response
+
+<ResponseField name="logs" type="string">
+  The container's combined stdout and stderr, most recent `tail` lines, each line prefixed with an RFC3339 timestamp. Capped at 512 KB; see `truncated`. Empty when there is no container.
+</ResponseField>
+<ResponseField name="truncated" type="boolean">
+  `true` when the output spilled past the 512 KB cap and the oldest lines were dropped.
+</ResponseField>
+<ResponseField name="health" type="object | null">
+  A compact runtime readout, or `null` when there is no container. It answers "did it crash, and why."
+  <Expandable title="health">
+    <ResponseField name="running" type="boolean">
+      Whether the container is currently up.
+    </ResponseField>
+    <ResponseField name="restart_count" type="integer">
+      How many times the container has restarted. A climbing count is a crash loop.
+    </ResponseField>
+    <ResponseField name="exit_code" type="integer | null">
+      The last exit code, or `null` while running. `137` points at a kill for exceeding memory.
+    </ResponseField>
+    <ResponseField name="oom_suspected" type="boolean">
+      Our best inference that the container was killed for exceeding its memory limit (exit 137 with restarts). If this is `true`, [resize](/agents-api/instances#resize) to a larger shape.
+    </ResponseField>
+    <ResponseField name="resource_verdict" type="object | null">
+      Per-dimension pressure (`memory`, `cpu`, `disk`, and `overall`, each `healthy`, `pressure`, or `critical`), or `null` when the container is not running.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+<ResponseField name="fetched_at" type="integer">
+  When the snapshot was taken, in epoch seconds.
+</ResponseField>
+
+Unknown, deleted, or other-workspace ids return `404 not_found`. If the platform cannot reach the instance's host, you get `502 provisioning_failed`.
+
+## Example
+
+<CodeGroup>
+```bash curl
+curl "https://api.agent37.com/v1/instances/ab12cd34ef/logs?tail=200" \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python python
+import requests
+
+resp = requests.get(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/logs",
+    headers={"Authorization": "Bearer sk_live_..."},
+    params={"tail": 200},
+)
+result = resp.json()
+print(result["health"], result["logs"])
+```
+
+```javascript node
+const resp = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/logs?tail=200",
+  { headers: { Authorization: "Bearer sk_live_..." } }
+);
+const result = await resp.json();
+console.log(result.health, result.logs);
+```
+
+```json response
+{
+  "logs": "2026-06-29T23:39:12Z [agent37-hermes] Booting (gateway_port=3737 ...)\n2026-06-29T23:39:16Z [agent37-hermes] Starting hermes gateway daemon...\n",
+  "truncated": false,
+  "health": {
+    "running": true,
+    "restart_count": 0,
+    "exit_code": null,
+    "oom_suspected": false,
+    "resource_verdict": { "memory": "healthy", "cpu": "healthy", "disk": "healthy", "overall": "healthy" }
+  },
+  "fetched_at": 1781222420
+}
+```
+</CodeGroup>
+
+## Debugging a failed instance
+
+When an instance is `failed` or stuck, logs and `health` together tell you which layer broke:
+
+- **The image will not start** (crash on the first line, or `exit_code` non-zero with a climbing `restart_count`): read the top of `logs` for the entrypoint's own error. This is the usual signal for a [custom image](/agents-api/custom-image) mistake, such as a missing binary, a bad path, or a wrong-architecture build.
+- **It ran out of memory** (`oom_suspected: true`, `exit_code: 137`): the agent needs a bigger box. [Resize](/agents-api/instances#resize) to a larger shape.
+- **It booted but the agent is wedged**: the logs show the last thing it did before it stopped responding. [Restart](/agents-api/instances#restart) to recover it.
+
+Once you have a `running` container, drop into it with [exec](/agents-api/exec) to inspect further.

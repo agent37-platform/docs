@@ -28,6 +28,7 @@
           "agents-api/custom-image",
           "agents-api/urls",
           "agents-api/exec",
+          "agents-api/logs",
           "agents-api/budgets",
           "agents-api/integrations"
         ]

@@ -312,7 +312,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
 
 ### Update
 
-`POST /v1/instances/{id}/update` pulls the template's current image and preserves the data. Use it to move an instance onto a newer version after you point its template at a new tag, or to recover a failed/stuck instance. A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts. The request must have no body (a body with any fields returns `400`; an empty `{}` is accepted). The ack carries the resulting `status` and new `image_ref`. A bad image reference on the template surfaces here as a `502 provisioning_failed`.
+`POST /v1/instances/{id}/update` pulls the template's current image and preserves the data. Use it to move an instance onto a newer version after you point its template at a new tag, or to recover a failed/stuck instance (read its [logs](/agents-api/logs) first to see why it failed). A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts. The request must have no body (a body with any fields returns `400`; an empty `{}` is accepted). The ack carries the resulting `status` and new `image_ref`. A bad image reference on the template surfaces here as a `502 provisioning_failed`.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \

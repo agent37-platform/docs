@@ -68,6 +68,10 @@ curl -X POST https://api.agent37.com/v1/instances/<id>/exec \
   -d '{ "command": "your-cli --version" }'
 ```
 
+<Note>
+  If the instance comes up `failed` instead of `running`, your image did not boot. Read its [logs](/agents-api/logs) for the entrypoint's own error. A missing binary, a bad path, or a wrong-architecture build are the usual causes, and `exec` cannot help here since there is no running container to attach to.
+</Note>
+
 ## 4. Bring your own model
 
 `hermes-base` is clean: it boots with no LLM provider (standard Agent37 instances use Agent37's managed model; this base is for bringing your own). To run an instance on your own model, point Hermes at any OpenAI-compatible endpoint — your own proxy, or a provider directly — by writing `~/.hermes/config.yaml` on the instance:
