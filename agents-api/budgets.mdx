@@ -17,6 +17,10 @@ Each managed call is metered at cost against your workspace wallet, and a per-in
 
 All money fields are integer micros: USD x 1,000,000, so \$1.00 is `1000000`. Managed spend debits the workspace wallet, the same wallet that pays for compute. Top it up at [agent37.com/dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing).
 
+## The managed model
+
+Managed LLM calls default to the Agent37 default model, a fast low-cost model we pick and keep current. You are not locked to it: the managed provider is OpenAI-compatible and lists every available paid model at its `/v1/models` endpoint, so the agent can switch from inside the session. In Hermes, run `/model` and pick from the Agent37 provider's list. In OpenClaw, run `openclaw models list` and set any `agent37/...` entry as the model. Whatever the model, billing stays the same: provider cost passed through with no markup, metered against the budget and wallet.
+
 ## How budgets work
 
 A budget has two parts:

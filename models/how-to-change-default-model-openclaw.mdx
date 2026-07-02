@@ -25,6 +25,22 @@ Changing the default model is useful when you want to:
 
 OpenClaw lets you do this through the built-in configuration wizard, so you do not need to rebuild your full environment.
 
+## Fastest option: pick another Agent 37 model, no API key needed
+
+Every instance ships with the built-in Agent 37 provider, and it is not limited to the default model: it lists every paid model from the catalog, billed against your plan and purchased credits. In the terminal, run:
+
+```bash
+openclaw models list
+```
+
+Models from the built-in provider appear as `agent37/<model-id>`. Set one as your default:
+
+```bash
+openclaw models set agent37/anthropic/claude-sonnet-4.6
+```
+
+No API key, no wizard. The rest of this page is for connecting an outside provider with your own key.
+
 ## Step 1: Open your OpenClaw instance
 
 1. Sign in to the [Agent 37 dashboard](https://www.agent37.com/dashboard).
