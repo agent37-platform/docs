@@ -81,7 +81,8 @@ The rest of this page is the API itself — create an instance and stream a repl
       "user": null,
       "name": null,
       "metadata": null,
-      "paid_through": 1783641600,
+      "auto_sleep": false,
+      "idle_timeout_seconds": 300,
       "past_due": false,
       "created": 1781049600
     }
@@ -166,7 +167,7 @@ The rest of this page is the API itself — create an instance and stream a repl
 </Steps>
 
 <Note>
-  Done experimenting? `DELETE /v1/instances/{id}` refunds the unused remainder of the month to your wallet, prorated to the exact time used. See [Billing](/agents-api/billing).
+  Done experimenting? `DELETE /v1/instances/{id}` ends billing on the spot: compute is metered per minute, so you only ever pay for the time the instance existed. See [Billing](/agents-api/billing).
 </Note>
 
 <Note>

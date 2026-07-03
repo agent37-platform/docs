@@ -128,7 +128,7 @@ console.log((await res.json()).url);
   Unix seconds when the URL stops working. Mint a fresh one when it expires.
 </ResponseField>
 
-The instance must be running, and `port` must be one it exposes (any port from the `ports` array, default or not). An optional `ttl_seconds` sets how long the URL lives, default `3600` (one hour), clamped to `[60, 86400]` (one minute to one day); pass a short value for a quick preview link or the max for a day-long share link. An unexposed or missing port, or a `ttl_seconds` that is not a positive integer, returns `400`; an unknown or cross-workspace instance returns `404`.
+The instance must be running or sleeping (opening the link is exactly the kind of request that [wakes it](#sleeping-instances-wake-on-request)), and `port` must be one it exposes (any port from the `ports` array, default or not). An optional `ttl_seconds` sets how long the URL lives, default `3600` (one hour), clamped to `[60, 86400]` (one minute to one day); pass a short value for a quick preview link or the max for a day-long share link. An unexposed or missing port, or a `ttl_seconds` that is not a positive integer, returns `400`; an unknown or cross-workspace instance returns `404`.
 
 The token rides in the `a37_token` query param. The edge consumes it (promoting it to the cookie) and strips it before forwarding, so it never reaches the instance and never collides with a query param your own app uses.
 
@@ -171,6 +171,18 @@ console.log(await res.json());
 <Note>
   Use the gateway's `/v1/health` for this, not `/health`: the bare path `/health` is reserved by the platform edge, which answers `{ "ok": true }` itself — without authentication and without reaching your instance.
 </Note>
+
+## Sleeping instances wake on request
+
+An [auto-sleep](/agents-api/instances#auto-sleep) instance that has gone to sleep keeps every one of its URLs. A request to any of them wakes it transparently: the edge holds the request while the instance restores, then forwards it, usually well under a second (a few seconds when the wake falls back to a fresh boot). No status polling, no retry logic; the response you get is the response to the request you sent.
+
+A wake can be refused or fail, and those answers use the same flat error shape as the other [transport errors](/agents-api/errors#transport-errors):
+
+| Code | HTTP | When |
+| --- | --- | --- |
+| `instance_suspended` | 402 | The workspace balance is negative and the instance is suspended. No wake is attempted; top up and retry. See [Billing](/agents-api/billing#past-due-and-suspension). |
+| `wake_timeout` | 503 | The wake did not complete within about 60 seconds. The instance keeps waking in the background; retry. |
+| `wake_failed` | 503 | The wake failed. The instance stays `sleeping` and the next request tries again. |
 
 ## HTTP, SSE, and WebSocket
 
