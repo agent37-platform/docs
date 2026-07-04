@@ -7,7 +7,7 @@ Billing is prepaid. You top up one workspace wallet in the dashboard, and everyt
 
 ## How the balance works
 
-- **\$1 free to start.** Your first visit to the dashboard grants a one-time \$1 credit, enough to run your first instance for days, or an [auto-sleep](/agents-api/instances#auto-sleep) instance for months. Until your first real top-up, the workspace runs one instance of any template, up to the 2 vCPU / 4 GB shape; a larger shape returns `403 tier_limit`. Your first top-up unlocks the 4/8 and 8/16 shapes, and up to 10 instances; once your top-ups total \$500 the cap rises to 50. See [Instance limits](#instance-limits).
+- **\$1 free to start.** Your first visit to the dashboard grants a one-time \$1 credit, enough to run your first instance for days, or a mostly-idle [auto-sleep](/agents-api/instances#auto-sleep) instance for a month or more. Until your first real top-up, the workspace runs one instance of any template, up to the 2 vCPU / 4 GB shape; a larger shape returns `403 tier_limit`. Your first top-up unlocks the 4/8 and 8/16 shapes, and up to 10 instances; once your top-ups total \$500 the cap rises to 50. See [Instance limits](#instance-limits).
 - **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are \$5 to \$1000 each, paid through Stripe.
 - **Or top up automatically.** Set a rule once and the wallet refills itself; see [Automatic top-up](#automatic-top-up).
 - **Instances draw it down.** Compute is metered per minute: time an instance spends running bills its full rate, time spent stopped or sleeping bills its disk alone. See [Per-minute metering](#per-minute-metering).
@@ -53,17 +53,19 @@ Applied to the shapes at their default disk:
 
 Disk is any whole number of GB within the shape's range and defaults to the range minimum; disk above the minimum adds \$0.09 per GB per month. See [Instances](/agents-api/instances) for how to pick a shape with `resources` on create.
 
+An instance with [auto-sleep](/agents-api/instances#auto-sleep) on bills its awake minutes at **4x these compute rates**: the platform keeps its capacity wakeable on demand instead of sharing it. Time spent asleep bills disk alone, so a mostly-idle auto-sleep instance still comes out well below the always-on price. See [Per-minute metering](#per-minute-metering).
+
 ## Per-minute metering
 
 The monthly price is the rate; the wallet is metered per minute (the monthly price divided by 730 hours, divided by 60). What a minute costs depends on what the instance holds:
 
 | Time spent | Meters at |
 | --- | --- |
-| `running`, and the transitional states (`starting`, `restarting`, `updating`, `stopping`) | The full compute rate. |
+| `running`, and the transitional states (`starting`, `restarting`, `updating`, `stopping`) | The full compute rate. With [auto-sleep](/agents-api/instances#auto-sleep) on, 4x the compute rate. |
 | `sleeping` or `stopped` | The disk rate alone: \$0.09 per reserved GB per month. |
 | Parked in cold storage (long-idle sleepers moved off their host) | \$0.03 per GB per month, on the actual compressed bytes stored. |
 
-**Create checks a day, debits nothing.** `POST /v1/instances` requires the wallet to hold one day of the instance's running rate; below that, the create returns `402 insufficient_balance` and nothing is provisioned. Nothing is debited at create: the meter starts when the instance first reaches `running`, so a failed create costs nothing and there is nothing to refund.
+**Create checks a day, debits nothing.** `POST /v1/instances` requires the wallet to hold one day of the instance's running rate (for an `auto_sleep: true` create, one day at its 4x rate); below that, the create returns `402 insufficient_balance` and nothing is provisioned. Nothing is debited at create: the meter starts when the instance first reaches `running`, so a failed create costs nothing and there is nothing to refund.
 
 ```json
 {
@@ -76,7 +78,7 @@ The monthly price is the rate; the wallet is metered per minute (the monthly pri
 
 **Each instance meters on its own.** Every instance draws its own metered debits from the wallet; there is no extra balance reserve for running several at once. How many you can run at once is set by your [instance limit](#instance-limits), not by your balance.
 
-**Sleep and stop cut the rate; delete ends it.** An instance bills for as long as it exists, but only for what it holds. Stopping (or [auto-sleep](/agents-api/instances#auto-sleep)) releases CPU and RAM and keeps the disk, so parked time bills disk alone: an auto-sleep instance that spends most of its life asleep costs mostly its disk, about \$0.54 per month at 6 GB. Deleting an instance settles the final window and billing stops.
+**Sleep and stop cut the rate; delete ends it.** An instance bills for as long as it exists, but only for what it holds. Stopping (or [auto-sleep](/agents-api/instances#auto-sleep)) releases CPU and RAM and keeps the disk, so parked time bills disk alone. An auto-sleep instance pays for its wake guarantee in its awake minutes, which bill at 4x the compute rate, but one that spends most of its life asleep still costs mostly its disk, about \$0.54 per month at 6 GB. Deleting an instance settles the final window and billing stops.
 
 **The meter settles behind the scenes.** Whole minutes are billed at every lifecycle transition and at least hourly; you never see a per-minute charge on an API call. Each debit lands in the [ledger](#ledger-and-spend-visibility) as a metered compute entry.
 

@@ -281,5 +281,3 @@ const models = await (await fetch(
 `GET /v1/health` returns `{ "ok": true, "agent": "hermes", "healthy": true, "hermes": true }`. `ok` is true whenever the gateway is up; `agent` is the harness that was probed, and `healthy` reports whether that harness behind it is reachable. By default it probes the instance's configured harness; pass `?agent=` to probe a specific one. When Hermes is probed, the body also carries a `hermes` field mirroring `healthy`, kept for backward compatibility; other harnesses omit it. Use it as a readiness probe after [create or start](/agents-api/instances).
 
 `GET /v1/version` returns the gateway build, e.g. `{ "name": "agent37-gateway", "version": "0.1.3" }`.
-</content>
-</invoke>
