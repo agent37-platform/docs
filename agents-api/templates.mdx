@@ -64,7 +64,7 @@ curl https://api.agent37.com/v1/templates \
 </ParamField>
 
 <ParamField body="ports" type="array">
-  The ports the image serves, each `{ "port": <int>, "default": <bool> }`. At most 20 entries; ports are integers 1 to 65535; no duplicates; at most one entry may set `default: true`. Each non-default port gets a **preview URL**, `https://{instanceId}-{port}.agent37.app`, openable in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). The reserved set `3737`, `7681`, `8080`, `6080`, `7890`, `6969`, `9119` is rejected: those belong to the managed runtime. Omit `ports` or pass `[]` for a private sandbox with no routable URL; you can still reach it with [exec](/agents-api/exec).
+  The ports the image serves, each `{ "port": <int>, "default": <bool> }`. At most 20 entries; ports are integers 1 to 65535; no duplicates; at most one entry may set `default: true`. Each non-default port gets a **preview URL**, `https://{instanceId}-{port}.agent37.app`, openable in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). The reserved set `3737`, `7681`, `8080`, `6080`, `7890`, `6969`, `9119` is rejected: those belong to the managed runtime. Omit `ports` or pass `[]` for a private sandbox with no routable URL; you can still reach it with [exec](/agents-api/exec). With [auto-sleep](/agents-api/instances#auto-sleep) on, a port-less sandbox receives no requests, so only an explicit [`start`](/agents-api/instances#start) wakes it.
 </ParamField>
 
 <CodeGroup>
@@ -149,7 +149,7 @@ The contract:
 - Keep the entrypoint. It starts Hermes and the gateway; a Dockerfile that overrides `ENTRYPOINT` loses the chat API.
 - Bake outside `/home/node` and `/home/linuxbrew`. Both are persistent volumes, so anything the image writes there is masked at runtime. Use `/usr/local` or `/opt`. Skills placed in `/usr/local/share/agent37/default-skills/` are copied into `~/.hermes/skills` at boot.
 - The image runs as the `node` user, with passwordless sudo. Switch to `USER root` for installs and back to `USER node` at the end.
-- Declare a default port and leave it to the gateway. The runtime binds the gateway to the template's default port, so the bare instance URL serves the chat API; do not bind your own service there. Declare your own services as additional ports. With no default port the instance is a private sandbox reachable only by [exec](/agents-api/exec).
+- Declare a default port and leave it to the gateway. The runtime binds the gateway to the template's default port, so the bare instance URL serves the chat API; do not bind your own service there. Declare your own services as additional ports. With no default port the instance is a private sandbox reachable only by [exec](/agents-api/exec) — the image does not need to listen on anything.
 - Bring your own model keys. Instances boot with no LLM provider configured, and chat returns errors until you add one. Write your provider credentials into `~/.hermes/config.yaml`, Hermes' standard config file, over [exec](/agents-api/exec) or the terminal. The file lives on the persistent volume, so it survives restarts and updates.
 
 ## Update a template

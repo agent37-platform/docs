@@ -324,6 +324,8 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/stop \
 
 `POST /v1/instances/{id}/start` brings a `stopped` instance back up on its pinned host, recreating the container from the image it already ran. If the host no longer has room for the instance's CPU and memory, it returns `409 capacity_unavailable`. If the instance is `past_due`, the workspace balance must be zero or above: start then clears the flag and the meter resumes at the running rate, while a negative balance returns `402 insufficient_balance`. Starting an already running instance returns the same ack again.
 
+Start also wakes a `sleeping` instance, with the same effect as a request to one of its URLs. For a [private sandbox with no ports](/agents-api/templates#register-a-workspace-template) there is no URL to request, so start is its only wake path. During the brief window while the sleep checkpoint is being written it returns `409 try_again`; retry in a few seconds.
+
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/start \
   -H "Authorization: Bearer sk_live_..."
@@ -342,7 +344,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
 
 ### Update
 
-`POST /v1/instances/{id}/update` pulls the template's current image and preserves the data. Use it to move an instance onto a newer version after you point its template at a new tag, or to recover a failed/stuck instance (read its [logs](/agents-api/logs) first to see why it failed). A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts. The request must have no body (a body with any fields returns `400`; an empty `{}` is accepted). The ack carries the resulting `status` and new `image_ref`. A `sleeping` instance cannot be updated: wake it with any request to its URL first. A bad image reference on the template surfaces here as a `502 provisioning_failed`.
+`POST /v1/instances/{id}/update` pulls the template's current image and preserves the data. Use it to move an instance onto a newer version after you point its template at a new tag, or to recover a failed/stuck instance (read its [logs](/agents-api/logs) first to see why it failed). A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts. The request must have no body (a body with any fields returns `400`; an empty `{}` is accepted). The ack carries the resulting `status` and new `image_ref`. A `sleeping` instance cannot be updated: wake it first, with any request to its URL or an explicit [`start`](#start). A bad image reference on the template surfaces here as a `502 provisioning_failed`.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
@@ -368,14 +370,14 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
 
 An instance with `auto_sleep: true` does not have to be up to be available. Once no bytes have moved through any of its URLs for `idle_timeout_seconds` (default 300, from one minute to a day), the platform checkpoints it and `status` becomes `sleeping`: CPU and memory are released, the disk stays reserved, and billing drops to the disk rate alone (see [Billing](/agents-api/billing)). Activity is data flow in either direction on any of the instance's URLs; a connection that is open but silent does not count, and API reads like `GET /v1/instances/{id}` never reset the timer.
 
-Waking is transparent. Any request to any of the instance's URLs wakes it: the request is held while the instance restores, then forwarded, usually well under a second. If the checkpoint cannot be restored, or the instance was moved to cold storage after a long idle stretch, the wake falls back to a fresh boot and takes a few seconds instead. In-memory state usually survives a wake, but it is not guaranteed: treat anything that must outlive a sleep as a file.
+Waking is transparent. Any request to any of the instance's URLs wakes it: the request is held while the instance restores, then forwarded, usually well under a second. So does an explicit [`POST /v1/instances/{id}/start`](#start) — for a private sandbox with no ports, which receives no requests, that is the only wake path. If the checkpoint cannot be restored, or the instance was moved to cold storage after a long idle stretch, the wake falls back to a fresh boot and takes a few seconds instead. In-memory state usually survives a wake, but it is not guaranteed: treat anything that must outlive a sleep as a file.
 
 While asleep:
 
 - The instance object reports `status: "sleeping"` and `slept_at`, for example `"slept_at": 1781222400`.
 - [Signed URLs](/agents-api/urls#browser-access-with-signed-urls) can still be minted, and opening one is exactly the kind of request that wakes the instance.
 - `stop` works, and means "stay down until I `start`" (see [Stop](#stop)). During the brief window while the checkpoint is being written it returns `409 try_again`; retry in a few seconds.
-- `restart`, `update`, and `resize` require `running` and return `400`: wake the instance with any request to its URL first.
+- `restart`, `update`, and `resize` require `running` and return `400`: wake the instance first, with any request to its URL or an explicit [`start`](#start).
 
 Both fields are set at create and editable any time with `PATCH /v1/instances/{id}`, no restart needed. Instances default to `auto_sleep: false` and never sleep unless you opt them in.
 
@@ -390,7 +392,7 @@ Both fields are set at create and editable any time with `PATCH /v1/instances/{i
 | `starting` | A start is in progress. |
 | `restarting` | A restart is in progress. |
 | `updating` | An update or resize is in progress. |
-| `sleeping` | Checkpointed on idle ([auto-sleep](#auto-sleep)). Any request to its URLs wakes it. Bills disk only. |
+| `sleeping` | Checkpointed on idle ([auto-sleep](#auto-sleep)). Any request to its URLs, or an explicit `start`, wakes it. Bills disk only. |
 | `waking` | A wake is in progress on the slower fallback path; the held request completes when it finishes. |
 | `failed` | A create or lifecycle action failed. |
 | `deleting` | A delete is in progress. |
