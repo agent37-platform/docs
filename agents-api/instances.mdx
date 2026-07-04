@@ -5,7 +5,7 @@ description: "Create, size, and manage the persistent computer that runs your ag
 
 An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance's computer is up and the agent inside finishes booting moments later — poll `GET /v1/health` on the instance URL until it answers `{ "ok": true }`, then message it at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance and preview URLs](/agents-api/urls)).
 
-Creating an instance debits one day of compute from your workspace wallet, and that debit is the create gate: if the wallet cannot cover it, the create fails with `402 insufficient_balance` and nothing is provisioned. A failed create is fully refunded. How many instances you can run at once is set by your [instance limit](/agents-api/billing#instance-limits), which rises as you top up. See [Billing](/agents-api/billing).
+Creating an instance requires one day of compute at its running rate in your workspace wallet, but debits nothing: the balance check is the create gate (below it, the create fails with `402 insufficient_balance` and nothing is provisioned), and the meter only starts when the instance first reaches `running`. How many instances you can run at once is set by your [instance limit](/agents-api/billing#instance-limits), which rises as you top up. See [Billing](/agents-api/billing).
 
 ## Create an instance
 
@@ -35,6 +35,14 @@ Creating an instance debits one day of compute from your workspace wallet, and t
   Caps on this instance's managed usage (managed LLM, Brave search, and Composio calls), in micros (millionths of a dollar): `monthly_cap_micros` resets each UTC month, `credit_micros` adds one-time headroom that persists until spent. Both default to `0`, so managed calls are refused until you raise one. These are ceilings, not money; spend still draws the workspace wallet. See [Budgets](/agents-api/budgets).
 </ParamField>
 
+<ParamField body="auto_sleep" type="boolean" default="false">
+  Opt the instance into [auto-sleep](#auto-sleep): once no bytes have moved through its URLs for `idle_timeout_seconds`, it is checkpointed to `sleeping` and bills disk alone until a request wakes it.
+</ParamField>
+
+<ParamField body="idle_timeout_seconds" type="integer" default="300">
+  How long the instance must be idle before it sleeps, in seconds. An integer from `60` to `86400` (one minute to one day). Only meaningful with `auto_sleep: true`.
+</ParamField>
+
 ### Shapes and pricing
 
 | cpu | memory | disk | Price at the default disk |
@@ -44,7 +52,7 @@ Creating an instance debits one day of compute from your workspace wallet, and t
 | 4 | 8 GB | 20-40 GB | \$10.60 per month |
 | 8 | 16 GB | 40-80 GB | \$21.20 per month |
 
-Disk above the range minimum adds \$0.09 per GB per month. Compute bills hourly and is prepaid one day at a time: a day at create, then a day on each renewal. An instance bills for as long as it exists, stopped or running; deleting it refunds the unused remainder. See [Billing](/agents-api/billing).
+Disk above the range minimum adds \$0.09 per GB per month. The monthly price is the rate; the wallet is metered per minute, and only for what the instance holds: running time bills the full rate, stopped or sleeping time bills the disk alone. Deleting an instance settles its final minutes and billing ends. See [Billing](/agents-api/billing).
 
 ### Example
 
@@ -110,7 +118,8 @@ const instance = await res.json();
   "user": "u_882",
   "name": null,
   "metadata": null,
-  "paid_through": 1781308800,
+  "auto_sleep": false,
+  "idle_timeout_seconds": 300,
   "past_due": false,
   "created": 1781222400
 }
@@ -155,12 +164,20 @@ const instance = await res.json();
   Your key/value pairs, echoed back.
 </ResponseField>
 
-<ResponseField name="paid_through" type="integer | null">
-  When the prepaid compute day ends, in epoch seconds. The next renewal debits at this time.
+<ResponseField name="auto_sleep" type="boolean">
+  Whether the instance sleeps on idle. Set at create or by `PATCH`. See [Auto-sleep](#auto-sleep).
+</ResponseField>
+
+<ResponseField name="idle_timeout_seconds" type="integer">
+  How long the instance must be idle before it sleeps, in seconds. Defaults to `300`.
+</ResponseField>
+
+<ResponseField name="slept_at" type="integer | null">
+  Present only while `status` is `sleeping` or `waking`: when the instance fell asleep, in epoch seconds (`null` for the second or so while the checkpoint is being written). Instances that have been asleep for a long stretch may take a few seconds to start instead of waking sub-second.
 </ResponseField>
 
 <ResponseField name="past_due" type="boolean">
-  `true` when a renewal could not be covered and the instance was force-stopped. A funded `start` re-debits a day and clears it.
+  `true` when the workspace balance went negative and the instance was suspended. Top up to clear it; the next request to the instance's URL wakes it. See [Billing](/agents-api/billing#past-due-and-suspension).
 </ResponseField>
 
 <ResponseField name="created" type="integer">
@@ -186,7 +203,7 @@ const instance = await res.json();
 
 `GET /v1/instances` returns `{ "data": [ ... ] }`, newest first, each element the full instance object. `GET /v1/instances/{id}` returns one. Unknown, deleted, or other-workspace ids uniformly return `404 not_found`.
 
-`DELETE /v1/instances/{id}` returns `{ "id": "ab12cd34ef", "deleted": true }`. It acts once: a repeat delete returns `404`. Billing stops at delete, and the unused remainder of the prepaid day is refunded to your wallet, prorated to the exact time used (a minimum of one hour is billed).
+`DELETE /v1/instances/{id}` returns `{ "id": "ab12cd34ef", "deleted": true }`. It acts once: a repeat delete returns `404`. Delete settles the final metered window and billing ends; nothing is ever prepaid, so there is nothing to refund.
 
 ```bash curl
 curl -X DELETE https://api.agent37.com/v1/instances/ab12cd34ef \
@@ -195,14 +212,14 @@ curl -X DELETE https://api.agent37.com/v1/instances/ab12cd34ef \
 ```
 
 <Warning>
-  Delete is destructive: the instance's files, memory, and sessions are gone. To pause work while keeping everything, `stop` it instead. A stopped instance still bills compute, because it still exists; delete is what stops billing.
+  Delete is destructive: the instance's files, memory, and sessions are gone. To pause work while keeping everything, `stop` it instead. A stopped instance bills its disk alone; delete is what ends billing entirely.
 </Warning>
 
-## Edit name, tag, and metadata
+## Edit name, metadata, and auto-sleep
 
-`PATCH /v1/instances/{id}` edits the instance's `name`, `user` tag, and `metadata` after creation. These are the same three fields you can set at create, and they are the only things this call changes: it never touches the running container. It returns `200` with the full instance object, the same shape as `GET`.
+`PATCH /v1/instances/{id}` edits the instance's `name`, `user` tag, and `metadata` after creation, plus its [auto-sleep](#auto-sleep) settings. These are the same fields you can set at create, and they are the only things this call changes: it never touches the running container. It returns `200` with the full instance object, the same shape as `GET`.
 
-The patch is partial: only the keys you send change, the rest are left alone. Send a string to set a field, or `null` (or `""`) to clear it. You must send at least one of `name`, `user`, or `metadata`; an empty body returns `400 invalid_request`.
+The patch is partial: only the keys you send change, the rest are left alone. Send a string to set a label field, or `null` (or `""`) to clear it. You must send at least one of `name`, `user`, `metadata`, `auto_sleep`, or `idle_timeout_seconds`; an empty body returns `400 invalid_request`.
 
 <ParamField body="name" type="string | null">
   A label for the instance, up to 60 characters. `null` or `""` clears it.
@@ -216,7 +233,15 @@ The patch is partial: only the keys you send change, the rest are left alone. Se
   Your key/value pairs, up to 4 KB serialized. The object replaces the stored one, it is not merged. `null` or `{}` clears it.
 </ParamField>
 
-Editing labels never bills and never recreates the container, and it works in any state except `deleted`. Unknown, deleted, or other-workspace ids return `404 not_found`.
+<ParamField body="auto_sleep" type="boolean">
+  Turn [auto-sleep](#auto-sleep) on or off. Takes effect within about half a minute, with no restart and no recreate.
+</ParamField>
+
+<ParamField body="idle_timeout_seconds" type="integer">
+  The new idle timeout: an integer from `60` to `86400` seconds.
+</ParamField>
+
+Edits never bill and never recreate the container, and they work in any state except `deleted`. Unknown, deleted, or other-workspace ids return `404 not_found`.
 
 <CodeGroup>
 ```bash curl
@@ -269,7 +294,8 @@ const instance = await res.json();
   "user": "u_882",
   "name": "Production agent",
   "metadata": { "plan": "pro" },
-  "paid_through": 1781308800,
+  "auto_sleep": false,
+  "idle_timeout_seconds": 300,
   "past_due": false,
   "created": 1781222400
 }
@@ -282,7 +308,11 @@ Five calls control whether the instance's computer is running, which image it ru
 
 ### Stop
 
-`POST /v1/instances/{id}/stop` halts the container. The agent stops doing work (no cron, no heartbeats, no responses) and `status` becomes `stopped`. The data stays intact, CPU and memory are released back to the host, and the disk stays reserved on that host. Stopping an already stopped instance returns the same ack again; any other state returns `400`.
+`POST /v1/instances/{id}/stop` halts the container. The agent stops doing work (no cron, no heartbeats, no responses) and `status` becomes `stopped`. The data stays intact, CPU and memory are released back to the host, and the disk stays reserved on that host.
+
+Stop also works on a `sleeping` instance, and the difference is intent: a sleeper wakes on any request, a stopped instance stays down until an explicit `start`. Stopping a sleeper discards its checkpoint (the data stays) and its URLs stop waking it. The one exception is the second or so while the sleep checkpoint is being written: stop then returns `409 try_again`, and you retry in a few seconds.
+
+Stopping an already stopped instance returns the same ack again; any other state returns `400`.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/stop \
@@ -292,7 +322,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/stop \
 
 ### Start
 
-`POST /v1/instances/{id}/start` brings a `stopped` instance back up on its pinned host, recreating the container from the image it already ran. If the host no longer has room for the instance's CPU and memory, it returns `409 capacity_unavailable`. If the instance is `past_due`, start first re-debits a day and clears the flag; without funds it returns `402 insufficient_balance`. Starting an already running instance returns the same ack again.
+`POST /v1/instances/{id}/start` brings a `stopped` instance back up on its pinned host, recreating the container from the image it already ran. If the host no longer has room for the instance's CPU and memory, it returns `409 capacity_unavailable`. If the instance is `past_due`, the workspace balance must be zero or above: start then clears the flag and the meter resumes at the running rate, while a negative balance returns `402 insufficient_balance`. Starting an already running instance returns the same ack again.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/start \
@@ -312,7 +342,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
 
 ### Update
 
-`POST /v1/instances/{id}/update` pulls the template's current image and preserves the data. Use it to move an instance onto a newer version after you point its template at a new tag, or to recover a failed/stuck instance (read its [logs](/agents-api/logs) first to see why it failed). A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts. The request must have no body (a body with any fields returns `400`; an empty `{}` is accepted). The ack carries the resulting `status` and new `image_ref`. A bad image reference on the template surfaces here as a `502 provisioning_failed`.
+`POST /v1/instances/{id}/update` pulls the template's current image and preserves the data. Use it to move an instance onto a newer version after you point its template at a new tag, or to recover a failed/stuck instance (read its [logs](/agents-api/logs) first to see why it failed). A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts. The request must have no body (a body with any fields returns `400`; an empty `{}` is accepted). The ack carries the resulting `status` and new `image_ref`. A `sleeping` instance cannot be updated: wake it with any request to its URL first. A bad image reference on the template surfaces here as a `502 provisioning_failed`.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
@@ -322,7 +352,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
 
 ### Resize
 
-`POST /v1/instances/{id}/resize` grows a running instance to a bigger size. The body uses the same vocabulary as create's `resources`, and omitted fields keep their current value, so `{ "disk": 15 }` grows disk alone and `{ "cpu": 4, "memory": 8 }` moves up a shape (disk rises to the new shape's minimum if it was below it). Resize only grows: any request that would shrink a dimension returns `400`, and moving to a smaller size means creating a new instance. The ack carries the new `resources`, and the new rate applies from the next hourly renewal (see [Billing](/agents-api/billing)).
+`POST /v1/instances/{id}/resize` grows a running instance to a bigger size. The body uses the same vocabulary as create's `resources`, and omitted fields keep their current value, so `{ "disk": 15 }` grows disk alone and `{ "cpu": 4, "memory": 8 }` moves up a shape (disk rises to the new shape's minimum if it was below it). Resize only grows: any request that would shrink a dimension returns `400`, and moving to a smaller size means creating a new instance. The ack carries the new `resources`, and the meter bills at the new rate from the moment of the resize (see [Billing](/agents-api/billing)).
 
 The container is recreated with the new limits, like `restart`: the disk, instance id, and URLs are kept, in-memory state is lost, and the instance is back in seconds. If its host cannot fit the increase, nothing changes and you get `409 capacity_unavailable`.
 
@@ -334,6 +364,21 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
 # -> { "id": "ab12cd34ef", "status": "running", "resources": { "cpu": 4, "memory": 8, "disk": 20 } }
 ```
 
+## Auto-sleep
+
+An instance with `auto_sleep: true` does not have to be up to be available. Once no bytes have moved through any of its URLs for `idle_timeout_seconds` (default 300, from one minute to a day), the platform checkpoints it and `status` becomes `sleeping`: CPU and memory are released, the disk stays reserved, and billing drops to the disk rate alone (see [Billing](/agents-api/billing)). Activity is data flow in either direction on any of the instance's URLs; a connection that is open but silent does not count, and API reads like `GET /v1/instances/{id}` never reset the timer.
+
+Waking is transparent. Any request to any of the instance's URLs wakes it: the request is held while the instance restores, then forwarded, usually well under a second. If the checkpoint cannot be restored, or the instance was moved to cold storage after a long idle stretch, the wake falls back to a fresh boot and takes a few seconds instead. In-memory state usually survives a wake, but it is not guaranteed: treat anything that must outlive a sleep as a file.
+
+While asleep:
+
+- The instance object reports `status: "sleeping"` and `slept_at`, for example `"slept_at": 1781222400`.
+- [Signed URLs](/agents-api/urls#browser-access-with-signed-urls) can still be minted, and opening one is exactly the kind of request that wakes the instance.
+- `stop` works, and means "stay down until I `start`" (see [Stop](#stop)). During the brief window while the checkpoint is being written it returns `409 try_again`; retry in a few seconds.
+- `restart`, `update`, and `resize` require `running` and return `400`: wake the instance with any request to its URL first.
+
+Both fields are set at create and editable any time with `PATCH /v1/instances/{id}`, no restart needed. Instances default to `auto_sleep: false` and never sleep unless you opt them in.
+
 ## Statuses
 
 | Status | Meaning |
@@ -341,23 +386,25 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
 | `provisioning` | Being created. You only observe this if a create is in flight. |
 | `running` | Up. Poll `GET /v1/health` before the first message. |
 | `stopping` | A stop is in progress. |
-| `stopped` | Halted. Data intact, disk reserved, compute released. Still bills. |
+| `stopped` | Halted until an explicit `start`. Data intact, disk reserved, compute released. Bills disk only. |
 | `starting` | A start is in progress. |
 | `restarting` | A restart is in progress. |
 | `updating` | An update or resize is in progress. |
+| `sleeping` | Checkpointed on idle ([auto-sleep](#auto-sleep)). Any request to its URLs wakes it. Bills disk only. |
+| `waking` | A wake is in progress on the slower fallback path; the held request completes when it finishes. |
 | `failed` | A create or lifecycle action failed. |
 | `deleting` | A delete is in progress. |
 | `deleted` | Gone. The id reads as `404` from here on. |
 
 <Note>
-  `past_due` is a flag, not a status. A past-due instance shows `status: "stopped"` with `past_due: true`; a funded `start` clears it.
+  `past_due` is a flag, not a status: a suspended instance shows it alongside `sleeping` (or `stopped`, if it already was). Top up the wallet to clear it; see [Billing](/agents-api/billing#past-due-and-suspension).
 </Note>
 
 ## Capacity and limit errors
 
 | Error | When |
 | --- | --- |
-| `402 insufficient_balance` | Create when the wallet cannot cover the first day, or start of a past-due instance without funds. |
+| `402 insufficient_balance` | Create when the wallet holds less than one day of the instance's running rate, or start of a past-due instance while the balance is negative. |
 | `409 instance_limit_reached` | Create when the workspace is at its instance cap: one instance on the free credit, 10 once topped up, 50 once top-ups total \$500 (email vishnu@agent37.com to raise it further). |
 | `403 tier_limit` | Create or resize asks for a shape larger than your plan includes. Free workspaces run any template up to the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
 | `503 no_capacity` | Create when no host has capacity for the requested shape right now. |

@@ -17,7 +17,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 {
   "error": {
     "code": "insufficient_balance",
-    "message": "This instance costs $0.0068 per hour, billed one day in advance ($0.1624). Add balance to your workspace and try again."
+    "message": "This instance costs $0.0068 per hour, metered per minute; creating it requires at least one day of balance ($0.1624). Add balance to your workspace and try again."
   }
 }
 ```
@@ -37,13 +37,14 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, a lifecycle action in the wrong state, or a non-empty `update` body. |
 | `forbidden` | 403 | A write to a system template. System templates are read-only. |
 | `not_found` | 404 | No instance or template with that id or name in your workspace, or an unknown `/v1` path. |
-| `insufficient_balance` | 402 | The wallet cannot cover a day of compute (at create, or at `start` of a `past_due` instance). |
+| `insufficient_balance` | 402 | The wallet holds less than a day of the instance's running rate at create, or is negative at `start` of a `past_due` instance. |
 | `instance_limit_reached` | 409 | The workspace is at its instance limit: one instance on the free credit, 10 once you have topped up, 50 once top-ups total \$500. Email vishnu@agent37.com to raise it further. |
 | `tier_limit` | 403 | Create or resize asks for a shape larger than your plan includes. Free workspaces (before your first top-up) run any template up to the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
 | `capacity_unavailable` | 409 | `start` or `resize`: the pinned host cannot re-reserve this instance's compute, or fit the resize increase, right now. |
 | `template_conflict` | 409 | A template create or rename targets a name that already exists. |
+| `try_again` | 409 | A transient state conflict: the instance is mid-transition, for example `stop` during the second or so while a sleep checkpoint is being written. Retry in a few seconds. |
 | `no_capacity` | 503 | Create only: no host can fit the requested shape right now. Safe to retry. |
-| `provisioning_failed` | 502/500 | A container or host operation failed (image pull, container start, lifecycle action). Failed creates are fully refunded. |
+| `provisioning_failed` | 502/500 | A container or host operation failed (image pull, container start, lifecycle action). Creates debit nothing, so a failed create costs nothing. |
 
 <Note>
   Lookups are uniform: an id that belongs to another workspace returns the same 404 as an id that does not exist, and unknown `/v1` paths 404 only after your key is validated. Nothing about other workspaces leaks through error responses.
@@ -78,12 +79,15 @@ Auth, instance lookup, and routing happen on the platform between you and the ga
 | Code | HTTP | When |
 | --- | --- | --- |
 | `invalid_api_key` | 401 | No credential, or a key or signed URL that did not verify. The `message` says which, and how to authenticate a browser request. |
+| `instance_suspended` | 402 | The instance is suspended for non-payment, so the request will not wake it. Top up the workspace wallet and retry. |
 | `not_found` | 404 | An instance URL that does not route: unknown, deleted, `failed`, or another workspace's. |
 | `container_unavailable` | 502 | The instance is not running, typically `stopped`. Start it and retry. |
 | `container_unreachable` | 502 | The instance is up but its service did not answer on the routed port — common briefly during a restart or update. Transient; retry. |
 | `upstream_unreachable` | 502 | The platform could not reach the instance's host. Transient; retry. |
 | `instance_saturated` | 503 | Too many concurrent requests in flight to this instance. Back off and retry. |
 | `host_mesh_not_ready` | 503 | The instance's host is still joining the platform network. Transient; retry. |
+| `wake_timeout` | 503 | A [wake](/agents-api/urls#sleeping-instances-wake-on-request) of a sleeping instance did not finish within about 60 seconds. It keeps waking in the background; retry. |
+| `wake_failed` | 503 | A wake of a sleeping instance failed. It stays `sleeping`, and the next request tries again. |
 | `upstream_timeout` | 504 | A call produced no response headers for ~100 seconds — typically a wedged instance. The turn may still be running: recover the result through its session, and prefer `stream: true` to see progress. |
 | `internal_error` | 500 | Unexpected platform error. |
 
@@ -189,14 +193,14 @@ if (!res.ok) {
 The same grouping works on the Hosting API: `insufficient_balance` sends your user to the billing dashboard, `no_capacity` is retryable, and `invalid_request` means fix the request before retrying.
 
 <Tip>
-  `no_capacity` (503, hosting) and `rate_limited` (429, agent) are safe to retry with backoff. So is a `provisioning_failed` create: failed creates are fully refunded, so retrying never double-bills.
+  `no_capacity` (503, hosting) and `rate_limited` (429, agent) are safe to retry with backoff. So are `try_again` (409, hosting) and a `provisioning_failed` create: creates debit nothing (the meter only starts once the instance runs), so retrying never double-bills.
 </Tip>
 
 ## Codes worth a closer look
 
 <AccordionGroup>
   <Accordion title="insufficient_balance (402): the workspace wallet is empty" icon="wallet">
-    The workspace wallet cannot cover a charge. You see it in three places: at create, when the first day (billed in advance) cannot be debited; at `start`, when a `past_due` instance's next day cannot be re-debited; and inside agent behavior, when a managed call (LLM, Brave search, Composio) finds the wallet empty. The fix is the same everywhere: top up the wallet at `https://www.agent37.com/dashboard/cloud/billing` (\$5 minimum, \$1000 max per top-up), and enable [automatic top-up](/agents-api/billing#automatic-top-up) so it does not recur. See [Billing](/agents-api/billing).
+    The workspace wallet cannot cover a charge. You see it in three places: at create, when the wallet holds less than one day of the instance's running rate (a check, not a debit; the meter only starts once the instance runs); at `start`, when a `past_due` instance's workspace balance is still negative; and inside agent behavior, when a managed call (LLM, Brave search, Composio) finds the wallet empty. The fix is the same everywhere: top up the wallet at `https://www.agent37.com/dashboard/cloud/billing` (\$5 minimum, \$1000 max per top-up), and enable [automatic top-up](/agents-api/billing#automatic-top-up) so it does not recur. See [Billing](/agents-api/billing).
   </Accordion>
   <Accordion title="instance_budget_exhausted (402): this instance hit its budget" icon="gauge">
     The wallet has funds, but this instance has used up its own managed-spend budget: the monthly cap is consumed and no one-time top-up headroom remains. Only managed calls are refused; the instance keeps running and compute billing is unaffected. Raise the cap with `PATCH /v1/instances/{id}/budget` or add headroom with `POST /v1/instances/{id}/budget/top-up`. See [Budgets](/agents-api/budgets). You will not see this code on Hosting API calls: it surfaces when the agent's managed calls are refused mid-turn.
