@@ -61,7 +61,7 @@ The monthly price is the rate; the wallet is metered per minute (the monthly pri
 | --- | --- |
 | `running`, and the transitional states (`starting`, `restarting`, `updating`, `stopping`) | The full compute rate. |
 | `sleeping` or `stopped` | The disk rate alone: \$0.09 per reserved GB per month. |
-| Evicted sleepers (`sleep.state: "evicted"`) | \$0.03 per GB per month, on the actual compressed bytes stored. |
+| Parked in cold storage (long-idle sleepers moved off their host) | \$0.03 per GB per month, on the actual compressed bytes stored. |
 
 **Create checks a day, debits nothing.** `POST /v1/instances` requires the wallet to hold one day of the instance's running rate; below that, the create returns `402 insufficient_balance` and nothing is provisioned. Nothing is debited at create: the meter starts when the instance first reaches `running`, so a failed create costs nothing and there is nothing to refund.
 

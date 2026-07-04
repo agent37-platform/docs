@@ -172,8 +172,8 @@ const instance = await res.json();
   How long the instance must be idle before it sleeps, in seconds. Defaults to `300`.
 </ResponseField>
 
-<ResponseField name="sleep" type="object">
-  Present only while `status` is `sleeping` or `waking`. `state` is `freezing` (the checkpoint is being written, a window of a second or so), `slept` (parked on its host, ready for a sub-second wake), or `evicted` (its data moved to cold storage after a long idle stretch; the next wake boots fresh and takes a few seconds). `slept_at` is when it fell asleep, in epoch seconds, or `null`.
+<ResponseField name="slept_at" type="integer | null">
+  Present only while `status` is `sleeping` or `waking`: when the instance fell asleep, in epoch seconds (`null` for the second or so while the checkpoint is being written). Instances that have been asleep for a long stretch may take a few seconds to start instead of waking sub-second.
 </ResponseField>
 
 <ResponseField name="past_due" type="boolean">
@@ -372,7 +372,7 @@ Waking is transparent. Any request to any of the instance's URLs wakes it: the r
 
 While asleep:
 
-- The instance object reports `status: "sleeping"` and a `sleep` field, for example `{ "state": "slept", "slept_at": 1781222400 }`.
+- The instance object reports `status: "sleeping"` and `slept_at`, for example `"slept_at": 1781222400`.
 - [Signed URLs](/agents-api/urls#browser-access-with-signed-urls) can still be minted, and opening one is exactly the kind of request that wakes the instance.
 - `stop` works, and means "stay down until I `start`" (see [Stop](#stop)). During the brief window while the checkpoint is being written it returns `409 try_again`; retry in a few seconds.
 - `restart`, `update`, and `resize` require `running` and return `400`: wake the instance with any request to its URL first.
