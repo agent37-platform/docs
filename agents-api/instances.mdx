@@ -322,7 +322,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/stop \
 
 ### Start
 
-`POST /v1/instances/{id}/start` brings a `stopped` instance back up on its pinned host, recreating the container from the image it already ran. If the host no longer has room for the instance's CPU and memory, it returns `409 capacity_unavailable`. If the instance is `past_due`, the workspace balance must be zero or above: start then clears the flag and the meter resumes at the running rate, while a negative balance returns `402 insufficient_balance`. Starting an already running instance returns the same ack again.
+`POST /v1/instances/{id}/start` brings a `stopped` instance back up on its pinned host, recreating the container from the image it already ran. If the host no longer has room for the instance's CPU and memory, it returns `409 capacity_unavailable`. If the instance is `past_due` (suspended for non-payment), start returns `402 insufficient_balance` until the workspace is funded; topping up clears the flag on its own, and start (or any request to the instance's URLs) then boots it fresh. Starting an already running instance returns the same ack again.
 
 Start also wakes a `sleeping` instance, with the same effect as a request to one of its URLs. For a [private sandbox with no ports](/agents-api/templates#register-a-workspace-template) there is no URL to request, so start is its only wake path. During the brief window while the sleep checkpoint is being written it returns `409 try_again`; retry in a few seconds.
 
