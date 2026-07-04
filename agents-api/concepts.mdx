@@ -41,7 +41,7 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 
 ### How they fit together
 
-- Create an **instance** once per end user with `POST /v1/instances` on the hosting API. It keeps files, connected accounts, and memory across every session. An instance does not have to run around the clock: create it with `auto_sleep: true` and the platform checkpoints it to `sleeping` once it has been idle past its `idle_timeout_seconds`, billing disk alone while it sleeps; any request to its URL wakes it transparently, usually well under a second. See [Auto-sleep](/agents-api/instances#auto-sleep).
+- Create an **instance** once per end user with `POST /v1/instances` on the hosting API. It keeps files, connected accounts, and memory across every session. An instance does not have to run around the clock: create it with `auto_sleep: true` and the platform checkpoints it to `sleeping` once it has been idle past its `idle_timeout_seconds`, billing disk alone while it sleeps (awake minutes bill at 4x the compute rate); any request to its URL wakes it transparently, usually well under a second. See [Auto-sleep](/agents-api/instances#auto-sleep).
 - Start a **session** by sending a message to the instance's own URL: `POST https://{instanceId}.agent37.app/v1/responses`. Omit `session_id` and the gateway mints a new session; the reply carries the `session_id` you reuse to continue the thread. See [Sessions](/agents-api/sessions).
 - Each message produces a **response**. Stream it live with `stream: true` (see [Streaming](/agents-api/streaming)), or reconnect a dropped stream with `GET /v1/responses/{id}/stream`.
 
