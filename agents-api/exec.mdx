@@ -14,7 +14,7 @@ The command runs through `sh -c` as the image's default user, on the same box th
 </ParamField>
 
 <Note>
-  Only `running` instances accept commands. Exec against any other status returns `400 invalid_request` (a deleted instance returns `404 not_found`). If the platform cannot reach the instance at all, you get `502 provisioning_failed`.
+  Only `running` instances accept commands. Exec against any other status returns `400 invalid_request` (a deleted instance returns `404 not_found`), and it does not wake a `sleeping` instance: [start](/agents-api/instances#start) it, or hit one of its URLs, first. If the platform cannot reach the instance at all, you get `502 provisioning_failed`.
 </Note>
 
 ## Response
@@ -35,7 +35,7 @@ A command that runs but exits nonzero is a normal result: you get `200` with its
 </ResponseField>
 
 <Note>
-  `exit_code` values 125, 126, and 127 may come from Docker rather than your command, for example 127 when the binary is not found. A command runs for up to 280 seconds, after which the call fails with `502 provisioning_failed`; start longer jobs in the background (`nohup ... &`) and poll with a second exec.
+  `exit_code` values 125, 126, and 127 may come from the container runtime rather than your command, for example 127 when the binary is not found. A command runs for up to 280 seconds, after which the call fails with `502 provisioning_failed`; start longer jobs in the background (`nohup ... &`) and poll with a second exec.
 </Note>
 
 ## Example
