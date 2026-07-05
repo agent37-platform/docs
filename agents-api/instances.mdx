@@ -334,7 +334,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/start \
 
 ### Restart
 
-`POST /v1/instances/{id}/restart` recreates the container from the image already on the host (no download) and returns it to `running`. Use it to recover a wedged agent or pick up changed settings. Same image, same data. The instance must be `running`; use `start` to bring a `stopped` one back up.
+`POST /v1/instances/{id}/restart` recreates the container from the image already on the host (no download) and returns it to `running`. Use it to recover a wedged agent or pick up changed settings. Same image, same data. The instance must be `running`; use `start` to bring a `stopped` one back up. Concurrent restarts of the same instance do not stack: one proceeds and the rest return `409 try_again`.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
