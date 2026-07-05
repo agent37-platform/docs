@@ -29,6 +29,7 @@
           "agents-api/urls",
           "agents-api/exec",
           "agents-api/logs",
+          "agents-api/metrics",
           "agents-api/budgets",
           "agents-api/integrations"
         ]
