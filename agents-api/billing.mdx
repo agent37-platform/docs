@@ -9,7 +9,7 @@ Billing is prepaid. You top up one workspace wallet in the dashboard, and everyt
 
 - **\$1 free to start.** Your first visit to the dashboard grants a one-time \$1 credit, enough to run your first instance for days, or a mostly-idle [auto-sleep](/agents-api/instances#auto-sleep) instance for a month or more. Until your first real top-up, the workspace runs one instance of any template, up to the 2 vCPU / 4 GB shape; a larger shape returns `403 tier_limit`. Your first top-up unlocks the 4/8 and 8/16 shapes, and up to 10 instances; once your top-ups total \$500 the cap rises to 50. See [Instance limits](#instance-limits).
 - **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are \$5 to \$1000 each, paid through Stripe.
-- **Or top up automatically.** Set a rule once and the wallet refills itself; see [Automatic top-up](#automatic-top-up).
+- **Automatic top-up is on by default.** Your first top-up saves its card and turns on a refill rule (below \$10, buy \$25) so the wallet refills itself; adjust or turn it off any time. See [Automatic top-up](#automatic-top-up).
 - **Instances draw it down.** Compute is metered per minute: time an instance spends running bills its full rate, time spent stopped or sleeping bills its disk alone. See [Per-minute metering](#per-minute-metering).
 - **Managed usage draws it down.** Managed LLM, Brave search, and Composio calls are metered at cost against the same wallet, gated by each instance's [budget](/agents-api/budgets).
 - **Delete to stop billing.** Deleting an instance settles its final minutes and ends billing. Nothing is ever prepaid, so there is nothing to refund.
@@ -84,15 +84,15 @@ The monthly price is the rate; the wallet is metered per minute (the monthly pri
 
 ## Automatic top-up
 
-Without automatic top-up, instances are suspended when the balance goes negative. Set a rule at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing) to keep them running: when the balance falls below your threshold, your card is charged for a fixed amount. The rule is checked every hour, and once more right before any instance would be suspended, so instances stay up as long as the card charges.
+Automatic top-up keeps instances from being suspended when the balance runs low: when it falls below your threshold, your card is charged for a fixed amount. The rule is checked every hour, and once more right before any instance would be suspended, so instances stay up as long as the card charges.
 
-- Any manual top-up saves its card, and automatic top-up charges the most recently saved one. Add funds once before enabling the rule.
+- It turns on by default at your first top-up (below \$10, buy \$25), charging the most recently saved card. Adjust both amounts or turn it off at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing).
 - The threshold can be \$1 to \$1000. The purchase amount follows the usual \$5 to \$1000 top-up range.
-- If a charge fails, automatic top-up turns itself off and emails the workspace admins. Add funds manually, which saves a new card, then re-enable it.
+- If a charge fails, automatic top-up turns itself off and emails the workspace owner. Add funds manually, which saves a new card, then re-enable it.
 
 ## Past due and suspension
 
-The meter is post-paid within the hour, so a busy instance can carry the balance below zero before the hourly settle catches it. When a settle leaves the wallet negative, and [automatic top-up](#automatic-top-up) is off or could not charge, the workspace's instances are suspended: running ones are force-slept, every one is flagged `past_due: true`, and the workspace admins are emailed. A request to a suspended instance's URL returns `402` with `{"error": "instance_suspended"}` instead of waking it, and suspended time is never billed.
+The meter is post-paid within the hour, so a busy instance can carry the balance below zero before the hourly settle catches it. When a settle leaves the wallet negative, and [automatic top-up](#automatic-top-up) is off or could not charge, the workspace's instances are suspended: running ones are force-slept, every one is flagged `past_due: true`, and the workspace owner is emailed. A request to a suspended instance's URL returns `402` with `{"error": "instance_suspended"}` instead of waking it, and suspended time is never billed.
 
 <ResponseField name="past_due" type="boolean">
   `true` while the instance is suspended for non-payment. Cleared by topping up.
