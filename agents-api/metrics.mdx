@@ -1,0 +1,98 @@
+---
+title: "Read metrics"
+description: "Fetch an instance's CPU, memory, and disk history to see whether it is sized right, spot leaks, and know before it hits a limit."
+---
+
+`GET /v1/instances/{id}/metrics` returns up to 14 days of resource history: CPU cores in use, memory bytes, and disk bytes, sampled about once a minute on the host, alongside the instance's configured limits. Where [logs](/agents-api/logs) answer "what did it print", metrics answer "is it running out of something": a memory line creeping toward its limit, CPU pinned at the cap, or a disk filling up.
+
+Samples start landing a couple of minutes after an instance first runs, so a just-created instance answers `200` with empty series at first. While an instance is `sleeping` or `stopped` there is no live container to measure: CPU and memory show gaps for those periods, and only disk keeps reporting.
+
+## Request
+
+<ParamField query="hours" type="integer" default="24">
+  The window to return, ending now. Defaults to 24, capped at 336 (14 days, which is also the retention). A value that is not an integer in range returns `400 invalid_request`.
+</ParamField>
+
+## Response
+
+<ResponseField name="series" type="object">
+  Three time series, each an array of `[unixSeconds, value]` pairs in ascending time order.
+  <Expandable title="series">
+    <ResponseField name="cpu_cores" type="array">
+      CPU in use, in cores (for example `0.4` on a 2-vCPU instance means 20% of one core). Compare against `limits.cpu_cores`.
+    </ResponseField>
+    <ResponseField name="memory_bytes" type="array">
+      Memory in use, in bytes.
+    </ResponseField>
+    <ResponseField name="disk_bytes" type="array">
+      Disk used by the instance's data volume, in bytes.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+<ResponseField name="limits" type="object">
+  The instance's configured shape in the same units: `cpu_cores`, `memory_bytes`, `disk_bytes`. Chart these as ceilings over the series.
+</ResponseField>
+<ResponseField name="hours" type="integer">
+  The window that was returned.
+</ResponseField>
+<ResponseField name="step_seconds" type="integer">
+  Spacing between points. It widens with the window (60s at one hour, coarser at 14 days) so any range returns a chart-sized payload of a few hundred points.
+</ResponseField>
+<ResponseField name="fetched_at" type="integer">
+  When the query ran, in epoch seconds.
+</ResponseField>
+
+Unknown, deleted, or other-workspace ids return `404 not_found`. If the metrics store is unreachable, you get `503 try_again`; retry shortly.
+
+## Example
+
+<CodeGroup>
+```bash curl
+curl "https://api.agent37.com/v1/instances/ab12cd34ef/metrics?hours=24" \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python python
+import requests
+
+resp = requests.get(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/metrics",
+    headers={"Authorization": "Bearer sk_live_..."},
+    params={"hours": 24},
+)
+result = resp.json()
+latest = result["series"]["memory_bytes"][-1]
+print(latest, result["limits"]["memory_bytes"])
+```
+
+```javascript node
+const resp = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/metrics?hours=24",
+  { headers: { Authorization: "Bearer sk_live_..." } }
+);
+const result = await resp.json();
+console.log(result.series.cpu_cores.at(-1), result.limits.cpu_cores);
+```
+
+```json response
+{
+  "series": {
+    "cpu_cores": [[1783290000, 0.12], [1783290360, 0.31]],
+    "memory_bytes": [[1783290000, 812646400], [1783290360, 1265789952]],
+    "disk_bytes": [[1783290000, 2147483648], [1783290360, 2147745792]]
+  },
+  "limits": { "cpu_cores": 2, "memory_bytes": 4294967296, "disk_bytes": 6442450944 },
+  "hours": 24,
+  "step_seconds": 360,
+  "fetched_at": 1783293600
+}
+```
+</CodeGroup>
+
+## Reading the numbers
+
+- **Memory near its limit**: an agent that keeps climbing toward `limits.memory_bytes` will eventually be killed and restarted (that shows up in [logs](/agents-api/logs) as a rising `restart_count` and a `"critical"` memory verdict). [Resize](/agents-api/instances#resize) before it gets there.
+- **CPU pinned at the limit**: sustained `cpu_cores` at `limits.cpu_cores` means the agent is throttled and everything it does is slower. Resize, or give it less concurrent work.
+- **Disk trending up**: disk is the one series that never resets on restart. A steady climb is usually accumulated artifacts or caches; clean up over [exec](/agents-api/exec), or resize for more disk.
+
+The same charts live in the dashboard on the instance's **Metrics** tab.
