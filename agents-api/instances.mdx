@@ -304,7 +304,9 @@ const instance = await res.json();
 
 ## Lifecycle
 
-Five calls control whether the instance's computer is running, which image it runs, and how big it is. Each is a `POST` to a subpath; `stop`, `start`, and `restart` take no body, `update` rejects one, and `resize` takes the new size. They acknowledge the new state only, returning `{ id, status }` (`update` adds `image_ref`, `resize` adds `resources`); `GET` the instance for its full representation. Everything on the instance (files, memory, connected accounts) survives them.
+Five calls control whether the instance's computer is running, which image it runs, and how big it is. Each is a `POST` to a subpath; `stop`, `start`, and `restart` take no body, `update` rejects one, and `resize` takes the new size. They acknowledge the new state only, returning `{ id, status }` (`update` adds `image_ref`, `resize` adds `resources`); `GET` the instance for its full representation.
+
+The whole disk persists, like a VM. Files anywhere on the filesystem, installed packages, edited config, connected accounts: all of it survives `stop`, `start`, `restart`, and `resize`, and rides along if the platform ever moves the instance between hosts. The one exception is `update`, which resets the operating system layer to the fresh image while keeping your data (`/home/node` and `/home/linuxbrew`). Writes outside those two directories share a 10 GB operating-system layer separate from the instance's billed disk. In-memory state is lost whenever the container is recreated; anything that must outlive a restart belongs in a file.
 
 ### Stop
 
@@ -344,7 +346,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
 
 ### Update
 
-`POST /v1/instances/{id}/update` pulls the template's current image and preserves the data. Use it to move an instance onto a newer version after you point its template at a new tag, or to recover a failed/stuck instance (read its [logs](/agents-api/logs) first to see why it failed). A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts. The request must have no body (a body with any fields returns `400`; an empty `{}` is accepted). The ack carries the resulting `status` and new `image_ref`. A `sleeping` instance cannot be updated: wake it first, with any request to its URL or an explicit [`start`](#start). A bad image reference on the template surfaces here as a `502 provisioning_failed`.
+`POST /v1/instances/{id}/update` pulls the template's current image, resets the operating system layer to it, and preserves the data in `/home/node` and `/home/linuxbrew`. It is the one lifecycle call that discards changes outside those directories, which also makes it the clean-slate repair tool: use it to move an instance onto a newer version after you point its template at a new tag, or to recover a failed/stuck instance (read its [logs](/agents-api/logs) first to see why it failed). A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts. The request must have no body (a body with any fields returns `400`; an empty `{}` is accepted). The ack carries the resulting `status` and new `image_ref`. A `sleeping` instance cannot be updated: wake it first, with any request to its URL or an explicit [`start`](#start). A bad image reference on the template surfaces here as a `502 provisioning_failed`.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
@@ -356,7 +358,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
 
 `POST /v1/instances/{id}/resize` grows a running instance to a bigger size. The body uses the same vocabulary as create's `resources`, and omitted fields keep their current value, so `{ "disk": 15 }` grows disk alone and `{ "cpu": 4, "memory": 8 }` moves up a shape (disk rises to the new shape's minimum if it was below it). Resize only grows: any request that would shrink a dimension returns `400`, and moving to a smaller size means creating a new instance. The ack carries the new `resources`, and the meter bills at the new rate from the moment of the resize (see [Billing](/agents-api/billing)).
 
-The container is recreated with the new limits, like `restart`: the disk, instance id, and URLs are kept, in-memory state is lost, and the instance is back in seconds. If its host cannot fit the increase, nothing changes and you get `409 capacity_unavailable`.
+The container is recreated with the new limits, like `restart`: the disk, instance id, and URLs are kept, in-memory state is lost, and the instance is back in seconds. If its current host cannot fit the increase, the platform moves the instance to one that can; the resize then takes a couple of minutes while the data syncs over. Only when no host has room does it return `409 capacity_unavailable`, changing nothing.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
