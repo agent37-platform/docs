@@ -47,7 +47,7 @@ curl -X POST https://api.agent37.com/v1/instances \
 
 Every release is an immutable dated tag, never republished, so a pin is a freeze. The published tags are on GHCR: [hermes](https://github.com/orgs/agent37-platform/packages/container/package/hermes), [hermes-small](https://github.com/orgs/agent37-platform/packages/container/package/hermes-small), [openclaw](https://github.com/orgs/agent37-platform/packages/container/package/openclaw); the current tag is the one in each template's `image_ref` on `GET /v1/templates`. An unpublished tag returns `400 invalid_request`, and so does `@latest` — the bare name already follows the latest release. To check a version before creating from it, `GET /v1/templates/agent37-hermes@<tag>`: it returns the template with the pinned `image_ref`, or `404` if that version isn't published.
 
-The pin sticks: the instance object's `template` field carries it (`"agent37-hermes@2026.07.02b"`), and every lifecycle operation, including [`update`](/agents-api/instances#update), stays on the pinned version. To move a pinned instance, pass a `template` to update: a new pin to switch versions, or the bare name to clear the pin and follow latest again. Workspace templates don't take `@` — you control their `image_ref` tag directly.
+The pin sticks: the instance object's `template` field carries it (`"agent37-hermes@2026.07.02b"`), and every lifecycle operation, including [`update`](/agents-api/instances#update), stays on the pinned version. To pin an existing instance, move its pin, or clear it, pass a `template` to update: the name with an `@<tag>` sets or switches the pin, the bare name clears it and follows latest again. Workspace templates don't take `@` — you control their `image_ref` tag directly.
 
 ## Endpoints
 
