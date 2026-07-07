@@ -79,17 +79,17 @@ Rules the stream always follows:
 GET /v1/responses/{id}/stream
 ```
 
-If your connection drops mid-turn, reconnect with the response id from `response.created`:
+If your connection drops mid-turn, reconnect with the response id from `response.created`. Lost the id too (page reload, new device)? [`GET /v1/sessions/{id}`](/agents-api/sessions#retrieve-a-session-with-history) returns the running response as `active_response_id` — `null` means no turn is in flight (see that field's timing notes on the Sessions page).
 
 ```bash curl
 curl -N https://ab12cd34ef.agent37.app/v1/responses/c91d2a7e84f04b6f9a3d5e1c0b87f4a2/stream \
   -H "Authorization: Bearer sk_live_..."
 ```
 
-While the run is live, the gateway replays the entire ordered event buffer from `response.created` onward, then stays attached for the rest of the run. If the run just finished, it replays the buffer and ends. The buffer holds up to 100,000 events per run; the rare run that exceeds it stops buffering, so a reconnect replays the first 100,000 events and may end without the terminal event. When that happens, recover the final answer from the session transcript with [`GET /v1/sessions/{id}`](/agents-api/sessions).
+While the run is live, the gateway replays the entire ordered event buffer from `response.created` onward, then stays attached for the rest of the run. If the run just finished, it replays the buffer and ends. The buffer holds up to 100,000 events per run; the rare run that exceeds it stops buffering, so a reconnect replays the first 100,000 events and may end without the terminal event. When that happens, wait for `active_response_id` on [`GET /v1/sessions/{id}`](/agents-api/sessions#retrieve-a-session-with-history) to read `null`, then recover the final answer from the same call's `history`.
 
 <Note>
-  **Reconnect and the answer is still there.** Reconnect within about 30 minutes of a turn finishing and `/stream` still replays the final `output_text`. One caveat: about 60 seconds after a turn finishes, the in-memory event buffer expires and the replay is synthesized from the retained in-memory response record as `response.created`, one `response.output_text.delta` carrying the full text (omitted when the turn produced none), then the terminal event — reasoning and tool-call events from the original run are not preserved in that synthesized replay. After the record expires (about 30 minutes, or on a gateway restart) `/stream` returns `404 response_not_found`; recover the answer from the [session transcript](/agents-api/sessions) instead, which always holds it.
+  **Reconnect and the answer is still there.** Reconnect within about 30 minutes of a turn finishing and `/stream` still replays the final `output_text`. One caveat: about 60 seconds after a turn finishes, the in-memory event buffer expires and the replay is synthesized from the retained in-memory response record as `response.created`, one `response.output_text.delta` carrying the full text (omitted when the turn produced none), then the terminal event — reasoning and tool-call events from the original run are not preserved in that synthesized replay. After the record expires (about 30 minutes, or on a gateway restart) `/stream` returns `404 response_not_found`; recover the answer from the [session transcript](/agents-api/sessions) instead, which holds every finished turn. (The transcript holds finished turns only — the harness writes a turn's messages at turn end, so a still-running turn is never in it. To find a running turn, read `active_response_id` from `GET /v1/sessions/{id}`.)
 </Note>
 
 ## Parse the stream

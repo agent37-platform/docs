@@ -6,7 +6,7 @@ description: "Stable, machine-readable error codes on both planes: branch on the
 Every error uses a standard HTTP status code and returns a stable, machine-readable code in a JSON `error` field — an object with a `code` on both API catalogs, a flat string on transport failures between you and the gateway. Branch on the code, never on `message` or the HTTP status alone. There are two catalogs because there are two planes, plus a short list of transport errors.
 
 <Info>
-  Both planes take the same `sk_live_` Bearer key, but their error envelopes differ: the Agent API adds optional `param` and `hint` fields. See [Core concepts](/agents-api/concepts) for the two planes.
+  Both planes take the same `sk_live_` Bearer key, but their error envelopes differ: the Agent API adds optional `param`, `hint`, and `response_id` fields. See [Core concepts](/agents-api/concepts) for the two planes.
 </Info>
 
 ## Hosting API errors
@@ -52,7 +52,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 
 ## Agent API errors
 
-Errors from the gateway at `https://{instanceId}.agent37.app/v1/*` use the same envelope plus optional `param` and `hint`.
+Errors from the gateway at `https://{instanceId}.agent37.app/v1/*` use the same envelope plus optional `param`, `hint`, and `response_id`.
 
 ```json
 {
@@ -70,6 +70,9 @@ Errors from the gateway at `https://{instanceId}.agent37.app/v1/*` use the same 
 </ResponseField>
 <ResponseField name="error.hint" type="string">
   A suggested next step, when one applies.
+</ResponseField>
+<ResponseField name="error.response_id" type="string">
+  On `session_busy`: the id of the response already running on the session — reattach with `GET /v1/responses/{id}/stream` or cancel it. Treat it as optional; in a rare race the code arrives without it.
 </ResponseField>
 
 ### Transport errors
@@ -101,7 +104,7 @@ Auth, instance lookup, and routing happen on the platform between you and the ga
 | `file_not_found` | 404 | No file or directory at that path (`GET /v1/files`, `GET /v1/files/content`, `PATCH /v1/files`). |
 | `not_found` | 404 | Unknown route on the instance URL. |
 | `rename_unsupported` | 405 | `PATCH /v1/sessions/{id}` against a harness that cannot rename sessions (no native editable title). |
-| `session_busy` | 409 | A response is already running on this session. |
+| `session_busy` | 409 | A response is already running on this session; on the 409, `error.response_id` usually names it. |
 | `title_conflict` | 409 | `PATCH /v1/sessions/{id}`: the requested title is already used by another session. |
 | `file_exists` | 409 | `PUT /v1/files/content` with `overwrite=false` when a file already exists at the path. |
 | `modified` | 412 | `PUT /v1/files/content` with `X-Expected-Mtime` when the file changed since you read it (lost-update guard). |
@@ -206,7 +209,7 @@ The same grouping works on the Hosting API: `insufficient_balance` sends your us
     The wallet has funds, but this instance has used up its own managed-spend budget: the monthly cap is consumed and no one-time top-up headroom remains. Only managed calls are refused; the instance keeps running and compute billing is unaffected. Raise the cap with `PATCH /v1/instances/{id}/budget` or add headroom with `POST /v1/instances/{id}/budget/top-up`. See [Budgets](/agents-api/budgets). You will not see this code on Hosting API calls: it surfaces when the agent's managed calls are refused mid-turn.
   </Accordion>
   <Accordion title="session_busy (409): one response at a time" icon="clock">
-    A session runs one response at a time. Posting new input while a turn is in flight returns this, with a `hint` naming both ways out: cancel the running turn with `POST /v1/responses/{id}/cancel` (best effort; a finished response just returns its terminal state), or start a fresh session by omitting `session_id`. See [Sessions](/agents-api/sessions).
+    A session runs one response at a time. Posting new input while a turn is in flight returns this, usually with the running response's id in `error.response_id`. Three ways out: reattach to the running turn with `GET /v1/responses/{response_id}/stream`, cancel it with `POST /v1/responses/{response_id}/cancel` (best effort; a finished response just returns its terminal state), or start a fresh session by omitting `session_id`. If the field is absent (a rare race, or an older gateway), read `active_response_id` from `GET /v1/sessions/{id}` instead. See [Sessions](/agents-api/sessions).
   </Accordion>
   <Accordion title="The capacity trio: instance_limit_reached, capacity_unavailable, no_capacity" icon="server">
     Three different walls, three different fixes. `instance_limit_reached` (409, create): the workspace is at its instance limit (one instance on the free credit, 10 once you have topped up, 50 once top-ups total \$500); delete instances you no longer need, or email vishnu@agent37.com to raise the ceiling. `no_capacity` (503, create): no host can fit the requested shape right now; retry with backoff or pick a smaller shape, and a create that fails this way does not keep your money. `capacity_unavailable` (409, start or resize): an instance stays pinned to the host that holds its disk, and that host cannot re-reserve its CPU and RAM, or fit a resize increase, right now; retry later, or create a new instance to land elsewhere. See [Instances](/agents-api/instances).

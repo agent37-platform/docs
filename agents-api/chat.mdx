@@ -250,7 +250,7 @@ await fetch(`${BASE}/v1/responses`, {
 </CodeGroup>
 
 <Note>
-  **One active turn per session.** A session runs one response at a time. Sending new input while one is in flight returns `409 session_busy`. Use another session, or cancel the running turn first.
+  **One active turn per session.** A session runs one response at a time. Sending new input while one is in flight returns `409 session_busy`, normally with the running response's id in `error.response_id`. Use another session, reattach to the running turn, or cancel it first.
 </Note>
 
 To list a user's threads, read a thread's history, delete one, or pick a model, see [Sessions and models](/agents-api/sessions).
@@ -264,7 +264,7 @@ Every response has an id you can use after the call returns.
 | `GET` | `/v1/responses/{id}/stream` | `200` an SSE stream: replays all events, then attaches live |
 | `POST` | `/v1/responses/{id}/cancel` | `200` the current response object |
 
-`GET /v1/responses/{id}/stream` replays every event so far in order, then stays attached live, so a dropped connection never loses the answer — including after the turn has finished, while the response is still retained. See [Streaming](/agents-api/streaming) for the replay window.
+`GET /v1/responses/{id}/stream` replays every event so far in order, then stays attached live, so a dropped connection never loses the answer — including after the turn has finished, while the response is still retained. See [Streaming](/agents-api/streaming) for the replay window. Lost the id (page reload, new device)? [`GET /v1/sessions/{id}`](/agents-api/sessions#retrieve-a-session-with-history) returns the running response as `active_response_id`.
 
 `POST /v1/responses/{id}/cancel` takes no body and stops a running turn, best effort. It returns 200 with the current response object. Cancelling a finished response is a no-op that returns its terminal state, still 200.
 
