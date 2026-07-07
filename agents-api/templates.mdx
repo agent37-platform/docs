@@ -32,7 +32,22 @@ The `agent37-` prefix is reserved for system templates. The catalog has three en
 
 On `agent37-hermes`, port `3737` is the gateway: the [chat API](/agents-api/chat) at `https://{instanceId}.agent37.app`. Every declared port becomes an authenticated URL on the instance object after create; see [Instance and preview URLs](/agents-api/urls).
 
-System templates track the newest platform image: their `image_ref` moves forward as new versions ship, and each create uses whatever the template points at in that moment. Existing instances are unaffected — an instance keeps the image it was created from until you [update it](/agents-api/instances#update). If you need every instance you create to be identical — say a setup script runs after each create and depends on exact versions — pin the image instead: read the current tag with `GET /v1/templates/agent37-hermes`, [register its `image_ref` as a workspace template](#register-a-workspace-template), and create instances from that name.
+System templates track the newest platform image: their `image_ref` moves forward as new versions ship, and each create uses whatever the template points at in that moment. Existing instances are unaffected — an instance keeps the image it was created from until you [update it](/agents-api/instances#update).
+
+## Pin a system template version
+
+If you need every instance you create to be identical — say a setup script runs after each create and depends on exact paths or versions — pin the version: append `@<tag>` to the template name on create.
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "agent37-hermes@2026.07.02b" }'
+```
+
+Every release is an immutable dated tag, never republished, so a pin is a freeze. The published tags are on GHCR: [hermes](https://github.com/orgs/agent37-platform/packages/container/package/hermes), [hermes-small](https://github.com/orgs/agent37-platform/packages/container/package/hermes-small), [openclaw](https://github.com/orgs/agent37-platform/packages/container/package/openclaw); the current tag is the one in each template's `image_ref` on `GET /v1/templates`. An unpublished tag returns `400 invalid_request`, and so does `@latest` — the bare name already follows the latest release. To check a version before creating from it, `GET /v1/templates/agent37-hermes@<tag>`: it returns the template with the pinned `image_ref`, or `404` if that version isn't published.
+
+The pin sticks: the instance object's `template` field carries it (`"agent37-hermes@2026.07.02b"`), and every lifecycle operation, including [`update`](/agents-api/instances#update), stays on the pinned version. To move a pinned instance, pass a `template` to update: a new pin to switch versions, or the bare name to clear the pin and follow latest again. Workspace templates don't take `@` — you control their `image_ref` tag directly.
 
 ## Endpoints
 
