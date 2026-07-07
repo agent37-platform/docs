@@ -42,7 +42,7 @@ If you need every instance you create to be identical — say a setup script run
 curl -X POST https://api.agent37.com/v1/instances \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "template": "agent37-hermes@2026.07.02b" }'
+  -d '{ "template": "agent37-hermes@<tag>" }'
 ```
 
 Every release is an immutable dated tag, never republished, so a pin is a freeze. The published tags are on GHCR: [hermes](https://github.com/orgs/agent37-platform/packages/container/package/hermes), [hermes-small](https://github.com/orgs/agent37-platform/packages/container/package/hermes-small), [openclaw](https://github.com/orgs/agent37-platform/packages/container/package/openclaw); the current tag is the one in each template's `image_ref` on `GET /v1/templates`. An unpublished tag returns `400 invalid_request`, and so does `@latest` — the bare name already follows the latest release. To check a version before creating from it, `GET /v1/templates/agent37-hermes@<tag>`: it returns the template with the pinned `image_ref`, or `404` if that version isn't published.
@@ -145,10 +145,10 @@ Registration validates the reference's shape and stores the template. The image 
 
 ## Build on the Hermes base image
 
-`ghcr.io/agent37-platform/hermes-base` is the published FROM target for custom templates. It ships Hermes with its browser stack (Chromium, Playwright), the gateway that serves the [chat API](/agents-api/chat), and a general toolchain: git, Python 3 with uv, Node.js, build tools. There are no platform LLM credentials and no managed search or Composio integrations; you add your layers on top and bring your own model keys.
+[`ghcr.io/agent37-platform/hermes-base`](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base) is the published FROM target for custom templates. It ships Hermes with its browser stack (Chromium, Playwright), the gateway that serves the [chat API](/agents-api/chat), and a general toolchain: git, Python 3 with uv, Node.js, build tools. There are no platform LLM credentials and no managed search or Composio integrations; you add your layers on top and bring your own model keys.
 
 ```dockerfile
-FROM ghcr.io/agent37-platform/hermes-base:2026.06.14
+FROM ghcr.io/agent37-platform/hermes-base:latest
 
 USER root
 RUN apt-get update && apt-get install -y postgresql-client
@@ -156,13 +156,13 @@ COPY my-skills/ /usr/local/share/agent37/default-skills/
 USER node
 ```
 
-Build it for `linux/amd64`, push it to a public registry, register it as a workspace template, and create instances from it.
+Build it for `linux/amd64`, push it to a public registry, register it as a workspace template, and create instances from it. OpenClaw builds have the same shape: the FROM target is [`ghcr.io/agent37-platform/openclaw-base`](https://github.com/orgs/agent37-platform/packages/container/package/openclaw-base), published with the same dated tags as `agent37-openclaw`.
 
 See [Custom agent image](/agents-api/custom-image) for the step-by-step walkthrough, with a copy-able example — a `Dockerfile`, an example skill, a `register.sh`, and a tiny bring-your-own-model proxy.
 
 The contract:
 
-- Pin the base tag. `hermes-base` is published alongside the built-in `agent37-hermes` image with date tags; `latest` floats.
+- Your built image freezes the base it was built from; the FROM tag only matters when you rebuild. `latest` tracks the newest base, so getting-started builds never go stale. For reproducible rebuilds, pin a date tag: `hermes-base` publishes the same dated tags as `agent37-hermes` ([list on GHCR](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base)), and the current one is the tag in `agent37-hermes`'s `image_ref` on `GET /v1/templates`.
 - Keep the entrypoint. It starts Hermes and the gateway; a Dockerfile that overrides `ENTRYPOINT` loses the chat API.
 - Bake outside `/home/node` and `/home/linuxbrew`. Both are persistent volumes, so anything the image writes there is masked at runtime. Use `/usr/local` or `/opt`. Skills placed in `/usr/local/share/agent37/default-skills/` are copied into `~/.hermes/skills` at boot.
 - The image runs as the `node` user, with passwordless sudo. Switch to `USER root` for installs and back to `USER node` at the end.
@@ -198,7 +198,7 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
   "name": "agent37-hermes",
   "scope": "system",
   "agents": ["hermes"],
-  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.14",
+  "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
   "description": "Hermes general agent: browser, code, files.",
   "ports": [
     { "port": 3737, "default": true },

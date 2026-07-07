@@ -107,7 +107,7 @@ const instance = await res.json();
   "id": "ab12cd34ef",
   "status": "running",
   "template": "agent37-hermes",
-  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.14",
+  "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
   "resources": { "cpu": 2, "memory": 4, "disk": 6 },
   "ports": [
     { "port": 3737, "default": true, "url": "https://ab12cd34ef.agent37.app" },
@@ -283,7 +283,7 @@ const instance = await res.json();
   "id": "ab12cd34ef",
   "status": "running",
   "template": "agent37-hermes",
-  "image_ref": "ghcr.io/agent37-platform/hermes:2026.06.14",
+  "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
   "resources": { "cpu": 2, "memory": 4, "disk": 6 },
   "ports": [
     { "port": 3737, "default": true, "url": "https://ab12cd34ef.agent37.app" },
@@ -359,7 +359,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "template": "agent37-hermes@2026.07.02b" }'
+  -d '{ "template": "agent37-hermes@<tag>" }'
 ```
 
 ### Resize

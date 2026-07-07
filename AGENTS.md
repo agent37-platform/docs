@@ -25,6 +25,15 @@ The API reference is **hand-authored MDX** — there is no OpenAPI spec to regen
 - An API change and its docs change ship together. "Update the docs later" is how the reference rots.
 - Pricing, limits, ids, and resource shapes in the docs are load-bearing — they're quoted to customers and parsed by coding agents. Change them only to match a real platform change.
 
+## Image tags in docs
+
+Platform images publish weekly to GHCR (immutable dated tags like `2026.07.02b`, never republished, plus a moving `latest`). The docs must never require a weekly edit to stay correct:
+
+- **Never hardcode a dated tag as guidance.** The two non-rotting sources for "the current version" are the tag in a system template's `image_ref` on `GET /v1/templates`, and the GHCR package pages — link those instead (`https://github.com/orgs/agent37-platform/packages/container/package/<hermes|hermes-base|hermes-small|openclaw|openclaw-base>`).
+- **Dockerfile `FROM` examples use `:latest`**, with the one mental model stated nearby: a built image freezes its base at build time, the FROM tag only matters at rebuild, pin a dated tag for reproducible rebuilds.
+- **Runnable request examples use `<tag>` placeholders** (`agent37-hermes@<tag>`, `ghcr.io/you/my-agent:<tag>`) — a copy-pasted placeholder fails loudly; a copy-pasted old tag silently pins an ancient release.
+- **JSON response examples show a real dated tag for realism; it is illustrative.** An old immutable tag is never wrong, just old — normalize opportunistically when editing a page, never as a release chore. Keep one consistent tag across all response examples when you do touch them.
+
 ## Terminology
 
 Use these exactly; consistent terms are what make `llms-full.txt` usable as a spec.
