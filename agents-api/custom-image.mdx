@@ -9,7 +9,7 @@ This page is the walkthrough; [Templates → build on the Hermes base image](/ag
 
 ## 1. Start from the base
 
-Your `Dockerfile` builds on `ghcr.io/agent37-platform/hermes-base` and adds your layers. This example installs a CLI into `/usr/local/bin` and a skill into the default-skills directory:
+Your `Dockerfile` builds on [`ghcr.io/agent37-platform/hermes-base`](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base) and adds your layers. This example installs a CLI into `/usr/local/bin` and a skill into the default-skills directory:
 
 ```dockerfile
 FROM ghcr.io/agent37-platform/hermes-base:latest
@@ -24,7 +24,7 @@ USER node
 Bake binaries into `/usr/local/bin`, skills into `/usr/local/share/agent37/default-skills/` (the entrypoint copies them to `~/.hermes/skills` at boot), and everything else into `/usr/local` or `/opt` — never `/home/node` or `/home/linuxbrew`, which are masked at runtime. Keep the base `ENTRYPOINT`. See [the contract](/agents-api/templates#build-on-the-hermes-base-image).
 
 <Tip>
-  `:latest` tracks the newest base, so getting-started builds never go stale. For reproducible production builds, pin a date tag instead — the current one is on the [Templates](/agents-api/templates#build-on-the-hermes-base-image) page.
+  Either way, the image you push freezes its base at build time — the tag choice only matters when you rebuild. `:latest` tracks the newest base, so getting-started builds never go stale. For reproducible production rebuilds, pin a date tag instead: the tag list is [on GHCR](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base), and the current one is the tag in `agent37-hermes`'s `image_ref` on `GET /v1/templates`.
 </Tip>
 
 Test the build before you publish:
@@ -93,9 +93,9 @@ Your endpoint must serve the two OpenAI-compatible routes Hermes uses: `GET /v1/
 Write the config over [exec](/agents-api/exec) or the instance terminal; it lives on the persistent volume, so it survives restarts. Then [send a message](/agents-api/chat) and the agent runs on your model.
 
 <Tip>
-  Want chat to work out of the box on Agent37's managed model instead? Build `FROM ghcr.io/agent37-platform/hermes:<tag>` — the full image wires the managed model — and pass a [budget](/agents-api/budgets) on create.
+  Want chat to work out of the box on Agent37's managed model instead? Build `FROM ghcr.io/agent37-platform/hermes:<tag>` ([tags on GHCR](https://github.com/orgs/agent37-platform/packages/container/package/hermes)) — the full image wires the managed model — and pass a [budget](/agents-api/budgets) on create.
 </Tip>
 
 ## Keep it current
 
-Pin the base tag; `latest` floats. When you change your image, republish, point the template at the new tag with `PATCH /v1/templates/{name}`, and [update each instance](/agents-api/instances) to pick it up. A skill already seeded into an instance's `~/.hermes/skills` is not overwritten on update — only fresh instances get a changed skill.
+Your published image freezes its base; rebuilding is how it picks up platform updates. When you change your image, rebuild and republish, point the template at the new tag with `PATCH /v1/templates/{name}`, and [update each instance](/agents-api/instances) to pick it up. A skill already seeded into an instance's `~/.hermes/skills` is not overwritten on update — only fresh instances get a changed skill.
