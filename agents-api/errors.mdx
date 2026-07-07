@@ -34,7 +34,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | Code | HTTP | When |
 | --- | --- | --- |
 | `invalid_api_key` | 401 | The `sk_live_` Bearer key is missing, malformed, or revoked, on any `/v1` path. |
-| `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, a lifecycle action in the wrong state, or a non-empty `update` body. |
+| `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, a lifecycle action in the wrong state, or an invalid [`update`](/agents-api/instances#update) body (any field other than `template`, or a `template` naming a different base template). |
 | `forbidden` | 403 | A write to a system template. System templates are read-only. |
 | `not_found` | 404 | No instance or template with that id or name in your workspace, or an unknown `/v1` path. |
 | `insufficient_balance` | 402 | The wallet holds less than a day of the instance's running rate at create, or is negative at `start` of a `past_due` instance. |
