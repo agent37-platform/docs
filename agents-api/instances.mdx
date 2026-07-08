@@ -324,7 +324,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/stop \
 
 ### Start
 
-`POST /v1/instances/{id}/start` brings a `stopped` instance back up on its pinned host, recreating the container from the image it already ran. If the host no longer has room for the instance's CPU and memory, it returns `409 capacity_unavailable`. If the instance is `past_due` (suspended for non-payment), start returns `402 insufficient_balance` until the workspace is funded; topping up clears the flag on its own, and start (or any request to the instance's URLs) then boots it fresh. Starting an already running instance returns the same ack again.
+`POST /v1/instances/{id}/start` brings a `stopped` instance back up, recreating the container from the image it already ran. It normally returns to its host in seconds; if that host no longer has room for the instance's CPU and memory, the platform moves the instance to one that does, and the start takes a couple of minutes while the data syncs over. Only when no host has room does it return `409 capacity_unavailable`, changing nothing. If the instance is `past_due` (suspended for non-payment), start returns `402 insufficient_balance` until the workspace is funded; topping up clears the flag on its own, and start (or any request to the instance's URLs) then boots it fresh. Starting an already running instance returns the same ack again.
 
 Start also wakes a `sleeping` instance, with the same effect as a request to one of its URLs. For a [private sandbox with no ports](/agents-api/templates#register-a-workspace-template) there is no URL to request, so start is its only wake path. During the brief window while the sleep checkpoint is being written it returns `409 try_again`; retry in a few seconds.
 
@@ -422,6 +422,6 @@ Both fields are set at create and editable any time with `PATCH /v1/instances/{i
 | `409 instance_limit_reached` | Create when the workspace is at its instance cap: one instance on the free credit, 10 once topped up, 50 once top-ups total \$500 (email vishnu@agent37.com to raise it further). |
 | `403 tier_limit` | Create or resize asks for a shape larger than your plan includes. Free workspaces run any template up to the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
 | `503 no_capacity` | Create when no host has capacity for the requested shape right now. |
-| `409 capacity_unavailable` | Start when the pinned host cannot re-reserve the instance's compute, or resize when it cannot fit the increase. |
+| `409 capacity_unavailable` | Start or resize when no host in the fleet can fit the instance right now; the platform first tries to move it to a host with room. |
 
 See [Errors](/agents-api/errors) for the full catalog and the error envelope.
