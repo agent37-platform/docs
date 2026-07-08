@@ -43,6 +43,10 @@ Creating an instance requires one day of compute at its running rate in your wor
   How long the instance must be idle before it sleeps, in seconds. An integer from `60` to `86400` (one minute to one day). Only meaningful with `auto_sleep: true`.
 </ParamField>
 
+<ParamField body="public_ports" type="object[]">
+  Ports to expose at permanent unauthenticated URLs, each `{ port, prefix? }` — for webhooks and other callers that can't send a credential. See [Public ports](/agents-api/public-ports).
+</ParamField>
+
 ### Shapes and pricing
 
 | cpu | memory | disk | Price at the default disk |
@@ -115,6 +119,7 @@ const instance = await res.json();
     { "port": 7681, "default": false, "url": "https://ab12cd34ef-7681.agent37.app" },
     { "port": 8080, "default": false, "url": "https://ab12cd34ef-8080.agent37.app" }
   ],
+  "public_ports": [],
   "user": "u_882",
   "name": null,
   "metadata": null,
@@ -150,6 +155,10 @@ const instance = await res.json();
 
 <ResponseField name="ports" type="object[]">
   The instance's routed ports, each `{ port, default, url }`. The default port's URL uses the instance id (`https://ab12cd34ef.agent37.app`, where the agent's chat API lives); every other port gets a **preview URL**, `https://{instanceId}-{port}.agent37.app`. Open any of them in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). See [Instance and preview URLs](/agents-api/urls) for the routing scheme.
+</ResponseField>
+
+<ResponseField name="public_ports" type="object[]">
+  The instance's [public ports](/agents-api/public-ports), each `{ port, url, prefix, created }` — permanent unauthenticated URLs, empty unless you created some.
 </ResponseField>
 
 <ResponseField name="user" type="string | null">

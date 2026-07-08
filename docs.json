@@ -27,6 +27,7 @@
           "agents-api/templates",
           "agents-api/custom-image",
           "agents-api/urls",
+          "agents-api/public-ports",
           "agents-api/exec",
           "agents-api/logs",
           "agents-api/metrics",

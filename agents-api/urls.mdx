@@ -63,6 +63,8 @@ A port accepts either credential, so you can reach the same port two ways:
 - **Bearer** for API calls.
 - **Signed URL** for handing a browser tab to a person.
 
+There is a third option for callers that can't send either — webhooks, most commonly: give the port its own permanent unauthenticated URL. See [Public ports](/agents-api/public-ports).
+
 ### Bearer (programmatic)
 
 Every request to an instance URL can carry the same workspace API key as the hosting API:
