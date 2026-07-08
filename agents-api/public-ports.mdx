@@ -1,0 +1,126 @@
+---
+title: "Public ports"
+description: "Give one port of an instance a permanent, unauthenticated HTTPS URL — for webhooks, embeds, and anything else that can't send a Bearer."
+---
+
+Every instance URL normally demands a credential: a Bearer for API calls, a [signed URL](/agents-api/urls#browser-access-with-signed-urls) for a browser. A **public port** is the third option: an HTTPS URL for one port of one instance that anyone can reach with no credential at all, and that keeps working until you delete it.
+
+The canonical use is webhooks. An external service — a telephony provider, a payment processor, a Git host — needs a permanent URL it can POST to, and it will never attach your `sk_live_` key. Signed URLs expire, so they are wrong for a webhook registration; a public port is exactly right.
+
+Anyone who has the URL reaches the port. Put your app's own authentication in front of anything sensitive — for example, Hermes verifies webhook deliveries with its per-subscription secret, so the URL being public costs nothing.
+
+## Create one
+
+Declare public ports when you [create the instance](/agents-api/instances#create-an-instance), or add one to a running instance:
+
+<CodeGroup>
+
+```bash at create
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "agent37-hermes", "public_ports": [{ "port": 8644 }] }'
+```
+
+```bash on a running instance
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/public-ports \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "port": 8644 }'
+```
+
+```python python
+import requests
+
+r = requests.post(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/public-ports",
+    headers={"Authorization": "Bearer sk_live_..."},
+    json={"port": 8644},
+)
+print(r.json()["url"])
+```
+
+```javascript node
+const res = await fetch("https://api.agent37.com/v1/instances/ab12cd34ef/public-ports", {
+  method: "POST",
+  headers: { Authorization: "Bearer sk_live_...", "Content-Type": "application/json" },
+  body: JSON.stringify({ port: 8644 }),
+});
+console.log((await res.json()).url);
+```
+
+```json response
+{
+  "port": 8644,
+  "url": "https://a1b2c3d4e5f6a7b8c9d0.agent37.app",
+  "prefix": null,
+  "created": 1751928000
+}
+```
+
+</CodeGroup>
+
+<ResponseField name="port" type="integer">
+  The container port the URL routes to.
+</ResponseField>
+<ResponseField name="url" type="string">
+  The public HTTPS URL. With no `prefix`, the hostname is a server-minted 20-character random slug: unguessable, so the URL itself is the only credential. Treat it like one — it leaks the way any URL leaks (Referer headers, browser history, logs).
+</ResponseField>
+<ResponseField name="prefix" type="string | null">
+  Echoes the prefix you chose, or `null` for a slug URL.
+</ResponseField>
+<ResponseField name="created" type="integer">
+  Unix seconds when the entry was created.
+</ResponseField>
+
+The entries also ride on every instance read as `public_ports`, and `GET /v1/instances/{id}/public-ports` lists them on their own.
+
+## Named URLs with `prefix`
+
+Pass a `prefix` to get a deterministic hostname instead of a random slug:
+
+```json request
+{ "port": 3000, "prefix": "crm" }
+```
+
+```json response
+{
+  "port": 3000,
+  "url": "https://crm-ab12cd34ef.agent37.app",
+  "prefix": "crm",
+  "created": 1751928000
+}
+```
+
+The hostname is `{prefix}-{instanceId}`: readable, stable across delete and re-create, and **guessable by design** — anyone who knows your instance id can derive it, so a prefix URL is for things that are meant to be found. The instance-id suffix is the namespace, so prefixes never collide across instances and nobody can squat a bare name. A prefix is 1–30 lowercase letters, digits, or hyphens, with no leading or trailing hyphen.
+
+## Delete (revoke)
+
+```bash curl
+curl -X DELETE https://api.agent37.com/v1/instances/ab12cd34ef/public-ports/8644 \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```json response
+{ "port": 8644, "deleted": true }
+```
+
+Revocation propagates to the edge in seconds. The delete acts once; repeating it returns `404`. To **rotate** a leaked slug URL, delete the entry and re-create it — the new entry gets a fresh slug. (A prefix entry re-created with the same prefix comes back at the same hostname; that stability is the point of a prefix.)
+
+## Recipe: Hermes webhooks
+
+Hermes listens for webhook deliveries on port `8644` and authenticates them with a per-subscription secret, so this port is built to be public:
+
+1. Create the instance with `"public_ports": [{ "port": 8644 }]` (or add the port later).
+2. Take the returned `url` and register `{url}/webhooks/...` with your provider, per [Hermes's webhook docs](https://nousresearch.github.io/hermes-agent/webhooks.html).
+3. Hermes shows the subscription's signing secret once at creation; the provider signs each delivery with it, and that is the security boundary — not the URL.
+
+## Rules and limits
+
+- **One URL per port**, at most 20 public ports per instance. Creating a second entry for the same port returns `409 public_port_exists` (delete first to rotate).
+- **Platform ports can't be made public.** `3737` (the gateway — a public gateway would be a keyless agent API), `9119`, `7681` (terminal), `8080` (file browser), `6080`, and `7890` are rejected with `400`. They stay reachable with a Bearer or signed URL.
+- Public traffic is ordinary instance traffic: no separate meter, billed to the workspace like any other request.
+- A request to a public URL [wakes a sleeping instance](/agents-api/urls#sleeping-instances-wake-on-request) — for a webhook endpoint that is the feature working. The flip side: any traffic to the URL keeps an [auto-sleep](/agents-api/instances#auto-sleep) instance awake, and auto-sleep instances bill at the 4x awake rate, so a scraped or polled public URL keeps the meter running. If that happens, delete the entry.
+- While the instance is stopped or suspended, the URL answers `503 { "error": "unavailable" }` — visitors never see your billing state.
+- The path `/health` is answered by the platform edge itself and never reaches your app on any instance URL, public ports included. Serve health checks on another path.
+- Public ports and [signed URLs](/agents-api/urls#browser-access-with-signed-urls) are orthogonal: deleting a public port does not invalidate signed URLs for that port, and vice versa.
