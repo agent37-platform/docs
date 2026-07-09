@@ -114,6 +114,7 @@ const instance = await res.json();
   "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
   "resources": { "cpu": 2, "memory": 4, "disk": 6 },
   "url": "https://ab12cd34ef.agent37.app",
+  "domain_urls": [],
   "public_ports": [],
   "user": "u_882",
   "name": null,
@@ -152,8 +153,12 @@ const instance = await res.json();
   The bare instance URL, `https://{instanceId}.agent37.app`, where the agent's chat API lives (it routes to the template's `default_port`, `3737` unless declared otherwise). Every other port is reachable at `https://{instanceId}-{port}.agent37.app` — derivable, no declaration needed. Open any port in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). See [Instance and preview URLs](/agents-api/urls).
 </ResponseField>
 
+<ResponseField name="domain_urls" type="string[]">
+  The instance URL mirrored under each of your workspace's active [custom domains](/agents-api/domains); empty until a domain is active.
+</ResponseField>
+
 <ResponseField name="public_ports" type="object[]">
-  The instance's [public ports](/agents-api/public-ports), each `{ port, url, prefix, created }` — permanent unauthenticated URLs, empty unless you created some.
+  The instance's [public ports](/agents-api/public-ports), each `{ port, url, domain_urls, prefix, created }` — permanent unauthenticated URLs, empty unless you created some.
 </ResponseField>
 
 <ResponseField name="user" type="string | null">
@@ -290,6 +295,7 @@ const instance = await res.json();
   "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
   "resources": { "cpu": 2, "memory": 4, "disk": 6 },
   "url": "https://ab12cd34ef.agent37.app",
+  "domain_urls": [],
   "public_ports": [],
   "user": "u_882",
   "name": "Production agent",
