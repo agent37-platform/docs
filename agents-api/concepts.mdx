@@ -45,14 +45,15 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 - Start a **session** by sending a message to the instance's own URL: `POST https://{instanceId}.agent37.app/v1/responses`. Omit `session_id` and the gateway mints a new session; the reply carries the `session_id` you reuse to continue the thread. See [Sessions](/agents-api/sessions).
 - Each message produces a **response**. Stream it live with `stream: true` (see [Streaming](/agents-api/streaming)), or reconnect a dropped stream with `GET /v1/responses/{id}/stream`.
 
-## Templates declare ports, instances snapshot them
+## Every port has a derivable URL
 
-A template declares which ports its image listens on, with at most one marked `default`. When you create an instance, it snapshots the template's ports, and the instance object returns a URL per port:
+Nothing about ports is declared per instance:
 
-- The **default port** gets the instance's own URL, `https://{instanceId}.agent37.app`. The default template, `agent37-hermes`, serves the gateway there, so the default port URL is the chat URL.
-- **Non-default ports** each get a derivable **preview URL**, `https://{instanceId}-{port}.agent37.app` — for example `https://ab12cd34ef-9119.agent37.app`.
+- The **instance URL**, `https://{instanceId}.agent37.app`, routes to the template's `default_port` — `3737`, the gateway, unless the template says otherwise. On the default template, `agent37-hermes`, that makes it the chat URL.
+- Every other port is reachable at its **preview URL**, `https://{instanceId}-{port}.agent37.app` — for example `https://ab12cd34ef-9119.agent37.app`.
+- A port can also get a permanent unauthenticated URL — see [Public ports](/agents-api/public-ports).
 
-See [Instance and preview URLs](/agents-api/urls) for how routing works, and [Templates](/agents-api/templates) for declaring ports on your own images.
+See [Instance and preview URLs](/agents-api/urls) for how routing and authentication work, and [Templates](/agents-api/templates) for `default_port` on your own images.
 
 ## One wallet, per-instance caps
 
