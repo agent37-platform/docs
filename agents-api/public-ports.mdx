@@ -53,6 +53,7 @@ console.log((await res.json()).url);
 {
   "port": 8644,
   "url": "https://a1b2c3d4e5f6a7b8c9d0.agent37.app",
+  "domain_urls": [],
   "prefix": null,
   "created": 1751928000
 }
@@ -66,6 +67,9 @@ console.log((await res.json()).url);
 <ResponseField name="url" type="string">
   The public HTTPS URL. With no `prefix`, the hostname is a server-minted 20-character random slug: unguessable, so the URL itself is the only credential. Treat it like one — it leaks the way any URL leaks (Referer headers, browser history, logs).
 </ResponseField>
+<ResponseField name="domain_urls" type="string[]">
+  The same URL mirrored under each of your workspace's active [custom domains](/agents-api/domains); empty until a domain is active.
+</ResponseField>
 <ResponseField name="prefix" type="string | null">
   Echoes the prefix you chose, or `null` for a slug URL.
 </ResponseField>
@@ -74,6 +78,8 @@ console.log((await res.json()).url);
 </ResponseField>
 
 The entries also ride on every instance read as `public_ports`, and `GET /v1/instances/{id}/public-ports` lists them on their own.
+
+You can serve these on your own domain too: register a [custom domain](/agents-api/domains) and every public-port hostname is mirrored, still credential-free, at `{hostname}.yourdomain.com`. Once a domain is active, each entry's `domain_urls` field lists the mirrored URLs.
 
 ## Named URLs with `prefix`
 
@@ -87,6 +93,7 @@ Pass a `prefix` to get a deterministic hostname instead of a random slug:
 {
   "port": 3000,
   "url": "https://crm-ab12cd34ef.agent37.app",
+  "domain_urls": [],
   "prefix": "crm",
   "created": 1751928000
 }
