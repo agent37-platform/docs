@@ -9,32 +9,16 @@ Every instance with a default port is reachable at `https://{instanceId}.agent37
   Instance URLs are the Agent API plane: you reach what runs *inside* an instance here, authenticated by the same `sk_live_` key as the hosting API. See [Core concepts](/agents-api/concepts).
 </Info>
 
-## One URL per port
+## Every port has a URL
 
-A template declares which container ports an instance exposes, and every exposed port gets its own HTTPS URL in the instance object's `ports` array:
+Nothing is declared and nothing is looked up — both URL forms are derivable from the instance id alone:
 
-```json instance ports
-"ports": [
-  { "port": 3737, "default": true,  "url": "https://ab12cd34ef.agent37.app" },
-  { "port": 9119, "default": false, "url": "https://ab12cd34ef-9119.agent37.app" },
-  { "port": 7681, "default": false, "url": "https://ab12cd34ef-7681.agent37.app" },
-  { "port": 8080, "default": false, "url": "https://ab12cd34ef-8080.agent37.app" }
-]
-```
+- **Instance URL** — `https://{instanceId}.agent37.app`, the bare id. It routes to the template's [`default_port`](/agents-api/templates#register-a-workspace-template) (`3737`, the gateway, unless the template says otherwise), and it is the `url` field on every instance object.
+- **Preview URL** — `https://{instanceId}-{port}.agent37.app`, for **any** port, no registration needed. Preview URLs serve your own services plus the agent's built-in dashboard, terminal, and file browser.
 
-The default port owns the bare **instance URL** (`https://{instanceId}.agent37.app`), where the agent's API lives. Every non-default port gets a **preview URL**, `https://{instanceId}-{port}.agent37.app` — also derivable from the instance id and the port number. Preview URLs serve your own services plus the agent's built-in dashboard, terminal, and file browser.
+A port nothing listens on answers with a transport error (`502`) rather than a `404`: the URL always routes; whether something serves is up to the instance.
 
-<ResponseField name="port" type="integer">
-  The container port inside the instance.
-</ResponseField>
-<ResponseField name="default" type="boolean">
-  At most one port per template is the default. It is served at `https://{instanceId}.agent37.app`.
-</ResponseField>
-<ResponseField name="url" type="string">
-  The HTTPS URL that routes to this port — the instance URL for the default port, a preview URL otherwise. Add the Bearer to call it directly, or mint a signed URL to open it in a browser.
-</ResponseField>
-
-### What `agent37-hermes` exposes
+### What `agent37-hermes` serves
 
 | Port | URL | Serves |
 | --- | --- | --- |
@@ -45,7 +29,7 @@ The default port owns the bare **instance URL** (`https://{instanceId}.agent37.a
 
 So for the default [template](/agents-api/templates), chat is just the bare URL plus a path: `POST https://ab12cd34ef.agent37.app/v1/responses`. The dashboard, terminal, and file browser live on preview URLs; mint a [signed URL](#browser-access-with-signed-urls) to open one in a browser.
 
-### What `agent37-openclaw` exposes
+### What `agent37-openclaw` serves
 
 | Port | URL | Serves |
 | --- | --- | --- |
@@ -130,7 +114,7 @@ console.log((await res.json()).url);
   Unix seconds when the URL stops working. Mint a fresh one when it expires.
 </ResponseField>
 
-The instance must be running or sleeping (opening the link is exactly the kind of request that [wakes it](#sleeping-instances-wake-on-request)), and `port` must be one it exposes (any port from the `ports` array, default or not). An optional `ttl_seconds` sets how long the URL lives, default `3600` (one hour), clamped to `[60, 86400]` (one minute to one day); pass a short value for a quick preview link or the max for a day-long share link. An unexposed or missing port, or a `ttl_seconds` that is not a positive integer, returns `400`; an unknown or cross-workspace instance returns `404`.
+The instance must be running or sleeping (opening the link is exactly the kind of request that [wakes it](#sleeping-instances-wake-on-request)); any `port` from 1 to 65535 mints. An optional `ttl_seconds` sets how long the URL lives, default `3600` (one hour), clamped to `[60, 86400]` (one minute to one day); pass a short value for a quick preview link or the max for a day-long share link. A missing or invalid port, or a `ttl_seconds` that is not a positive integer, returns `400`; an unknown or cross-workspace instance returns `404`.
 
 The token rides in the `a37_token` query param. The edge consumes it (promoting it to the cookie) and strips it before forwarding, so it never reaches the instance and never collides with a query param your own app uses.
 
@@ -190,6 +174,6 @@ A wake can be refused or fail, and those answers use the same flat error shape a
 
 Plain HTTP requests, SSE streams, and WebSocket connections all pass end to end. [Streaming chat](/agents-api/streaming) with `stream: true` works on the bare URL, and the connection stays open until the server closes it after the terminal event. WebSocket upgrades pass through too: that is what the browser terminal uses for its interactive shell.
 
-## Templates with no ports
+## Private sandboxes
 
-A [template](/agents-api/templates) that declares no ports produces a private sandbox: the instance runs, but nothing is routable and it has no URL at all (`ports` is empty). You can still drive it from the hosting API with [exec](/agents-api/exec), which runs shell commands inside the instance without any exposed port.
+A [template](/agents-api/templates) whose image listens on nothing still runs fine: with `default_port` omitted, boot is not probed, and every URL simply answers a transport error because nothing serves. Drive the instance from the hosting API with [exec](/agents-api/exec), which runs shell commands inside it without touching any port.

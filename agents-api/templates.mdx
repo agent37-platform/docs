@@ -1,9 +1,9 @@
 ---
 title: "Templates"
-description: "Name an image and the ports it serves once, then create every instance from that name."
+description: "Name an image once, then create every instance from that name."
 ---
 
-A template is a named image plus the ports it serves. Instances are always created from template names: pass `template` on [`POST /v1/instances`](/agents-api/instances), or omit it for the default `agent37-hermes`. Direct image references are rejected with `400 invalid_request`; register a template first, then pass its name.
+A template is a named image, plus (optionally) the port its main service listens on. Instances are always created from template names: pass `template` on [`POST /v1/instances`](/agents-api/instances), or omit it for the default `agent37-hermes`. Direct image references are rejected with `400 invalid_request`; register a template first, then pass its name.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances \
@@ -18,11 +18,11 @@ Templates come in two scopes. `system` templates are the built-in catalog, the s
 
 The `agent37-` prefix is reserved for system templates. The catalog has three entries today:
 
-| Template | What it runs | Ports |
-| --- | --- | --- |
-| `agent37-hermes` | Hermes, the general agent: chat, browsing, code, files. The default. | `3737` (default), `9119`, `7681`, `8080` |
-| `agent37-hermes-small` | Hermes, lean: chat, code, files, shell. No browser or desktop. | `3737` (default), `9119`, `7681`, `8080` |
-| `agent37-openclaw` | OpenClaw, the general agent: chat, headless browsing, code, files. | `3737` (default), `18789`, `7681`, `8080` |
+| Template | What it runs |
+| --- | --- |
+| `agent37-hermes` | Hermes, the general agent: chat, browsing, code, files. The default. |
+| `agent37-hermes-small` | Hermes, lean: chat, code, files, shell. No browser or desktop. |
+| `agent37-openclaw` | OpenClaw, the general agent: chat, headless browsing, code, files. |
 
 `agent37-hermes-small` is the only template that can run on the sub-floor 1 vCPU / 3 GB shape, from \$3.44 per month; see [sizing](/agents-api/instances). Standard and custom templates start at 2 vCPU / 4 GB.
 
@@ -30,7 +30,7 @@ The `agent37-` prefix is reserved for system templates. The catalog has three en
   More system templates (Claude Code, Codex) are coming; they will appear in `GET /v1/templates` when they are available. Passing any other `agent37-` name on instance create returns `400 invalid_request`, because the prefix is reserved.
 </Note>
 
-On `agent37-hermes`, port `3737` is the gateway: the [chat API](/agents-api/chat) at `https://{instanceId}.agent37.app`. Every declared port becomes an authenticated URL on the instance object after create; see [Instance and preview URLs](/agents-api/urls).
+On every system template, port `3737` is the gateway: the [chat API](/agents-api/chat) at `https://{instanceId}.agent37.app`. Any other port an instance serves — the built-in dashboard, terminal, and file browser included — is reachable at its derivable `https://{instanceId}-{port}.agent37.app` URL; see [Instance and preview URLs](/agents-api/urls).
 
 System templates track the newest platform image: their `image_ref` moves forward as new versions ship, and each create uses whatever the template points at in that moment. Existing instances are unaffected — an instance keeps the image it was created from until you [update it](/agents-api/instances#update).
 
@@ -80,8 +80,8 @@ curl https://api.agent37.com/v1/templates \
   Optional free-text description.
 </ParamField>
 
-<ParamField body="ports" type="array">
-  The ports the image serves, each `{ "port": <int>, "default": <bool> }`. At most 20 entries; ports are integers 1 to 65535; no duplicates; at most one entry may set `default: true`. Each non-default port gets a **preview URL**, `https://{instanceId}-{port}.agent37.app`, openable in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). The reserved set `3737`, `7681`, `8080`, `6080`, `7890`, `6969`, `9119` is rejected: those belong to the managed runtime. Omit `ports` or pass `[]` for a private sandbox with no routable URL; you can still reach it with [exec](/agents-api/exec). With [auto-sleep](/agents-api/instances#auto-sleep) on, a port-less sandbox receives no requests, so only an explicit [`start`](/agents-api/instances#start) wakes it.
+<ParamField body="default_port" type="integer">
+  The port the bare instance URL (`https://{instanceId}.agent37.app`) routes to, and the port the platform probes at boot to decide the create succeeded. An integer 1 to 65535; the reserved ports `7681`, `8080`, `6080`, `7890`, `9119` are rejected (they belong to the managed runtime). Omitted, the bare URL falls back to `3737` — right for images built on [the Hermes base image](#build-on-the-hermes-base-image), whose gateway serves it — and boot is not probed, so an image that listens on nothing (a private sandbox driven by [exec](/agents-api/exec)) still creates fine. Every other port needs no declaration at all: it is already reachable at `https://{instanceId}-{port}.agent37.app`. With [auto-sleep](/agents-api/instances#auto-sleep) on, a sandbox nothing ever requests only wakes by an explicit [`start`](/agents-api/instances#start).
 </ParamField>
 
 <CodeGroup>
@@ -94,7 +94,7 @@ curl -X POST https://api.agent37.com/v1/templates \
     "name": "my-agent",
     "image_ref": "ghcr.io/acme/my-agent:v1",
     "description": "My agent",
-    "ports": [{ "port": 8000, "default": true }]
+    "default_port": 8000
   }'
 ```
 
@@ -108,7 +108,7 @@ resp = requests.post(
         "name": "my-agent",
         "image_ref": "ghcr.io/acme/my-agent:v1",
         "description": "My agent",
-        "ports": [{"port": 8000, "default": True}],
+        "default_port": 8000,
     },
 )
 print(resp.json())
@@ -125,7 +125,7 @@ const resp = await fetch("https://api.agent37.com/v1/templates", {
     name: "my-agent",
     image_ref: "ghcr.io/acme/my-agent:v1",
     description: "My agent",
-    ports: [{ port: 8000, default: true }],
+    default_port: 8000,
   }),
 });
 console.log(await resp.json());
@@ -166,12 +166,12 @@ The contract:
 - Keep the entrypoint. It starts Hermes and the gateway; a Dockerfile that overrides `ENTRYPOINT` loses the chat API.
 - Bake outside `/home/node` and `/home/linuxbrew`. Both are persistent volumes, so anything the image writes there is masked at runtime. Use `/usr/local` or `/opt`. Skills placed in `/usr/local/share/agent37/default-skills/` are copied into `~/.hermes/skills` at boot.
 - The image runs as the `node` user, with passwordless sudo. Switch to `USER root` for installs and back to `USER node` at the end.
-- Declare a default port and leave it to the gateway. The runtime binds the gateway to the template's default port, so the bare instance URL serves the chat API; do not bind your own service there. Declare your own services as additional ports. With no default port the instance is a private sandbox reachable only by [exec](/agents-api/exec) — the image does not need to listen on anything.
+- Leave the default port to the gateway. The runtime tells the gateway which port to bind — `default_port`, or `3737` when you omit it — so the bare instance URL serves the chat API; do not bind your own service there. Your own services need no declaration: each is reachable at `https://{instanceId}-{port}.agent37.app`.
 - Bring your own model keys. Instances boot with no LLM provider configured, and chat returns errors until you add one. Write your provider credentials into `~/.hermes/config.yaml`, Hermes' standard config file, over [exec](/agents-api/exec) or the terminal. The file lives on the persistent volume, so it survives restarts and updates.
 
 ## Update a template
 
-`PATCH /v1/templates/{name}` changes any of `name`, `image_ref`, `description`, or `ports`. Send at least one field. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
+`PATCH /v1/templates/{name}` changes any of `name`, `image_ref`, `description`, or `default_port` (send `null` to clear it back to the `3737` fallback). Send at least one field. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
 
 ```bash curl
 curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
@@ -200,12 +200,7 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
   "agents": ["hermes"],
   "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
   "description": "Hermes general agent: browser, code, files.",
-  "ports": [
-    { "port": 3737, "default": true },
-    { "port": 9119, "default": false },
-    { "port": 7681, "default": false },
-    { "port": 8080, "default": false }
-  ],
+  "default_port": 3737,
   "created": null,
   "updated": null
 }
@@ -226,8 +221,8 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
 <ResponseField name="description" type="string | null">
   Your optional description.
 </ResponseField>
-<ResponseField name="ports" type="array">
-  The declared ports, each `{ "port": <int>, "default": <bool> }`. Template ports carry no URL; URLs are minted per instance and returned in the instance object's `ports`. See [Instance and preview URLs](/agents-api/urls).
+<ResponseField name="default_port" type="integer | null">
+  The declared default port, or `null` when the template relies on the `3737` fallback. See [Instance and preview URLs](/agents-api/urls).
 </ResponseField>
 <ResponseField name="created" type="integer | null">
   Creation time in epoch seconds. `null` for system templates.
@@ -240,7 +235,7 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
 
 | Status | Code | When |
 | --- | --- | --- |
-| `400` | `invalid_request` | Bad `name`, `image_ref`, or `ports`; a direct image reference passed as `template` on instance create |
+| `400` | `invalid_request` | Bad `name`, `image_ref`, or `default_port`; the legacy `ports` array; a direct image reference passed as `template` on instance create |
 | `403` | `forbidden` | `PATCH` or `DELETE` on a system template: they are read-only |
 | `404` | `not_found` | Unknown template name; repeat `DELETE` |
 | `409` | `template_conflict` | Create or rename onto a name that already exists |
