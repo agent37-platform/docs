@@ -66,6 +66,8 @@ console.log((await res.json()).dns);
   Unix seconds when the domain was registered.
 </ResponseField>
 
+Custom domains are a top-tier feature: they unlock once your workspace's top-ups total \$500, the same tier that raises the instance limit to 50. Below it, registration returns `403 tier_limit`; email vishnu@agent37.com to unlock them another way.
+
 Register the domain itself, `previews.acme.com`, not `*.previews.acme.com`: the wildcard is implied. Apex domains and setups that need a wildcard certificate on the registered name itself are not supported; register a subdomain that can carry a wildcard CNAME. A hostname is claimable by exactly one workspace across the platform, first come, so a name another workspace holds returns `409 domain_exists`. A registration can only ever verify with control of the domain's DNS, so squatting buys nothing; if a hostname you own is already taken, email vishnu@agent37.com.
 
 ## Add the DNS record
@@ -148,6 +150,7 @@ Deleting stops routing under the domain within seconds; your `agent37.app` URLs 
 
 ## Rules and limits
 
+- **Top tier only.** Registering a domain requires total top-ups of \$500; below that, `POST /v1/domains` returns `403 tier_limit`.
 - **Up to 10 domains per workspace**, at no charge. Registering an eleventh returns `400 invalid_request`; a bad hostname or a domain under `agent37.app` or `agent37.com` (reserved) returns `400` too.
 - **Preview URLs are not mirrored.** The dynamic `{instanceId}-{port}` form only exists on `agent37.app`; a per-port hostname on your domain cannot be derived without registration. Use the `agent37.app` preview URL, or create a [public port](/agents-api/public-ports) for that port, whose hostname is mirrored.
 - The path `/health` is answered by the platform edge itself on custom domains too, just as on `agent37.app`, and never reaches your app.
