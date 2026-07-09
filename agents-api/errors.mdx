@@ -39,7 +39,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | `not_found` | 404 | No instance or template with that id or name in your workspace, or an unknown `/v1` path. |
 | `insufficient_balance` | 402 | The wallet holds less than a day of the instance's running rate at create, or is negative at `start` of a `past_due` instance. |
 | `instance_limit_reached` | 409 | The workspace is at its instance limit: one instance on the free credit, 10 once you have topped up, 50 once top-ups total \$500. Email vishnu@agent37.com to raise it further. |
-| `tier_limit` | 403 | Create or resize asks for a shape larger than your plan includes. Free workspaces (before your first top-up) run any template up to the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
+| `tier_limit` | 403 | Create or resize asks for a shape larger than your plan includes, or a [custom domain](/agents-api/domains) is registered before your top-ups total \$500. Free workspaces (before your first top-up) run any template up to the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
 | `capacity_unavailable` | 409 | `start` or `resize`: no host in the fleet can fit this instance, or the resize increase, right now. |
 | `template_conflict` | 409 | A template create or rename targets a name that already exists. |
 | `domain_exists` | 409 | A [custom domain](/agents-api/domains) registration names a hostname already registered, by your workspace or any other. |
