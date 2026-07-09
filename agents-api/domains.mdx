@@ -1,0 +1,155 @@
+---
+title: "Custom domains"
+description: "Serve every URL your workspace has under your own domain, with one wildcard CNAME record."
+---
+
+A **custom domain** is a workspace-level mirror of everything you serve on `agent37.app`. Register `previews.acme.com` once, and every URL your workspace has also answers under it: instance `ab12cd34ef` becomes reachable at `https://ab12cd34ef.previews.acme.com` with the same Bearer and signed-URL authentication as its [instance URL](/agents-api/urls), and every [public port](/agents-api/public-ports) hostname serves credential-free at `https://{hostname}.previews.acme.com`. Your `agent37.app` URLs keep working unchanged; the custom domain is an addition, not a replacement.
+
+Setup is three calls and one DNS record: register, add the CNAME, verify.
+
+## Register the domain
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/domains \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "domain": "previews.acme.com" }'
+```
+
+```python python
+import requests
+
+r = requests.post(
+    "https://api.agent37.com/v1/domains",
+    headers={"Authorization": "Bearer sk_live_..."},
+    json={"domain": "previews.acme.com"},
+)
+print(r.json()["dns"])
+```
+
+```javascript node
+const res = await fetch("https://api.agent37.com/v1/domains", {
+  method: "POST",
+  headers: { Authorization: "Bearer sk_live_...", "Content-Type": "application/json" },
+  body: JSON.stringify({ domain: "previews.acme.com" }),
+});
+console.log((await res.json()).dns);
+```
+
+```json response
+{
+  "domain": "previews.acme.com",
+  "status": "pending",
+  "dns": {
+    "type": "CNAME",
+    "name": "*.previews.acme.com",
+    "target": "domains.agent37.app"
+  },
+  "created": 1751928000
+}
+```
+
+</CodeGroup>
+
+<ResponseField name="domain" type="string">
+  The hostname you registered, lowercased. What your workspace serves lives one label below it (`ab12cd34ef.previews.acme.com`).
+</ResponseField>
+<ResponseField name="status" type="string">
+  `pending` until verification passes, then `active`. Only an active domain routes.
+</ResponseField>
+<ResponseField name="dns" type="object">
+  The one record to add at your DNS provider: `dns.name` (`*.previews.acme.com`) as a `dns.type` (`CNAME`) pointing at `dns.target` (`domains.agent37.app`).
+</ResponseField>
+<ResponseField name="created" type="integer">
+  Unix seconds when the domain was registered.
+</ResponseField>
+
+Register the domain itself, `previews.acme.com`, not `*.previews.acme.com`: the wildcard is implied. Apex domains and setups that need a wildcard certificate on the registered name itself are not supported; register a subdomain that can carry a wildcard CNAME. A hostname is claimable by exactly one workspace across the platform, first come, so a name another workspace holds returns `409 domain_exists`. A registration can only ever verify with control of the domain's DNS, so squatting buys nothing; if a hostname you own is already taken, email vishnu@agent37.com.
+
+## Add the DNS record
+
+One record at your DNS provider, exactly as the response's `dns` field says:
+
+| Type | Name | Target |
+| --- | --- | --- |
+| `CNAME` | `*.previews.acme.com` | `domains.agent37.app` |
+
+The record must be plain DNS. If your DNS is on Cloudflare, set this record to **DNS only** (grey cloud, not orange): a proxied record hides the CNAME behind Cloudflare's own addresses, and verification will never pass.
+
+## Verify
+
+Once the record is in place, verify:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/domains/previews.acme.com/verify \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```json response
+{ "domain": "previews.acme.com", "status": "active" }
+```
+
+Verification checks that the wildcard CNAME resolves to `domains.agent37.app`. It is idempotent and safe to poll: call it right after adding the record, and again if it still answers `pending` (the record has not propagated yet, or it is proxied). The moment the status flips to `active`, the domain starts routing.
+
+HTTPS certificates are provisioned per hostname, automatically. On activation, every existing instance and public-port hostname gets its certificate in the background, typically one to five minutes each; anything you create afterwards gets its certificate at create. A TLS error in the first minutes after activation means the certificate has not landed yet; wait and retry.
+
+## Use it
+
+Hit the mirrored instance URL exactly as you would the `agent37.app` one:
+
+```bash curl
+curl https://ab12cd34ef.previews.acme.com/v1/health \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```json response
+{ "ok": true, "agent": "hermes", "healthy": true, "hermes": true }
+```
+
+Authentication is identical to `agent37.app`: instance URLs take a Bearer or a signed URL, public-port hostnames need no credential at all. A [signed URL](/agents-api/urls#browser-access-with-signed-urls)'s token is bound to the label it was minted for, not the domain, so a token minted for the default port also opens `https://ab12cd34ef.previews.acme.com/?a37_token=...`.
+
+Only labels your own workspace serves resolve under your domain. Any other label answers exactly as an unknown `agent37.app` URL would (`401` without a credential, `404` with one), so nothing another workspace runs can ever appear under your domain.
+
+Once a domain is active, instance reads expose the mirrored URLs as `domain_urls`, on the instance and on each public-port entry:
+
+```json
+{
+  "id": "ab12cd34ef",
+  "url": "https://ab12cd34ef.agent37.app",
+  "domain_urls": ["https://ab12cd34ef.previews.acme.com"],
+  "public_ports": [
+    {
+      "port": 8644,
+      "url": "https://a1b2c3d4e5f6a7b8c9d0.agent37.app",
+      "domain_urls": ["https://a1b2c3d4e5f6a7b8c9d0.previews.acme.com"],
+      "prefix": null,
+      "created": 1751928000
+    }
+  ]
+}
+```
+
+## List and delete
+
+`GET /v1/domains` lists the workspace's domains as `{ "data": [...] }`, each entry in the full shape above (including the `dns` block, so you can always re-read the record to add). `GET /v1/domains/{domain}` reads one.
+
+```bash curl
+curl -X DELETE https://api.agent37.com/v1/domains/previews.acme.com \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```json response
+{ "domain": "previews.acme.com", "deleted": true }
+```
+
+Deleting stops routing under the domain within seconds; your `agent37.app` URLs are unaffected. The delete acts once; repeating it returns `404`.
+
+## Rules and limits
+
+- **Up to 10 domains per workspace**, at no charge. Registering an eleventh returns `400 invalid_request`; a bad hostname or a domain under `agent37.app` or `agent37.com` (reserved) returns `400` too.
+- **Preview URLs are not mirrored.** The dynamic `{instanceId}-{port}` form only exists on `agent37.app`; a per-port hostname on your domain cannot be derived without registration. Use the `agent37.app` preview URL, or create a [public port](/agents-api/public-ports) for that port, whose hostname is mirrored.
+- The path `/health` is answered by the platform edge itself on custom domains too, just as on `agent37.app`, and never reaches your app.
+- Traffic on a custom domain is ordinary instance traffic: same billing, and a request [wakes a sleeping instance](/agents-api/urls#sleeping-instances-wake-on-request) the same way.
+- Reads, verifies, and deletes are uniform: a domain registered by another workspace returns the same `404` as one that does not exist.

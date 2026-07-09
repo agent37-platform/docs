@@ -42,6 +42,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | `tier_limit` | 403 | Create or resize asks for a shape larger than your plan includes. Free workspaces (before your first top-up) run any template up to the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
 | `capacity_unavailable` | 409 | `start` or `resize`: no host in the fleet can fit this instance, or the resize increase, right now. |
 | `template_conflict` | 409 | A template create or rename targets a name that already exists. |
+| `domain_exists` | 409 | A [custom domain](/agents-api/domains) registration names a hostname already registered, by your workspace or any other. |
 | `try_again` | 409 | A transient state conflict: the instance is mid-transition, for example `stop` during the second or so while a sleep checkpoint is being written. Retry in a few seconds. |
 | `no_capacity` | 503 | Create only: no host can fit the requested shape right now. Safe to retry. |
 | `provisioning_failed` | 502/500 | A container or host operation failed (image pull, container start, lifecycle action). Creates debit nothing, so a failed create costs nothing. |

@@ -75,6 +75,8 @@ console.log((await res.json()).url);
 
 The entries also ride on every instance read as `public_ports`, and `GET /v1/instances/{id}/public-ports` lists them on their own.
 
+You can serve these on your own domain too: register a [custom domain](/agents-api/domains) and every public-port hostname is mirrored, still credential-free, at `{hostname}.yourdomain.com`. Once a domain is active, each entry's `domain_urls` field lists the mirrored URLs.
+
 ## Named URLs with `prefix`
 
 Pass a `prefix` to get a deterministic hostname instead of a random slug:
