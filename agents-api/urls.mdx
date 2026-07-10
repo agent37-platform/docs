@@ -99,6 +99,7 @@ console.log((await res.json()).url);
 ```json response
 {
   "url": "https://ab12cd34ef-9119.agent37.app/?a37_token=6a2b...e1f0",
+  "domain_urls": [],
   "port": 9119,
   "expires_at": 1717999200
 }
@@ -108,6 +109,9 @@ console.log((await res.json()).url);
 
 <ResponseField name="url" type="string">
   The browser-openable URL. The first request promotes the token to a short-lived cookie, so the page's own assets and WebSocket connections authenticate without it.
+</ResponseField>
+<ResponseField name="domain_urls" type="string[]">
+  The same link on each of the workspace's active [custom domains](/agents-api/domains), oldest first — the token is bound to the label, not the host, so every entry works. Empty without one.
 </ResponseField>
 <ResponseField name="port" type="integer">
   The port the URL routes to.
