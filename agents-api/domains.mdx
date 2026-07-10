@@ -110,7 +110,7 @@ Authentication is identical to `agent37.app`: instance URLs and preview URLs (`a
 
 Only labels your own workspace serves resolve under your domain. Any other label answers exactly as an unknown `agent37.app` URL would (`401` without a credential, `404` with one), so nothing another workspace runs can ever appear under your domain.
 
-Once a domain is active, instance reads expose the mirrored URLs as `domain_urls`, on the instance and on each public-port entry:
+Once a domain is active, instance reads expose the mirrored URLs as `domain_urls`, on the instance, on each public-port entry, and on minted [signed URLs](/agents-api/urls#browser-access-with-signed-urls). Entries are ordered oldest domain first, and the dashboard's open and copy-link actions lead with that first domain:
 
 ```json
 {
