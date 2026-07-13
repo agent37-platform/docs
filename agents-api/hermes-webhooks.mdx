@@ -3,120 +3,61 @@ title: "Hermes webhooks"
 description: "Give Hermes a secure public webhook URL without exposing its Agent API."
 ---
 
-Hermes receives webhook events on port `8644`. Agent37 keeps that port credential-protected by default. To accept events from a telephony provider, Git host, payment processor, or another external service, give only port `8644` a permanent [public-port URL](/agents-api/public-ports). The Agent API on port `3737` stays protected by your `sk_live_` key.
+Hermes receives webhook events on port `8644`, which Agent37 keeps credential-protected by default. This page covers the Agent37-specific step: giving that port a stable public URL without exposing the Agent API on port `3737`.
 
-Hermes authenticates each delivery with the subscription's secret. The Agent37 URL makes the receiver reachable; it does not replace Hermes's authentication.
+For Hermes route configuration, payload templates, delivery targets, and supported signatures, use the [Hermes webhook guide](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/webhooks).
 
-## 1. Open the Hermes dashboard
+## 1. Create the Hermes subscription
 
-Mint a short-lived [signed URL](/agents-api/urls#browser-access-with-signed-urls) for the Hermes dashboard on port `9119`:
+Open the Hermes dashboard on port `9119` with a [signed URL](/agents-api/urls#browser-access-with-signed-urls), then select **Webhooks**. Enable the receiver if needed and create a subscription. Agent37 manages the Hermes gateway restart.
 
-```bash
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/signed-url \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{ "port": 9119 }'
-```
-
-Open the returned `url`, then select **Webhooks**. The signed dashboard URL expires; it is not the URL your webhook provider will call.
-
-## 2. Create a Hermes subscription
-
-If the receiver is disabled, click **Enable webhooks** and wait for the Hermes gateway to restart. The Agent37 image manages that gateway for you; do not start a second `hermes gateway run` process.
-
-Click **New subscription** and configure the route:
-
-- **Name** becomes the URL path. A name of `call-ended` creates `/webhooks/call-ended`.
-- **Events** optionally limits which event types Hermes accepts.
-- **Prompt** tells the agent what to do with the payload. Hermes supports payload fields such as `{call.id}` and the full `{__raw__}` payload.
-- **Deliver to** controls where Hermes sends the result. Leave it as `log` if the webhook only needs to start an agent run.
-
-Create the subscription, then copy its secret. Hermes shows the full secret only once.
-
-The dashboard also shows a URL such as:
+Hermes shows a local URL and a signing secret when the subscription is created:
 
 ```text
 http://localhost:8644/webhooks/call-ended
 ```
 
-That origin is local to the instance. Keep `/webhooks/call-ended`; the next step replaces `http://localhost:8644` with a public Agent37 origin.
+Copy the secret when Hermes shows it. Keep the `/webhooks/call-ended` path; replace only the local origin below.
 
-## 3. Expose only port 8644
+## 2. Give port 8644 a named URL
 
-Add a public URL to the running instance:
+Add a `prefix` to make the hostname readable and stable:
 
 ```bash
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/public-ports \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "port": 8644 }'
+  -d '{ "port": 8644, "prefix": "webhooks" }'
 ```
-
-The response contains the permanent origin:
 
 ```json
 {
   "port": 8644,
-  "url": "https://a1b2c3d4e5f6a7b8c9d0.agent37.app",
+  "url": "https://webhooks-ab12cd34ef.agent37.app",
   "domain_urls": [],
-  "prefix": null,
+  "prefix": "webhooks",
   "created": 1783900800
 }
 ```
 
-You do not need to change the template or open a host firewall. This is the only credential-free entry point for port `8644`; its preview URL and every other instance port keep their existing Agent37 authentication.
+A prefix produces `{prefix}-{instanceId}.agent37.app`; it does not claim a global bare hostname. Omit `prefix` if you prefer a random, unguessable hostname. See [Public ports](/agents-api/public-ports) for creation-time configuration, rotation, and limits.
 
-You can also declare the port when creating the instance:
+## 3. Replace the local origin
 
-```json
-{
-  "template": "agent37-hermes",
-  "public_ports": [{ "port": 8644 }]
-}
-```
-
-## 4. Configure the sender
-
-Join the Agent37 origin to the Hermes route path:
+Combine the returned Agent37 origin with the path Hermes showed:
 
 ```text
-https://a1b2c3d4e5f6a7b8c9d0.agent37.app/webhooks/call-ended
+https://webhooks-ab12cd34ef.agent37.app/webhooks/call-ended
 ```
 
-Give your webhook provider:
+Configure the external service with this URL and the Hermes signing secret. The public URL supplies reachability; Hermes still authenticates the delivery using the signature rules in its documentation.
 
-- **URL:** the joined HTTPS URL above
-- **Secret:** the secret Hermes showed when you created the subscription
-- **Body:** JSON sent with `POST`
-
-The sender must use a signature method Hermes understands. Hermes supports GitHub, GitLab, and generic HMAC deliveries; follow the [Hermes webhook authentication reference](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/webhooks#security) for the required headers. If your provider cannot produce a supported signature, put a small adapter in front that verifies the provider's signature and re-signs the request for Hermes.
-
-## 5. Test it
-
-From the instance terminal, verify the subscription and local receiver:
+Test the subscription locally from the instance terminal, then use the provider's test-delivery feature:
 
 ```bash
 hermes webhook test call-ended
 ```
 
-Then send a test delivery from the external provider. A successful agent-triggering route normally returns `202 Accepted`; direct-delivery routes return a synchronous `2xx` response.
-
-To check that the public URL reaches Hermes and still enforces authentication, send an unsigned request. It should return `401`, not `404` or `503`:
-
-```bash
-curl -i -X POST \
-  -H "Content-Type: application/json" \
-  -d '{}' \
-  https://a1b2c3d4e5f6a7b8c9d0.agent37.app/webhooks/call-ended
-```
-
 <Note>
-  Do not test with `{url}/health`. Agent37 reserves `/health` at the edge, so that path does not reach Hermes. Use `hermes webhook test`, an unsigned POST that returns `401`, or your provider's test-delivery feature.
+  Do not test with `{url}/health`. Agent37 reserves `/health` at the edge, so that path does not reach Hermes.
 </Note>
-
-## Security and lifecycle
-
-- Anyone can reach the public URL, but Hermes rejects deliveries without a valid subscription signature. Never use `INSECURE_NO_AUTH` on an Agent37 instance.
-- One port URL serves every Hermes route under `/webhooks/<name>`. Each route has its own secret.
-- A webhook request [wakes an auto-sleeping instance](/agents-api/urls#sleeping-instances-wake-on-request). Repeated probes or unwanted traffic can keep it awake.
-- Remove a route in the Hermes dashboard when you no longer need it. To revoke the public origin itself, [delete the public port](/agents-api/public-ports#delete-revoke); re-create it to mint a new random hostname.

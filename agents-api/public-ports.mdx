@@ -116,9 +116,9 @@ Revocation propagates to the edge in seconds. The delete acts once; repeating it
 
 ## Recipe: Hermes webhooks
 
-Hermes listens on port `8644` and authenticates deliveries with a per-subscription secret. Create a public port for `8644`, then replace the `http://localhost:8644` origin that Hermes shows with the returned Agent37 `url`. Keep Hermes's `/webhooks/<subscription-name>` path.
+Hermes listens on port `8644` and authenticates deliveries with a per-subscription secret. Create a named public port such as `{ "port": 8644, "prefix": "webhooks" }`, then replace the `http://localhost:8644` origin that Hermes shows with the returned Agent37 `url`. Keep Hermes's `/webhooks/<subscription-name>` path.
 
-See [Hermes webhooks](/agents-api/hermes-webhooks) for the complete dashboard setup, URL construction, authentication, and test flow.
+See [Hermes webhooks](/agents-api/hermes-webhooks) for the short Agent37 setup.
 
 ## Rules and limits
 
