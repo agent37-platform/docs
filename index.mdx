@@ -29,7 +29,7 @@ The rest of this page is the API itself — create an instance and stream a repl
 
 <Steps>
   <Step title="Get a key">
-    Mint an API key at [www.agent37.com/dashboard/cloud/api-keys](https://www.agent37.com/dashboard/cloud/api-keys). The full `sk_live_...` key is shown once, at creation. Send it as a Bearer token on every request.
+    Mint an API key at [www.agent37.com/dashboard/cloud/api-keys](https://www.agent37.com/dashboard/cloud/api-keys). The full `sk_live_...` key is shown once, at creation. Send it as `Authorization: Bearer` on `api.agent37.com` and as `X-Agent37-Key` on your instance's URL.
 
     New workspaces include enough credit to create one instance. Add funds from [billing](https://www.agent37.com/dashboard/cloud/billing) before you run more than one instance. [Billing](/agents-api/billing) covers pricing, instance limits, and top-up rules.
   </Step>
@@ -89,12 +89,12 @@ The rest of this page is the API itself — create an instance and stream a repl
   </Step>
 
   <Step title="Send it a streamed message">
-    `POST /v1/responses` on the instance URL runs a turn. Set `stream: true` to receive Server-Sent Events as the agent reasons, calls tools, and writes its answer. Same `sk_live_` key.
+    `POST /v1/responses` on the instance URL runs a turn. Set `stream: true` to receive Server-Sent Events as the agent reasons, calls tools, and writes its answer. Same `sk_live_` key, sent as the `X-Agent37-Key` header.
 
     <CodeGroup>
     ```bash curl
     curl -N https://ab12cd34ef.agent37.app/v1/responses \
-      -H "Authorization: Bearer sk_live_..." \
+      -H "X-Agent37-Key: sk_live_..." \
       -H "Content-Type: application/json" \
       -d '{
         "input": "Research the top 3 EV makers, write a memo.",
@@ -103,9 +103,10 @@ The rest of this page is the API itself — create an instance and stream a repl
     ```
 
     ```python python
+    AGENT_H = {"X-Agent37-Key": "sk_live_..."}
     r = requests.post(
         "https://ab12cd34ef.agent37.app/v1/responses",
-        headers=H,
+        headers=AGENT_H,
         stream=True,
         json={
             "input": "Research the top 3 EV makers, write a memo.",
@@ -117,9 +118,10 @@ The rest of this page is the API itself — create an instance and stream a repl
     ```
 
     ```javascript node
+    const AGENT_H = { "X-Agent37-Key": "sk_live_..." };
     const res = await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
       method: "POST",
-      headers: { ...H, "Content-Type": "application/json" },
+      headers: { ...AGENT_H, "Content-Type": "application/json" },
       body: JSON.stringify({
         input: "Research the top 3 EV makers, write a memo.",
         stream: true,
@@ -152,7 +154,7 @@ The rest of this page is the API itself — create an instance and stream a repl
 
     ```bash curl
     curl https://ab12cd34ef.agent37.app/v1/responses \
-      -H "Authorization: Bearer sk_live_..." \
+      -H "X-Agent37-Key: sk_live_..." \
       -H "Content-Type: application/json" \
       -d '{
         "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",

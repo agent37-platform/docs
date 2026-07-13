@@ -7,7 +7,7 @@ A session is one conversation on an instance. An instance holds many sessions, o
 
 The gateway keeps no session index of its own. The agent harness owns both the transcript and the list — Hermes' session store, OpenClaw's history — and the gateway projects them on read. So a session's fields are the harness's own, and a list or read always reflects the live state of that harness.
 
-Everything on this page lives on the instance URL, not the hosting API: the base is `https://{instanceId}.agent37.app`, with the same `Authorization: Bearer sk_live_...` header. The platform edge authenticates the key and checks the instance belongs to your workspace, then the gateway answers. See [Instance and preview URLs](/agents-api/urls).
+Everything on this page lives on the instance URL, not the hosting API: the base is `https://{instanceId}.agent37.app`, with the same `sk_live_` key sent as the `X-Agent37-Key` header. The platform edge authenticates the key and checks the instance belongs to your workspace, then the gateway answers. See [Instance and preview URLs](/agents-api/urls).
 
 ## Endpoints
 
@@ -46,7 +46,7 @@ A Hermes session object also carries Hermes' own fields — `title`, `model`, `m
 <CodeGroup>
 ```bash curl
 curl https://ab12cd34ef.agent37.app/v1/sessions \
-  -H "Authorization: Bearer sk_live_..."
+  -H "X-Agent37-Key: sk_live_..."
 ```
 
 ```python python
@@ -54,14 +54,14 @@ import requests
 
 sessions = requests.get(
     "https://ab12cd34ef.agent37.app/v1/sessions",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={"X-Agent37-Key": "sk_live_..."},
 ).json()["data"]
 ```
 
 ```javascript node
 const { data: sessions } = await (await fetch(
   "https://ab12cd34ef.agent37.app/v1/sessions",
-  { headers: { Authorization: "Bearer sk_live_..." } },
+  { headers: { "X-Agent37-Key": "sk_live_..." } },
 )).json();
 ```
 
@@ -120,7 +120,7 @@ Each entry in `history` is a message:
 <CodeGroup>
 ```bash curl
 curl https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
-  -H "Authorization: Bearer sk_live_..."
+  -H "X-Agent37-Key: sk_live_..."
 ```
 
 ```json response
@@ -162,7 +162,7 @@ Rename is only available on harnesses that natively store an editable title. Her
 <CodeGroup>
 ```bash curl
 curl -X PATCH https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{ "title": "EV makers memo" }'
 ```
@@ -179,7 +179,7 @@ curl -X PATCH https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e
 <CodeGroup>
 ```bash curl
 curl -X DELETE https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
-  -H "Authorization: Bearer sk_live_..."
+  -H "X-Agent37-Key: sk_live_..."
 ```
 
 ```json response
@@ -230,7 +230,7 @@ A session runs one response at a time. Posting new input while a turn is in flig
 <CodeGroup>
 ```bash curl
 curl https://ab12cd34ef.agent37.app/v1/models \
-  -H "Authorization: Bearer sk_live_..."
+  -H "X-Agent37-Key: sk_live_..."
 ```
 
 ```python python
@@ -238,14 +238,14 @@ import requests
 
 models = requests.get(
     "https://ab12cd34ef.agent37.app/v1/models",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={"X-Agent37-Key": "sk_live_..."},
 ).json()
 ```
 
 ```javascript node
 const models = await (await fetch(
   "https://ab12cd34ef.agent37.app/v1/models",
-  { headers: { Authorization: "Bearer sk_live_..." } },
+  { headers: { "X-Agent37-Key": "sk_live_..." } },
 )).json();
 ```
 

@@ -6,7 +6,7 @@ description: "Reach the software running inside an instance over HTTPS, at insta
 Every instance with a default port is reachable at `https://{instanceId}.agent37.app`. The instance id is the DNS label, so instance `ab12cd34ef` lives at `https://ab12cd34ef.agent37.app`: you can construct the URL from the id alone, with no lookup step.
 
 <Info>
-  Instance URLs are the Agent API plane: you reach what runs *inside* an instance here, authenticated by the same `sk_live_` key as the hosting API. See [Core concepts](/agents-api/concepts).
+  Instance URLs are the Agent API plane: you reach what runs *inside* an instance here, authenticated by the same `sk_live_` key as the hosting API, sent as the `X-Agent37-Key` header. See [Core concepts](/agents-api/concepts).
 </Info>
 
 ## Every port has a URL
@@ -46,22 +46,24 @@ Same shape as Hermes: chat is the bare URL plus a path, and the dashboard, termi
 
 A port accepts either credential, so you can reach the same port two ways:
 
-- **Bearer** for API calls.
+- **API key header** (`X-Agent37-Key`) for API calls.
 - **Signed URL** for handing a browser tab to a person.
 
 There is a third option for callers that can't send either — webhooks, most commonly: give the port its own permanent unauthenticated URL. See [Public ports](/agents-api/public-ports).
 
-### Bearer (programmatic)
+### API key header (programmatic)
 
-Every request to an instance URL can carry the same workspace API key as the hosting API:
+Every request to an instance URL can carry the same workspace API key as the hosting API, sent raw in the `X-Agent37-Key` header:
 
 ```
-Authorization: Bearer sk_live_...
+X-Agent37-Key: sk_live_...
 ```
 
 The platform edge authenticates the key, checks that the instance belongs to your workspace, and forwards the request to the instance's port. A request without a credential gets `401`; a key from another workspace gets `404`.
 
-The Bearer is a header. To open a preview URL like the dashboard, terminal, or file browser in a browser, mint a signed URL instead.
+Requests are forwarded to your instance with `Authorization` untouched, so software inside the instance can run its own Bearer authentication; the platform never forwards an `sk_live_` key into an instance. Earlier versions authenticated instance URLs with `Authorization: Bearer sk_live_...`; that form is deprecated, still accepted for existing integrations, and is never forwarded to your instance. Use `X-Agent37-Key`.
+
+The key travels in a header. To open a preview URL like the dashboard, terminal, or file browser in a browser, mint a signed URL instead.
 
 ### Browser access with signed URLs
 
@@ -134,7 +136,7 @@ Hit the bare URL directly. The gateway's health endpoint is a quick reachability
 
 ```bash curl
 curl https://ab12cd34ef.agent37.app/v1/health \
-  -H "Authorization: Bearer sk_live_..."
+  -H "X-Agent37-Key: sk_live_..."
 ```
 
 ```python python
@@ -142,14 +144,14 @@ import requests
 
 r = requests.get(
     "https://ab12cd34ef.agent37.app/v1/health",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={"X-Agent37-Key": "sk_live_..."},
 )
 print(r.json())
 ```
 
 ```javascript node
 const res = await fetch("https://ab12cd34ef.agent37.app/v1/health", {
-  headers: { Authorization: "Bearer sk_live_..." },
+  headers: { "X-Agent37-Key": "sk_live_..." },
 });
 console.log(await res.json());
 ```

@@ -5,7 +5,7 @@ description: "Browse, read, write, move, delete, and download whole folders on t
 
 Files live on the instance's disk. A file's absolute `path` is its identity: there are no file ids, so the path you list is the path you read, write, move, or delete. You write a file with one call, attach the returned `path` to [a message](/agents-api/chat), and download anything the agent produces by path.
 
-The base URL is your instance URL, `https://{instanceId}.agent37.app`, with the same `sk_live_` Bearer as every other call. This page uses `https://ab12cd34ef.agent37.app`. The agent's workspace — where it reads and writes by default — is `/home/user/.agent37-gateway/workspace`, and that is the default directory for a list with no `path`.
+The base URL is your instance URL, `https://{instanceId}.agent37.app`, with the same `sk_live_` key as every other call, sent as the `X-Agent37-Key` header. This page uses `https://ab12cd34ef.agent37.app`. The agent's workspace — where it reads and writes by default — is `/home/user/.agent37-gateway/workspace`, and that is the default directory for a list with no `path`.
 
 These calls are not jailed to the workspace. The `sk_live_` key is the instance root: any path the key can reach on the instance's filesystem is fair game, with `~` expanding to the agent's home. Treat the key accordingly.
 
@@ -47,7 +47,7 @@ List responses and every write return the same `FileEntry` shape, so the `path` 
 <CodeGroup>
 ```bash curl
 curl -G https://ab12cd34ef.agent37.app/v1/files \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Agent37-Key: sk_live_..." \
   --data-urlencode "path=~/.agent37-gateway/workspace"
 ```
 
@@ -56,7 +56,7 @@ import requests
 
 listing = requests.get(
     "https://ab12cd34ef.agent37.app/v1/files",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={"X-Agent37-Key": "sk_live_..."},
     params={"path": "~/.agent37-gateway/workspace"},
 ).json()
 ```
@@ -65,7 +65,7 @@ listing = requests.get(
 const listing = await (await fetch(
   "https://ab12cd34ef.agent37.app/v1/files?" +
     new URLSearchParams({ path: "~/.agent37-gateway/workspace" }),
-  { headers: { Authorization: "Bearer sk_live_..." } },
+  { headers: { "X-Agent37-Key": "sk_live_..." } },
 )).json();
 ```
 
@@ -124,7 +124,7 @@ const listing = await (await fetch(
 <CodeGroup>
 ```bash curl
 curl -G https://ab12cd34ef.agent37.app/v1/files/content \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Agent37-Key: sk_live_..." \
   --data-urlencode "path=~/.agent37-gateway/workspace/reports/ev-makers-memo.md" \
   -o ev-makers-memo.md
 ```
@@ -134,7 +134,7 @@ import requests
 
 r = requests.get(
     "https://ab12cd34ef.agent37.app/v1/files/content",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={"X-Agent37-Key": "sk_live_..."},
     params={"path": "~/.agent37-gateway/workspace/reports/ev-makers-memo.md"},
 )
 open("ev-makers-memo.md", "wb").write(r.content)
@@ -148,7 +148,7 @@ const res = await fetch(
     new URLSearchParams({
       path: "~/.agent37-gateway/workspace/reports/ev-makers-memo.md",
     }),
-  { headers: { Authorization: "Bearer sk_live_..." } },
+  { headers: { "X-Agent37-Key": "sk_live_..." } },
 );
 await fs.promises.writeFile(
   "ev-makers-memo.md",
@@ -174,7 +174,7 @@ The response is `Content-Type: application/gzip` and a `Content-Disposition: att
 <CodeGroup>
 ```bash curl
 curl -G https://ab12cd34ef.agent37.app/v1/files/archive \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Agent37-Key: sk_live_..." \
   --data-urlencode "path=/home/user/.agent37-gateway/workspace/reports" \
   -o reports.tar.gz
 ```
@@ -184,7 +184,7 @@ import requests
 
 r = requests.get(
     "https://ab12cd34ef.agent37.app/v1/files/archive",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={"X-Agent37-Key": "sk_live_..."},
     params={"path": "/home/user/.agent37-gateway/workspace/reports"},
 )
 open("reports.tar.gz", "wb").write(r.content)
@@ -198,7 +198,7 @@ const res = await fetch(
     new URLSearchParams({
       path: "/home/user/.agent37-gateway/workspace/reports",
     }),
-  { headers: { Authorization: "Bearer sk_live_..." } },
+  { headers: { "X-Agent37-Key": "sk_live_..." } },
 );
 await fs.promises.writeFile("reports.tar.gz", Buffer.from(await res.arrayBuffer()));
 ```
@@ -225,7 +225,7 @@ Expand it with `tar -xzf reports.tar.gz`. There is no folder-upload counterpart:
 <CodeGroup>
 ```bash curl
 curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=/home/user/.agent37-gateway/workspace/leads.csv" \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: text/csv" \
   --data-binary @leads.csv
 ```
@@ -235,7 +235,7 @@ import requests
 
 entry = requests.put(
     "https://ab12cd34ef.agent37.app/v1/files/content",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={"X-Agent37-Key": "sk_live_..."},
     params={"path": "/home/user/.agent37-gateway/workspace/leads.csv"},
     data=open("leads.csv", "rb"),
 ).json()
@@ -251,7 +251,7 @@ const entry = await (await fetch(
     }),
   {
     method: "PUT",
-    headers: { Authorization: "Bearer sk_live_..." },
+    headers: { "X-Agent37-Key": "sk_live_..." },
     body: await fs.promises.readFile("leads.csv"),
   },
 )).json();
@@ -274,7 +274,7 @@ const entry = await (await fetch(
 
   ```bash
   curl https://ab12cd34ef.agent37.app/v1/responses \
-    -H "Authorization: Bearer sk_live_..." \
+    -H "X-Agent37-Key: sk_live_..." \
     -H "Content-Type: application/json" \
     -d '{
       "input": "Summarize the attached spreadsheet.",
@@ -296,7 +296,7 @@ const entry = await (await fetch(
 <CodeGroup>
 ```bash curl
 curl -X DELETE -G https://ab12cd34ef.agent37.app/v1/files \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Agent37-Key: sk_live_..." \
   --data-urlencode "path=/home/user/.agent37-gateway/workspace/reports"
 ```
 
@@ -305,7 +305,7 @@ import requests
 
 requests.delete(
     "https://ab12cd34ef.agent37.app/v1/files",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={"X-Agent37-Key": "sk_live_..."},
     params={"path": "/home/user/.agent37-gateway/workspace/reports"},
 )
 ```
@@ -316,7 +316,7 @@ await fetch(
     new URLSearchParams({
       path: "/home/user/.agent37-gateway/workspace/reports",
     }),
-  { method: "DELETE", headers: { Authorization: "Bearer sk_live_..." } },
+  { method: "DELETE", headers: { "X-Agent37-Key": "sk_live_..." } },
 );
 ```
 
@@ -344,7 +344,7 @@ await fetch(
 <CodeGroup>
 ```bash curl
 curl -X PATCH https://ab12cd34ef.agent37.app/v1/files \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
     "from": "/home/user/.agent37-gateway/workspace/leads.csv",
@@ -357,7 +357,7 @@ import requests
 
 entry = requests.patch(
     "https://ab12cd34ef.agent37.app/v1/files",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={"X-Agent37-Key": "sk_live_..."},
     json={
         "from": "/home/user/.agent37-gateway/workspace/leads.csv",
         "to": "/home/user/.agent37-gateway/workspace/archive/leads.csv",
@@ -369,7 +369,7 @@ entry = requests.patch(
 const entry = await (await fetch("https://ab12cd34ef.agent37.app/v1/files", {
   method: "PATCH",
   headers: {
-    Authorization: "Bearer sk_live_...",
+    "X-Agent37-Key": "sk_live_...",
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
@@ -402,7 +402,7 @@ const entry = await (await fetch("https://ab12cd34ef.agent37.app/v1/files", {
 <CodeGroup>
 ```bash curl
 curl -X POST -G https://ab12cd34ef.agent37.app/v1/files/dir \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Agent37-Key: sk_live_..." \
   --data-urlencode "path=/home/user/.agent37-gateway/workspace/archive"
 ```
 
@@ -411,7 +411,7 @@ import requests
 
 entry = requests.post(
     "https://ab12cd34ef.agent37.app/v1/files/dir",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={"X-Agent37-Key": "sk_live_..."},
     params={"path": "/home/user/.agent37-gateway/workspace/archive"},
 ).json()
 ```
@@ -422,7 +422,7 @@ const entry = await (await fetch(
     new URLSearchParams({
       path: "/home/user/.agent37-gateway/workspace/archive",
     }),
-  { method: "POST", headers: { Authorization: "Bearer sk_live_..." } },
+  { method: "POST", headers: { "X-Agent37-Key": "sk_live_..." } },
 )).json();
 ```
 

@@ -6,7 +6,7 @@ description: "Stable, machine-readable error codes on both planes: branch on the
 Every error uses a standard HTTP status code and returns a stable, machine-readable code in a JSON `error` field — an object with a `code` on both API catalogs, a flat string on transport failures between you and the gateway. Branch on the code, never on `message` or the HTTP status alone. There are two catalogs because there are two planes, plus a short list of transport errors.
 
 <Info>
-  Both planes take the same `sk_live_` Bearer key, but their error envelopes differ: the Agent API adds optional `param`, `hint`, and `response_id` fields. See [Core concepts](/agents-api/concepts) for the two planes.
+  Both planes take the same `sk_live_` key, as `Authorization: Bearer` on the hosting API and as `X-Agent37-Key` on instance URLs, but their error envelopes differ: the Agent API adds optional `param`, `hint`, and `response_id` fields. See [Core concepts](/agents-api/concepts) for the two planes.
 </Info>
 
 ## Hosting API errors
@@ -134,7 +134,7 @@ import requests
 r = requests.post(
     "https://ab12cd34ef.agent37.app/v1/responses",
     headers={
-        "Authorization": "Bearer sk_live_...",
+        "X-Agent37-Key": "sk_live_...",
         "Content-Type": "application/json",
     },
     json={
@@ -162,7 +162,7 @@ if not r.ok:
 const res = await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
   method: "POST",
   headers: {
-    "Authorization": "Bearer sk_live_...",
+    "X-Agent37-Key": "sk_live_...",
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
