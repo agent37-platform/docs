@@ -7,7 +7,7 @@ Every instance URL normally demands a credential: a Bearer for API calls, a [sig
 
 The canonical use is webhooks. An external service — a telephony provider, a payment processor, a Git host — needs a permanent URL it can POST to, and it will never attach your `sk_live_` key. Signed URLs expire, so they are wrong for a webhook registration; a public port is exactly right.
 
-Anyone who has the URL reaches the port. Put your app's own authentication in front of anything sensitive — for example, Hermes verifies webhook deliveries with its per-subscription secret, so the URL being public costs nothing.
+Anyone who has the URL reaches the port. Put your app's own authentication in front of anything sensitive. Hermes, for example, rejects webhook deliveries without a valid subscription signature: the public URL supplies reachability, not trust.
 
 ## Create one
 
@@ -116,11 +116,9 @@ Revocation propagates to the edge in seconds. The delete acts once; repeating it
 
 ## Recipe: Hermes webhooks
 
-Hermes listens for webhook deliveries on port `8644` and authenticates them with a per-subscription secret, so this port is built to be public:
+Hermes listens on port `8644` and authenticates deliveries with a per-subscription secret. Create a public port for `8644`, then replace the `http://localhost:8644` origin that Hermes shows with the returned Agent37 `url`. Keep Hermes's `/webhooks/<subscription-name>` path.
 
-1. Create the instance with `"public_ports": [{ "port": 8644 }]` (or add the port later).
-2. Take the returned `url` and register `{url}/webhooks/...` with your provider, per [Hermes's webhook docs](https://nousresearch.github.io/hermes-agent/webhooks.html).
-3. Hermes shows the subscription's signing secret once at creation; the provider signs each delivery with it, and that is the security boundary — not the URL.
+See [Hermes webhooks](/agents-api/hermes-webhooks) for the complete dashboard setup, URL construction, authentication, and test flow.
 
 ## Rules and limits
 
