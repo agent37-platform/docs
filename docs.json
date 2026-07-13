@@ -47,6 +47,7 @@
       {
         "group": "Build with Agent37",
         "pages": [
+          "agents-api/hermes-webhooks",
           "agents-api/white-label",
           "agents-api/chat-app"
         ]

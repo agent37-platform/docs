@@ -1,0 +1,63 @@
+---
+title: "Hermes webhooks"
+description: "Give Hermes a secure public webhook URL without exposing its Agent API."
+---
+
+Hermes receives webhook events on port `8644`, which Agent37 keeps credential-protected by default. This page covers the Agent37-specific step: giving that port a stable public URL without exposing the Agent API on port `3737`.
+
+For Hermes route configuration, payload templates, delivery targets, and supported signatures, use the [Hermes webhook guide](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/webhooks).
+
+## 1. Create the Hermes subscription
+
+Open the Hermes dashboard on port `9119` with a [signed URL](/agents-api/urls#browser-access-with-signed-urls), then select **Webhooks**. Enable the receiver if needed and create a subscription. Agent37 manages the Hermes gateway restart.
+
+Hermes shows a local URL and a signing secret when the subscription is created:
+
+```text
+http://localhost:8644/webhooks/call-ended
+```
+
+Copy the secret when Hermes shows it. Keep the `/webhooks/call-ended` path; replace only the local origin below.
+
+## 2. Give port 8644 a named URL
+
+Add a `prefix` to make the hostname readable and stable:
+
+```bash
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/public-ports \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "port": 8644, "prefix": "webhooks" }'
+```
+
+```json
+{
+  "port": 8644,
+  "url": "https://webhooks-ab12cd34ef.agent37.app",
+  "domain_urls": [],
+  "prefix": "webhooks",
+  "created": 1783900800
+}
+```
+
+A prefix produces `{prefix}-{instanceId}.agent37.app`; it does not claim a global bare hostname. Omit `prefix` if you prefer a random, unguessable hostname. See [Public ports](/agents-api/public-ports) for creation-time configuration, rotation, and limits.
+
+## 3. Replace the local origin
+
+Combine the returned Agent37 origin with the path Hermes showed:
+
+```text
+https://webhooks-ab12cd34ef.agent37.app/webhooks/call-ended
+```
+
+Configure the external service with this URL and the Hermes signing secret. The public URL supplies reachability; Hermes still authenticates the delivery using the signature rules in its documentation.
+
+Test the subscription locally from the instance terminal, then use the provider's test-delivery feature:
+
+```bash
+hermes webhook test call-ended
+```
+
+<Note>
+  Do not test with `{url}/health`. Agent37 reserves `/health` at the edge, so that path does not reach Hermes.
+</Note>
