@@ -14,8 +14,8 @@ Guidance for AI agents working on the Agent37 docs. `CLAUDE.md` imports this fil
 
 Two API planes, one `sk_live_` key — the navigation mirrors this split:
 
-- **Hosting API** (`https://api.agent37.com/v1`) — manage instances: instances, templates, exec, budgets, plus billing and errors reference.
-- **Agent API** (`https://{instanceId}.agent37.app/v1`) — talk to one instance's agent: chat (responses), streaming, sessions, files.
+- **Hosting API** (`https://api.agent37.com/v1`) — manage instances: instances, templates, exec, budgets, plus billing and errors reference. Takes the key as `Authorization: Bearer sk_live_...`.
+- **Agent API** (`https://{instanceId}.agent37.app/v1`) — talk to one instance's agent: chat (responses), streaming, sessions, files. Takes the same key raw, no Bearer prefix, as `X-Agent37-Key: sk_live_...`; `Authorization` passes through to the software inside the instance. Every sample on this plane must use `X-Agent37-Key`, never `Authorization: Bearer`.
 
 The API reference is **hand-authored MDX** — there is no OpenAPI spec to regenerate from. Endpoint pages use `<ParamField>`/`<ResponseField>` and show curl, Python, and Node examples. If a page is renamed or moved, add a redirect in `docs.json` so old URLs keep working (several exist already).
 

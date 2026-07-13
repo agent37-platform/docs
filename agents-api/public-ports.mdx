@@ -1,9 +1,9 @@
 ---
 title: "Public ports"
-description: "Give one port of an instance a permanent, unauthenticated HTTPS URL — for webhooks, embeds, and anything else that can't send a Bearer."
+description: "Give one port of an instance a permanent, unauthenticated HTTPS URL — for webhooks, embeds, and anything else that can't send an API key."
 ---
 
-Every instance URL normally demands a credential: a Bearer for API calls, a [signed URL](/agents-api/urls#browser-access-with-signed-urls) for a browser. A **public port** is the third option: an HTTPS URL for one port of one instance that anyone can reach with no credential at all, and that keeps working until you delete it.
+Every instance URL normally demands a credential: an `X-Agent37-Key` header for API calls, a [signed URL](/agents-api/urls#browser-access-with-signed-urls) for a browser. A **public port** is the third option: an HTTPS URL for one port of one instance that anyone can reach with no credential at all, and that keeps working until you delete it.
 
 The canonical use is webhooks. An external service — a telephony provider, a payment processor, a Git host — needs a permanent URL it can POST to, and it will never attach your `sk_live_` key. Signed URLs expire, so they are wrong for a webhook registration; a public port is exactly right.
 
@@ -123,7 +123,7 @@ See [Hermes webhooks](/agents-api/hermes-webhooks) for the short Agent37 setup.
 ## Rules and limits
 
 - **One URL per port**, at most 20 public ports per instance. Creating a second entry for the same port returns `409 public_port_exists` (delete first to rotate).
-- **Platform ports can't be made public.** `3737` (the gateway — a public gateway would be a keyless agent API), `9119`, `7681` (terminal), `8080` (file browser), `6080`, and `7890` are rejected with `400`. They stay reachable with a Bearer or signed URL.
+- **Platform ports can't be made public.** `3737` (the gateway — a public gateway would be a keyless agent API), `9119`, `7681` (terminal), `8080` (file browser), `6080`, and `7890` are rejected with `400`. They stay reachable with `X-Agent37-Key` or a signed URL.
 - Public traffic is ordinary instance traffic: no separate meter, billed to the workspace like any other request.
 - A request to a public URL [wakes a sleeping instance](/agents-api/urls#sleeping-instances-wake-on-request) — for a webhook endpoint that is the feature working. The flip side: any traffic to the URL keeps an [auto-sleep](/agents-api/instances#auto-sleep) instance awake, and auto-sleep instances bill at the 4x awake rate, so a scraped or polled public URL keeps the meter running. If that happens, delete the entry.
 - While the instance is stopped or suspended, the URL answers `503 { "error": "unavailable" }` — visitors never see your billing state.

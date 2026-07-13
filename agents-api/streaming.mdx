@@ -5,13 +5,13 @@ description: "Stream a reply as named Server-Sent Events from your instance URL,
 
 Send `stream: true` on [a message](/agents-api/chat) and the reply comes back as Server-Sent Events. Each event is named, so you can render text, reasoning, and tool activity live. Events arrive in order, and the terminal `response.completed` event carries the final `output_text` and `usage`.
 
-The base URL is your instance URL: `https://{instanceId}.agent37.app`, with the same `sk_live_` Bearer on every request. This page documents the gateway's streaming contract, the API every instance serves.
+The base URL is your instance URL: `https://{instanceId}.agent37.app`, with the same `sk_live_` key sent as the `X-Agent37-Key` header on every request. This page documents the gateway's streaming contract, the API every instance serves.
 
 ## Start a stream
 
 ```bash curl
 curl -N https://ab12cd34ef.agent37.app/v1/responses \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
     "input": "Research the top 3 EV makers, write a memo.",
@@ -83,7 +83,7 @@ If your connection drops mid-turn, reconnect with the response id from `response
 
 ```bash curl
 curl -N https://ab12cd34ef.agent37.app/v1/responses/c91d2a7e84f04b6f9a3d5e1c0b87f4a2/stream \
-  -H "Authorization: Bearer sk_live_..."
+  -H "X-Agent37-Key: sk_live_..."
 ```
 
 While the run is live, the gateway replays the entire ordered event buffer from `response.created` onward, then stays attached for the rest of the run. If the run just finished, it replays the buffer and ends. The buffer holds up to 100,000 events per run; the rare run that exceeds it stops buffering, so a reconnect replays the first 100,000 events and may end without the terminal event. When that happens, wait for `active_response_id` on [`GET /v1/sessions/{id}`](/agents-api/sessions#retrieve-a-session-with-history) to read `null`, then recover the final answer from the same call's `history`.
@@ -100,7 +100,7 @@ No SSE library needed. Read the response body, split on the blank-line frame bou
 const res = await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
   method: "POST",
   headers: {
-    Authorization: "Bearer sk_live_...",
+    "X-Agent37-Key": "sk_live_...",
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
@@ -150,7 +150,7 @@ while (true) {
 ```
 
 <Note>
-  The browser's built-in `EventSource` cannot send a POST body or an `Authorization` header, so it cannot start a stream here. Use `fetch` as above, in the browser and in Node. The [hermes-chat example](https://github.com/agent37-platform/examples/tree/main/hermes-chat) runs a browser version of this parser in a real chat UI (`public/chat.js`), with reconnect and cancel wired in.
+  The browser's built-in `EventSource` cannot send a POST body or custom headers like `X-Agent37-Key`, so it cannot start a stream here. Use `fetch` as above, in the browser and in Node. The [hermes-chat example](https://github.com/agent37-platform/examples/tree/main/hermes-chat) runs a browser version of this parser in a real chat UI (`public/chat.js`), with reconnect and cancel wired in.
 </Note>
 
 <Tip>

@@ -3,7 +3,7 @@ title: "Send a message"
 description: "The core call: POST /v1/responses on your instance URL runs a turn through your agent, streams or returns the result, and continues the thread."
 ---
 
-`POST /v1/responses` is the core call. You make it against your instance, not against `api.agent37.com`: every instance serves its own chat API at `https://{instanceId}.agent37.app`, the `url` of the default port in the create response. This page uses `https://ab12cd34ef.agent37.app`. Authenticate with the same `sk_live_` key you use on the hosting API.
+`POST /v1/responses` is the core call. You make it against your instance, not against `api.agent37.com`: every instance serves its own chat API at `https://{instanceId}.agent37.app`, the `url` of the default port in the create response. This page uses `https://ab12cd34ef.agent37.app`. Authenticate with the same `sk_live_` key you use on the hosting API, sent as the `X-Agent37-Key` header.
 
 The call is agentic by default: the agent can browse, run code, use a terminal, read and write files, call connected tools, and reason across many steps before answering.
 
@@ -116,7 +116,7 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
 <CodeGroup>
 ```bash curl
 curl https://ab12cd34ef.agent37.app/v1/responses \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
     "input": "Research the top 3 EV makers, write a memo."
@@ -129,7 +129,7 @@ import requests
 r = requests.post(
     "https://ab12cd34ef.agent37.app/v1/responses",
     headers={
-        "Authorization": "Bearer sk_live_...",
+        "X-Agent37-Key": "sk_live_...",
         "Content-Type": "application/json",
     },
     json={"input": "Research the top 3 EV makers, write a memo."},
@@ -140,7 +140,7 @@ r = requests.post(
 const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
   method: "POST",
   headers: {
-    "Authorization": "Bearer sk_live_...",
+    "X-Agent37-Key": "sk_live_...",
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
@@ -178,7 +178,7 @@ The first message omits `session_id` and starts a session. The reply returns a `
 ```bash curl
 # 1. start a session: omit session_id
 curl https://ab12cd34ef.agent37.app/v1/responses \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
     "input": "Research the top 3 EV makers, write a memo."
@@ -189,7 +189,7 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 
 # 2. continue it: reuse the session_id, send only the new input
 curl https://ab12cd34ef.agent37.app/v1/responses \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
@@ -201,7 +201,7 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 import requests
 
 BASE = "https://ab12cd34ef.agent37.app"
-H = {"Authorization": "Bearer sk_live_...", "Content-Type": "application/json"}
+H = {"X-Agent37-Key": "sk_live_...", "Content-Type": "application/json"}
 
 # 1. start a session: omit session_id
 first = requests.post(
@@ -224,7 +224,7 @@ requests.post(
 ```javascript node
 const BASE = "https://ab12cd34ef.agent37.app";
 const H = {
-  Authorization: "Bearer sk_live_...",
+  "X-Agent37-Key": "sk_live_...",
   "Content-Type": "application/json",
 };
 

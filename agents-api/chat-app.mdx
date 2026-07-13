@@ -12,31 +12,36 @@ The pattern is four calls: create one instance per user at signup, start one ses
 ## One key, two base URLs
 
 <Info>
-  Two base URLs, one key: `https://api.agent37.com` manages instances, and each instance serves its own chat API at `https://{instanceId}.agent37.app` (the id is the hostname). See [Core concepts](/agents-api/concepts).
+  Two base URLs, one key, two headers: `https://api.agent37.com` manages instances and takes the key as `Authorization: Bearer`; each instance serves its own chat API at `https://{instanceId}.agent37.app` (the id is the hostname) and takes the same key as `X-Agent37-Key`, leaving `Authorization` free for your own app. See [Core concepts](/agents-api/concepts).
 </Info>
 
 The snippets below use a small shorthand client so the calls stay readable. `api` is the hosting API; `agentOf(id)` is one user's agent.
 
 ```javascript node
-const HEADERS = {
+const HOSTING_HEADERS = {
   Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
   "Content-Type": "application/json",
 };
 
-function makeClient(base) {
+const AGENT_HEADERS = {
+  "X-Agent37-Key": process.env.AGENT37_API_KEY,
+  "Content-Type": "application/json",
+};
+
+function makeClient(base, headers) {
   return {
-    get: (path) => fetch(base + path, { headers: HEADERS }).then((r) => r.json()),
+    get: (path) => fetch(base + path, { headers }).then((r) => r.json()),
     post: (path, body) =>
       fetch(base + path, {
         method: "POST",
-        headers: HEADERS,
+        headers,
         body: JSON.stringify(body ?? {}),
       }).then((r) => r.json()),
   };
 }
 
-const api = makeClient("https://api.agent37.com");
-const agentOf = (id) => makeClient(`https://${id}.agent37.app`);
+const api = makeClient("https://api.agent37.com", HOSTING_HEADERS);
+const agentOf = (id) => makeClient(`https://${id}.agent37.app`, AGENT_HEADERS);
 ```
 
 ## The shape of it
