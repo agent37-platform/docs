@@ -218,7 +218,7 @@ The contract:
 
 ## Update a template
 
-`PATCH /v1/templates/{name}` changes any of `name`, `image_ref` (or `upload_id`, for a new local image), `description`, or `default_port` (send `null` to clear it back to the `3737` fallback). Send at least one field; `image_ref` and `upload_id` remain mutually exclusive. A new `image_ref` or any fresh `upload_id` is copied into private storage, so a `PATCH` that changes the image is synchronous like create. Sending the exact same `image_ref` string reuses the existing snapshot; publish a new tag when the bytes change. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
+`PATCH /v1/templates/{name}` changes any of `name`, `image_ref` (or `upload_id`, for a new local image), `description`, or `default_port` (send `null` to clear it back to the `3737` fallback). Send at least one field; `image_ref` and `upload_id` remain mutually exclusive. A changed `image_ref` or any fresh `upload_id` is copied into private storage, so an image update is synchronous like create. Each successful image update increments the platform-controlled `revision`; a fresh upload increments it even when the new archive has the same `image_digest`. Sending the exact same `image_ref` string reuses the existing snapshot and does not increment it. Renaming or changing only `description` or `default_port` also leaves it unchanged. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
 
 ```bash curl
 curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
@@ -228,6 +228,8 @@ curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
 ```
 
 Point `image_ref` at an older tag (or upload an older build) to roll back. Existing instances keep running on the image they already pulled; [update each instance](/agents-api/instances) to recreate it from the template's current image.
+
+Workspace templates start at `revision: 1`. Compare that value with an instance's `template_revision` to find instances that have not installed the current template release.
 
 ## Delete a template
 
@@ -245,6 +247,7 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
   "name": "agent37-hermes",
   "scope": "system",
   "agents": ["hermes"],
+  "revision": null,
   "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
   "description": "Hermes general agent: browser, code, files.",
   "default_port": 3737,
@@ -260,6 +263,7 @@ A workspace template registered from a public reference echoes that reference as
   "name": "my-agent",
   "scope": "workspace",
   "agents": [],
+  "revision": 1,
   "image_digest": "sha256:9b2e...c41f",
   "description": "My agent",
   "default_port": 8000,
@@ -276,6 +280,9 @@ A workspace template registered from a public reference echoes that reference as
 </ResponseField>
 <ResponseField name="agents" type="string[]">
   The agents the template installs: `["hermes"]` on `agent37-hermes`. Workspace templates report `[]` — the platform does not inspect what your image installs.
+</ResponseField>
+<ResponseField name="revision" type="integer | null">
+  The platform-controlled workspace image revision. It starts at `1` and increments for a changed `image_ref` or every fresh `upload_id`, even when the digest is unchanged. Metadata-only updates and the same exact `image_ref` leave it unchanged. `null` for system templates.
 </ResponseField>
 <ResponseField name="image_ref" type="string">
   For system templates and workspace templates registered from a registry, the image reference. **Absent** on a workspace template registered from a local upload — it lives only in Agent37's private storage, identified by `image_digest`.

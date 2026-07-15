@@ -177,9 +177,9 @@ Write the config over [exec](/agents-api/exec) or the instance terminal; it live
 
 ## Keep it current
 
-Your image freezes its base; rebuilding is how it picks up platform updates. Because the template is an immutable snapshot, a new build takes effect only after you [update the template](/agents-api/templates#update-a-template): publish a **new registry tag** and PATCH `image_ref`, or create a **new upload** and PATCH `upload_id`. PATCHing the same `image_ref` string deliberately reuses the existing snapshot.
+Your image freezes its base; rebuilding is how it picks up platform updates. Each template revision is an immutable snapshot, so a new build takes effect only after you [update the template](/agents-api/templates#update-a-template): publish a **new registry tag** and PATCH `image_ref`, or create a **new upload** and PATCH `upload_id`. A changed `image_ref` or every fresh `upload_id` increments the template's automatic `revision`; a fresh upload counts even when its digest matches the previous image. PATCHing the same `image_ref` string deliberately reuses the existing snapshot and revision.
 
-Then [update each instance](/agents-api/instances#update) to recreate it from the template's new digest. A skill already seeded into an instance's `~/.hermes/skills` is not overwritten on update — only fresh instances get a changed skill.
+Existing instances keep their installed `template_revision`. [Update each instance](/agents-api/instances#update) to recreate it from the template's current revision. A skill already seeded into an instance's `~/.hermes/skills` is not overwritten on update — only fresh instances get a changed skill.
 
 ## Troubleshooting
 

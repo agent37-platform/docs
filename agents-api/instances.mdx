@@ -112,6 +112,7 @@ const instance = await res.json();
   "status": "running",
   "status_reason": null,
   "template": "agent37-hermes",
+  "template_revision": null,
   "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
   "image_digest": "sha256:4f8d0d9e9f3b3a5a9f4488fb33274de9f7b7450c6cf6d3573e68fd231d7c8891",
   "resources": { "cpu": 2, "memory": 4, "disk": 6 },
@@ -145,6 +146,10 @@ const instance = await res.json();
 
 <ResponseField name="template" type="string">
   The template the instance was built from, including its [version pin](/agents-api/templates#pin-a-system-template-version) when it has one (`agent37-hermes@2026.07.02b`).
+</ResponseField>
+
+<ResponseField name="template_revision" type="integer | null">
+  The workspace template revision this instance has installed. Compare it with the template's current `revision` to detect an available update. It changes only when the instance is created or [updated](#update), and is `null` for system templates and for instances created before revisions existed (an update stamps it).
 </ResponseField>
 
 <ResponseField name="image_ref" type="string | null">
@@ -215,7 +220,7 @@ const instance = await res.json();
 | `POST` | `/v1/instances/{id}/stop` | `200` `{ id, status }` ack |
 | `POST` | `/v1/instances/{id}/start` | `200` `{ id, status }` ack |
 | `POST` | `/v1/instances/{id}/restart` | `200` `{ id, status }` ack |
-| `POST` | `/v1/instances/{id}/update` | `200` `{ id, status, image_ref }` ack |
+| `POST` | `/v1/instances/{id}/update` | `200` `{ id, status, image_ref, image_digest, template_revision }` ack |
 | `POST` | `/v1/instances/{id}/resize` | `200` `{ id, status, resources }` ack |
 
 ## List, get, delete
@@ -303,6 +308,7 @@ const instance = await res.json();
   "status": "running",
   "status_reason": null,
   "template": "agent37-hermes",
+  "template_revision": null,
   "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
   "image_digest": "sha256:4f8d0d9e9f3b3a5a9f4488fb33274de9f7b7450c6cf6d3573e68fd231d7c8891",
   "resources": { "cpu": 2, "memory": 4, "disk": 6 },
@@ -322,7 +328,7 @@ const instance = await res.json();
 
 ## Lifecycle
 
-Five calls control whether the instance's computer is running, which image it runs, and how big it is. Each is a `POST` to a subpath; `stop`, `start`, and `restart` take no body, `update` takes an optional `template` version, and `resize` takes the new size. They acknowledge the new state only, returning `{ id, status }` (`update` adds nullable `image_ref`, `resize` adds `resources`); `GET` the instance for its full representation.
+Five calls control whether the instance's computer is running, which image it runs, and how big it is. Each is a `POST` to a subpath; `stop`, `start`, and `restart` take no body, `update` takes an optional `template` version, and `resize` takes the new size. They acknowledge the new state only, returning `{ id, status }` (`update` adds nullable `image_ref`, `image_digest`, and `template_revision`; `resize` adds `resources`); `GET` the instance for its full representation.
 
 The whole disk persists, like a VM. Files anywhere on the filesystem, installed packages, edited config, connected accounts: all of it survives `stop`, `start`, `restart`, and `resize`, and rides along if the platform ever moves the instance between hosts. The one exception is `update`, which resets the operating system layer to the fresh image while keeping your data (`/home/node` and `/home/linuxbrew`). Writes outside those two directories share a 10 GB operating-system layer separate from the instance's billed disk. In-memory state is lost whenever the container is recreated; anything that must outlive a restart belongs in a file.
 
@@ -366,12 +372,12 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
 
 `POST /v1/instances/{id}/update` pulls the template's image, resets the operating system layer to it, and preserves the data in `/home/node` and `/home/linuxbrew`. It is the one lifecycle call that discards changes outside those directories, which also makes it the clean-slate repair tool: use it to move an instance onto a newer version after a release (or after you point a workspace template at a new tag), or to recover a failed/stuck instance (read its [logs](/agents-api/logs) first to see why it failed). A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts.
 
-The body is optional. Without one, update re-resolves the instance's stored template: an unpinned instance moves to the template's current image, a [version-pinned](/agents-api/templates#pin-a-system-template-version) instance stays on its pin. To set, move, or clear the pin, pass the one accepted field, `template`: the same template with an `@<version>` pins that release (this works on an unpinned instance too), and the bare name clears the pin to follow latest. A different base template returns `400` (create a new instance to change templates), and any other field returns `400`. The ack carries the resulting `status` and new `image_ref`. A `sleeping` instance cannot be updated: wake it first, with any request to its URL or an explicit [`start`](#start). A bad image reference on the template surfaces here as a `502 provisioning_failed`.
+The body is optional. Without one, update re-resolves the instance's stored template: a workspace instance installs the template's current image and `revision`, an unpinned system instance moves to the template's current image, and a [version-pinned](/agents-api/templates#pin-a-system-template-version) instance stays on its pin. To set, move, or clear the pin, pass the one accepted field, `template`: the same template with an `@<version>` pins that release (this works on an unpinned instance too), and the bare name clears the pin to follow latest. A different base template returns `400` (create a new instance to change templates), and any other field returns `400`. The ack carries the resulting `status`, `image_ref`, `image_digest`, and `template_revision`. A `sleeping` instance cannot be updated: wake it first, with any request to its URL or an explicit [`start`](#start). A bad image reference on the template surfaces here as a `502 provisioning_failed`.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
   -H "Authorization: Bearer sk_live_..."
-# -> { "id": "ab12cd34ef", "status": "running", "image_ref": "ghcr.io/acme/my-agent:v1" }
+# -> { "id": "ab12cd34ef", "status": "running", "image_ref": "ghcr.io/acme/my-agent:v2", "image_digest": "sha256:9b2e...c41f", "template_revision": 2 }
 
 # Set or move a version pin (or pass the bare name to clear it):
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
