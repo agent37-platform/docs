@@ -21,11 +21,19 @@
         ]
       },
       {
+        "group": "Build with Agent37",
+        "pages": [
+          "agents-api/hermes-webhooks",
+          "agents-api/white-label",
+          "agents-api/chat-app",
+          "agents-api/custom-image"
+        ]
+      },
+      {
         "group": "Hosting API",
         "pages": [
           "agents-api/instances",
           "agents-api/templates",
-          "agents-api/custom-image",
           "agents-api/urls",
           "agents-api/public-ports",
           "agents-api/domains",
@@ -40,22 +48,14 @@
         "group": "Agent API",
         "pages": [
           "agents-api/chat",
+          "agents-api/streaming",
           "agents-api/sessions",
           "agents-api/files"
         ]
       },
       {
-        "group": "Build with Agent37",
-        "pages": [
-          "agents-api/hermes-webhooks",
-          "agents-api/white-label",
-          "agents-api/chat-app"
-        ]
-      },
-      {
         "group": "Reference",
         "pages": [
-          "agents-api/streaming",
           "agents-api/billing",
           "agents-api/errors"
         ]

@@ -100,7 +100,7 @@ console.log(result.health, result.logs);
 
 When an instance is `failed` or stuck, logs and `health` together tell you which layer broke:
 
-- **The image will not start** (a climbing `restart_count`, with the same error at the top of `logs` on every boot): read the entrypoint's own error. This is the usual signal for a [custom image](/agents-api/custom-image) mistake, such as a missing binary, a bad path, or a wrong-architecture build.
+- **The image will not start** (a climbing `restart_count`, with the same error at the top of `logs` on every boot): read the entrypoint's own error. This is the usual signal for a [custom image](/agents-api/custom-image) mistake, such as a missing binary, an entrypoint that exits, or a service that never listens on `default_port`.
 - **It ran out of memory** (`resource_verdict.memory` is `"critical"`): the agent needs a bigger box. [Resize](/agents-api/instances#resize) to a larger shape.
 - **It booted but the agent is wedged**: the logs show the last thing it did before it stopped responding. [Restart](/agents-api/instances#restart) to recover it.
 

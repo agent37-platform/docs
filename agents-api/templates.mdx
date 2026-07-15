@@ -12,7 +12,7 @@ curl -X POST https://api.agent37.com/v1/instances \
   -d '{ "template": "agent37-hermes" }'
 ```
 
-Templates come in two scopes. `system` templates are the built-in catalog, the same for every workspace and read-only. `workspace` templates are ones you register from your own image — a public registry reference or a [local upload](/agents-api/custom-image#from-a-local-image-no-registry) — visible only to your workspace.
+Templates come in two scopes. `system` templates are the built-in catalog, the same for every workspace and read-only. `workspace` templates are ones you register from your own image — a public registry reference or a [private upload](/agents-api/custom-image#upload-a-local-or-private-image) — visible only to your workspace.
 
 <Note>
   Registering a workspace template copies your image once into private storage and pins it by digest. That snapshot is what instances run: registration takes up to a few minutes for a large image, the image is stored privately and never republished, and re-pushing the same registry tag later has no effect until you [update the template](#update-a-template).
@@ -62,16 +62,54 @@ The pin sticks: the instance object's `template` field carries it (`"agent37-her
 | `GET` | `/v1/templates/{name}` | `200` with one template, system or workspace |
 | `PATCH` | `/v1/templates/{name}` | `200` with the updated workspace template |
 | `DELETE` | `/v1/templates/{name}` | `200` `{ "name": "...", "deleted": true }` |
-| `POST` | `/v1/template-uploads` | `201` `{ "id": "up_...", "upload_url": "...", "expires_at": ... }`, a slot to upload a local image (see [From a local image](/agents-api/custom-image#from-a-local-image-no-registry)) |
+| `POST` | `/v1/template-uploads` | `201` with a presigned upload slot for a local or private image |
 
 ```bash curl
 curl https://api.agent37.com/v1/templates \
   -H "Authorization: Bearer sk_live_..."
 ```
 
+## Upload a local or private image
+
+`POST /v1/template-uploads` creates a workspace-scoped slot for one `docker save` archive. It takes no body. Use it when an image is local or in a private registry; Agent37 does not accept private-registry credentials.
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/template-uploads \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```json response
+{
+  "id": "up_7d3a90b81f264bc2a113",
+  "upload_url": "https://uploads.example.com/...signed...",
+  "expires_at": 1784149200
+}
+```
+
+<ResponseField name="id" type="string">
+  The workspace-scoped upload id, `up_` followed by 20 lowercase hex characters. Pass it as `upload_id` only after the archive PUT succeeds.
+</ResponseField>
+
+<ResponseField name="upload_url" type="string">
+  A presigned URL for one raw HTTP `PUT`. The URL is the temporary credential: send the archive bytes with no Agent37 authorization header, and do not log or share it.
+</ResponseField>
+
+<ResponseField name="expires_at" type="integer">
+  When `upload_url` expires, in epoch seconds. Request a new slot if you have not finished the PUT by then.
+</ResponseField>
+
+Export exactly one `linux/amd64` image, then upload it. Plain tar and gzip are accepted; the image may be at most 5 GB.
+
+```bash curl
+docker save my-agent:v1 -o my-agent.tar
+curl --fail-with-body -T my-agent.tar "<upload_url>"
+```
+
+The PUT returns `200` when the archive is stored. Then create or update a template with the slot's `id`. Missing, expired, and other-workspace ids all return `404 upload_not_found`. See [Build and upload a custom image](/agents-api/custom-image#upload-a-local-or-private-image) for a copy-pasteable end-to-end flow.
+
 ## Register a workspace template
 
-`POST /v1/templates` registers an amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it. The image can be anything, built from scratch or on [the Hermes base image](#build-on-the-hermes-base-image). Give the image as **either** an `image_ref` (a public registry reference) **or** an `upload_id` (a [local upload](/agents-api/custom-image#from-a-local-image-no-registry)) — exactly one; sending both or neither returns `400 invalid_request`. If you need an image larger than the 5 GB cap allows, [talk to the team](https://cal.com/vishnukool/30min).
+`POST /v1/templates` registers an amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it. The image can be anything, built from scratch or on [the Hermes base image](#build-on-the-hermes-base-image). Give the image as **either** an `image_ref` (a public registry reference) **or** an `upload_id` (a [private upload](#upload-a-local-or-private-image)) — exactly one; sending both or neither returns `400 invalid_request`. If you need an image larger than the 5 GB cap allows, [talk to the team](https://cal.com/vishnukool/30min).
 
 <ParamField body="name" type="string" required>
   2 to 63 characters: lowercase letters, digits, and hyphens, starting with a letter (`^[a-z][a-z0-9-]{1,62}$`). The `agent37-` prefix is reserved. A name that already exists returns `409 template_conflict`.
@@ -82,7 +120,7 @@ curl https://api.agent37.com/v1/templates \
 </ParamField>
 
 <ParamField body="upload_id" type="string">
-  The `id` from a `POST /v1/template-uploads` slot whose archive you have uploaded (see [From a local image](/agents-api/custom-image#from-a-local-image-no-registry)). Use this for a private or unpublished image. The archive must be a `docker save` tarball (gzip optional), `linux/amd64`, and at most 5 GB. Mutually exclusive with `image_ref`; a template registered this way has no `image_ref`, only an `image_digest`.
+  The `id` from a [`POST /v1/template-uploads`](#upload-a-local-or-private-image) slot whose archive you have uploaded. Use this for a private or unpublished image. The archive must be a `docker save` tarball (gzip optional), `linux/amd64`, and at most 5 GB. Mutually exclusive with `image_ref`; a template registered this way has no `image_ref`, only an `image_digest`.
 </ParamField>
 
 <ParamField body="description" type="string">
@@ -90,7 +128,7 @@ curl https://api.agent37.com/v1/templates \
 </ParamField>
 
 <ParamField body="default_port" type="integer">
-  The port the bare instance URL (`https://{instanceId}.agent37.app`) routes to, and the port the platform probes at boot to decide the create succeeded. An integer 1 to 65535; the reserved ports `7681`, `8080`, `6080`, `7890`, `9119` are rejected (they belong to the managed runtime). Omitted, the bare URL falls back to `3737` — right for images built on [the Hermes base image](#build-on-the-hermes-base-image), whose gateway serves it — and boot is not probed, so an image that listens on nothing (a private sandbox driven by [exec](/agents-api/exec)) still creates fine. Every other port needs no declaration at all: it is already reachable at `https://{instanceId}-{port}.agent37.app`. With [auto-sleep](/agents-api/instances#auto-sleep) on, a sandbox nothing ever requests only wakes by an explicit [`start`](/agents-api/instances#start).
+  The port the bare instance URL (`https://{instanceId}.agent37.app`) routes to, and the port the platform probes at boot to decide the create succeeded. Your service must bind it on `0.0.0.0`, not only localhost. An integer 1 to 65535; the reserved ports `7681`, `8080`, `6080`, `7890`, `9119` are rejected (they belong to the managed runtime). Omitted, the bare URL falls back to `3737` — right for images built on [the Hermes base image](#build-on-the-hermes-base-image), whose gateway serves it — and no TCP boot probe runs. A private sandbox can listen on nothing and be driven by [exec](/agents-api/exec), but its main process must still stay running. Every other port needs no declaration: it is already reachable at `https://{instanceId}-{port}.agent37.app`. With [auto-sleep](/agents-api/instances#auto-sleep) on, a sandbox nothing ever requests only wakes by an explicit [`start`](/agents-api/instances#start).
 </ParamField>
 
 <CodeGroup>
@@ -149,7 +187,7 @@ Registration copies the image into private storage before it returns, so `POST` 
 </Tip>
 
 <Note>
-  Build for `linux/amd64` even on an Apple Silicon Mac (`docker build --platform=linux/amd64 ...`). Instances run on amd64, and an arm64 image will fail to start.
+  Build for `linux/amd64` even on an Apple Silicon Mac (`docker buildx build --platform linux/amd64 --load ...`). An arm64 image is rejected during registration.
 </Note>
 
 ## Build on the Hermes base image
@@ -165,9 +203,9 @@ COPY my-skills/ /usr/local/share/agent37/default-skills/
 USER node
 ```
 
-Build it for `linux/amd64`, push it to a public registry, register it as a workspace template, and create instances from it. OpenClaw builds have the same shape: the FROM target is [`ghcr.io/agent37-platform/openclaw-base`](https://github.com/orgs/agent37-platform/packages/container/package/openclaw-base), published with the same dated tags as `agent37-openclaw`.
+Build it for `linux/amd64`, then [upload it privately](/agents-api/custom-image#upload-a-local-or-private-image) or push it to a public registry. OpenClaw builds have the same shape: the FROM target is [`ghcr.io/agent37-platform/openclaw-base`](https://github.com/orgs/agent37-platform/packages/container/package/openclaw-base), published with the same dated tags as `agent37-openclaw`.
 
-See [Custom agent image](/agents-api/custom-image) for the step-by-step walkthrough, with a copy-able example — a `Dockerfile`, an example skill, a `register.sh`, and a tiny bring-your-own-model proxy.
+See [Build and upload a custom image](/agents-api/custom-image) for the step-by-step walkthrough, with a copy-able example — a `Dockerfile`, an example skill, a registration script, and a tiny bring-your-own-model proxy.
 
 The contract:
 
@@ -180,7 +218,7 @@ The contract:
 
 ## Update a template
 
-`PATCH /v1/templates/{name}` changes any of `name`, `image_ref` (or `upload_id`, for a new local image), `description`, or `default_port` (send `null` to clear it back to the `3737` fallback). Send at least one field; `image_ref` and `upload_id` remain mutually exclusive. Changing the image re-copies it into private storage, so a `PATCH` that touches it is synchronous like create. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
+`PATCH /v1/templates/{name}` changes any of `name`, `image_ref` (or `upload_id`, for a new local image), `description`, or `default_port` (send `null` to clear it back to the `3737` fallback). Send at least one field; `image_ref` and `upload_id` remain mutually exclusive. A new `image_ref` or any fresh `upload_id` is copied into private storage, so a `PATCH` that changes the image is synchronous like create. Sending the exact same `image_ref` string reuses the existing snapshot; publish a new tag when the bytes change. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
 
 ```bash curl
 curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
@@ -193,7 +231,7 @@ Point `image_ref` at an older tag (or upload an older build) to roll back. Exist
 
 ## Delete a template
 
-`DELETE /v1/templates/{name}` removes the workspace template and acts once: the first call returns `200` with `{ "name": "my-agent", "deleted": true }`, and a repeat returns `404`. System templates return `403`. Existing instances created from it keep running.
+`DELETE /v1/templates/{name}` removes the workspace template and acts once: the first call returns `200` with `{ "name": "my-agent", "deleted": true }`, and a repeat returns `404`. System templates return `403`. Existing instances created from it keep running, so deletion does not immediately purge the private image copy they still reference. Contact support if you need the stored image purged after its instances are gone.
 
 ```bash curl
 curl -X DELETE https://api.agent37.com/v1/templates/my-agent \

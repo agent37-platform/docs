@@ -18,8 +18,8 @@ Agent37 Cloud gives every user their own hosted agent computer. Create an instan
   <Card title="Build a chat app" icon="message" href="/agents-api/chat-app">
     Wire the two API planes into your own app. Where most teams start.
   </Card>
-  <Card title="Custom agent image" icon="package" href="/agents-api/custom-image">
-    Bring your own tools, skills, or model.
+  <Card title="Custom Docker image" icon="package" href="/agents-api/custom-image">
+    Extend Hermes or upload your own private `linux/amd64` image.
   </Card>
 </CardGroup>
 
@@ -69,10 +69,13 @@ The rest of this page is the API itself — create an instance and stream a repl
     {
       "id": "ab12cd34ef",
       "status": "running",
+      "status_reason": null,
       "template": "agent37-hermes",
       "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
+      "image_digest": "sha256:4f8d0d9e9f3b3a5a9f4488fb33274de9f7b7450c6cf6d3573e68fd231d7c8891",
       "resources": { "cpu": 2, "memory": 4, "disk": 6 },
       "url": "https://ab12cd34ef.agent37.app",
+      "domain_urls": [],
       "public_ports": [],
       "user": null,
       "name": null,
