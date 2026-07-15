@@ -40,8 +40,8 @@ Use these exactly; consistent terms are what make `llms-full.txt` usable as a sp
 
 - **Agent37 Cloud** — the product. **Workspace** — the account/billing unit; owns API keys and one **wallet**.
 - **Instance** — an agent's always-on computer at `https://{instanceId}.agent37.app`. **Session** — one conversation on an instance. **Response** — one agentic turn within a session.
-- **Agent** vs **model**: the agent is the software running on the instance (Hermes today; OpenClaw, Claude Code, Codex coming soon); the model is the LLM chosen per turn (`model` + `provider`).
-- **Template** — names the image an instance runs and declares its ports. **Gateway** — serves the Agent API inside the instance.
+- **Agent** vs **model**: the agent is the software running on the instance (Hermes and OpenClaw today; Claude Code and Codex coming soon); the model is the LLM chosen per turn (`model` + `provider`).
+- **Template** — names the image an instance runs and can set its `default_port`; every other port URL is derivable and needs no declaration. **Gateway** — serves the Agent API inside the instance.
 - **Instance URL** — an instance's base address, `https://{instanceId}.agent37.app` (the default port, where the agent's API lives). **Preview URL** — a non-default port's address, `https://{instanceId}-{port}.agent37.app`, where a service or UI on that port is reachable. **Signed URL** — a time-boxed, tokenized form of either, mintable via `POST /v1/instances/{id}/signed-url`, that a browser can open without a header.
 - Billing: **wallet** (workspace money), **budget** (per-instance managed-spend cap plus **top-up** headroom), **managed services** (LLM / search / Composio through built-in credentials), **micros** (USD × 1,000,000), **past due** (renewal failed; instance force-stopped until a funded start).
 - Conventions: instance ids are 10-char lowercase alphanumeric; session/response ids are 32-char hex; Hosting API timestamps are epoch **seconds**, Agent API timestamps epoch **milliseconds**; list endpoints wrap results in `{ "data": [...] }`, newest first.
@@ -50,7 +50,7 @@ Use these exactly; consistent terms are what make `llms-full.txt` usable as a sp
 
 - Document **only the two public planes**. The dashboard, internal/admin APIs, and fleet/host architecture are out of scope.
 - The OpenClaw setup guides (`openclaw/`, `channels/`, `models/`, `runtime/`, `networking/`, `tailscale/`) are intentionally hidden from the nav but searchable — they serve existing OpenClaw customers. Don't surface them in the Agents API nav and don't delete them.
-- The system template catalog has one entry, `agent37-hermes`; the coming-soon agents (OpenClaw, Claude Code, Codex) are absent from the API entirely — mention them as coming, never as available.
+- The system template catalog has three entries: `agent37-hermes`, `agent37-hermes-small`, and `agent37-openclaw`. Claude Code and Codex are coming soon — mention them as coming, never as available.
 - Drafts go in `drafts/` or `*.draft.mdx` (ignored via `.mintignore`).
 
 ## Style
