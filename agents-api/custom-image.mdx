@@ -1,11 +1,15 @@
 ---
 title: "Custom agent image"
-description: "Start from the Hermes base, add your tools and skills, publish to a public registry, and run instances from your own image — optionally on your own model."
+description: "Start from the Hermes base, add your tools and skills, register your own image from a public registry or a local upload, and run instances from it — optionally on your own model."
 ---
 
-You can run instances on your own Docker image: start from the Hermes base, add the CLIs, skills, and config your agent needs, publish it to a public registry, and [register it as a template](/agents-api/templates). You can also point the agent at your own model. A complete, copy-able example — a `Dockerfile`, an example skill, a `register.sh`, and a tiny LLM proxy — lives in [`custom-agent-image/`](https://github.com/agent37-platform/starter-kit/tree/main/examples/custom-agent-image), ready to copy into your own repo.
+You can run instances on your own Docker image: start from the Hermes base, add the CLIs, skills, and config your agent needs, and [register it as a template](/agents-api/templates) — either from a **public registry** or by **uploading a local image**, no registry required. You can also point the agent at your own model. A complete, copy-able example — a `Dockerfile`, an example skill, a `register.sh`, and a tiny LLM proxy — lives in [`custom-agent-image/`](https://github.com/agent37-platform/starter-kit/tree/main/examples/custom-agent-image), ready to copy into your own repo.
 
 This page is the walkthrough; [Templates → build on the Hermes base image](/agents-api/templates#build-on-the-hermes-base-image) is the reference for the contract.
+
+<Note>
+  When you register a template, Agent37 copies your image once into private storage and pins it by digest. That snapshot is what every instance runs, so registering takes up to a few minutes for a large image, and re-pushing the same tag later does nothing until you [update the template](/agents-api/templates#update-a-template). Your image is stored privately and never republished.
+</Note>
 
 ## 1. Start from the base
 
@@ -33,26 +37,57 @@ Test the build before you publish:
 docker build --platform linux/amd64 -t my-agent .
 ```
 
-## 2. Publish to a public registry
+## 2. Register the image
 
-Push the image to any public registry. GitHub Container Registry is the least setup, because GitHub Actions can build and push it with the built-in token — no secrets. The example folder ships a reference workflow that does exactly this.
-
-The image must be **public**, built for **`linux/amd64`**, and **at most 5 GB** compressed. On GHCR, make the package public once after the first push (**Packages** → **Package settings** → **Change visibility** → **Public**); Agent37 pulls anonymously.
+You have two ways to get the image to Agent37. Either way it must be built for **`linux/amd64`** and be **at most 5 GB**, and either way the platform copies it once into private storage at registration.
 
 <Note>
-  Build for `linux/amd64` even on an Apple Silicon Mac (`docker build --platform=linux/amd64 ...`). A stray arm64 image fails to start.
+  Build for `linux/amd64` even on an Apple Silicon Mac (`docker build --platform=linux/amd64 ...`). A stray arm64 image is rejected at registration.
 </Note>
 
-## 3. Register and run
+### From a public registry
 
-Register the published image as a template (pin a tag, not `latest`), then create an instance:
+Push the image to any public registry, then register it by reference. GitHub Container Registry is the least setup, because GitHub Actions can build and push it with the built-in token — no secrets. The example folder ships a reference workflow that does exactly this. On GHCR, make the package public once after the first push (**Packages** → **Package settings** → **Change visibility** → **Public**) so Agent37 can pull it to copy it.
+
+Register the reference as a template (pin a tag, not `latest`):
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/templates \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{ "name": "my-custom-agent", "image_ref": "ghcr.io/you/my-agent:<tag>" }'
+```
 
+### From a local image (no registry)
+
+If your image is private or you never published it, upload the `docker save` archive directly. Ask for an upload slot, `PUT` the archive to the returned URL, then create the template from the `upload_id` — no registry, no public exposure.
+
+```bash curl
+# Save the built image to a tarball (gzip optional).
+docker save my-agent:<tag> -o my-agent.tar
+
+# 1. Ask for an upload URL.
+curl -X POST https://api.agent37.com/v1/template-uploads \
+  -H "Authorization: Bearer sk_live_..."
+# -> { "id": "up_...", "upload_url": "https://...", "expires_at": 1752... }
+
+# 2. Upload the archive to the returned upload_url.
+curl -T my-agent.tar "<upload_url>"
+
+# 3. Register the template from the upload.
+curl -X POST https://api.agent37.com/v1/templates \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "my-custom-agent", "upload_id": "up_..." }'
+```
+
+An upload-born template exposes only its `image_digest` — there is no `image_ref`, because there is no registry the image lives in.
+
+## 3. Create an instance
+
+Register once, then create instances from the template name:
+
+```bash curl
 curl -X POST https://api.agent37.com/v1/instances \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
@@ -98,4 +133,4 @@ Write the config over [exec](/agents-api/exec) or the instance terminal; it live
 
 ## Keep it current
 
-Your published image freezes its base; rebuilding is how it picks up platform updates. When you change your image, rebuild and republish, point the template at the new tag with `PATCH /v1/templates/{name}`, and [update each instance](/agents-api/instances) to pick it up. A skill already seeded into an instance's `~/.hermes/skills` is not overwritten on update — only fresh instances get a changed skill.
+Your published image freezes its base; rebuilding is how it picks up platform updates. Because the template is an immutable snapshot, a new build only takes effect once you re-register it: rebuild, then either point the template at the new tag (`PATCH /v1/templates/{name}` with `image_ref`) or push a fresh upload and `PATCH` the new `upload_id`. Re-pushing the same registry tag alone changes nothing. Then [update each instance](/agents-api/instances) to pick it up. A skill already seeded into an instance's `~/.hermes/skills` is not overwritten on update — only fresh instances get a changed skill.
