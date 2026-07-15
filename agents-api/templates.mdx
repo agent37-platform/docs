@@ -231,6 +231,26 @@ Point `image_ref` at an older tag (or upload an older build) to roll back. Exist
 
 Workspace templates start at `revision: 1`. Compare that value with an instance's `template_revision` to find instances that have not installed the current template release.
 
+## Roll out a release to your fleet
+
+After an image update, list your instances and [update](/agents-api/instances#update) the ones still on an older revision. An instance's `template_revision` is what it has installed; the template's `revision` is the current release. Missing instance revisions read as `1`.
+
+```bash curl
+TEMPLATE=my-agent
+REV=$(curl -s https://api.agent37.com/v1/templates/$TEMPLATE \
+  -H "Authorization: Bearer sk_live_..." | jq .revision)
+
+curl -s https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." |
+  jq -r --arg t "$TEMPLATE" --argjson r "$REV" \
+    '.data[] | select(.template == $t and (.template_revision // 1) != $r) | .id' |
+  head -n 3 |
+  xargs -I{} curl -s -X POST "https://api.agent37.com/v1/instances/{}/update" \
+    -H "Authorization: Bearer sk_live_..."
+```
+
+The `head -n 3` is the canary: update a small slice first, verify the release on those instances, then rerun without it to finish the fleet. Rerunning is always safe, the filter only picks up instances still behind. A `sleeping` instance cannot be updated; wake it with [`start`](/agents-api/instances#start) first.
+
 ## Delete a template
 
 `DELETE /v1/templates/{name}` removes the workspace template and acts once: the first call returns `200` with `{ "name": "my-agent", "deleted": true }`, and a repeat returns `404`. System templates return `403`. Existing instances created from it keep running, so deletion does not immediately purge the private image copy they still reference. Contact support if you need the stored image purged after its instances are gone.
