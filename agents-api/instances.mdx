@@ -153,7 +153,7 @@ const instance = await res.json();
 </ResponseField>
 
 <ResponseField name="image_ref" type="string | null">
-  The public source reference for a system template or registry-born workspace template. `null` for an image uploaded directly to Agent37. This never exposes Agent37's internal private-mirror path.
+  The public source reference for a system template or registry-born workspace template. `null` for an image published by a [cloud build](/agents-api/templates#build-an-image-in-the-cloud). This never exposes Agent37's internal private-mirror path.
 </ResponseField>
 
 <ResponseField name="image_digest" type="string | null">

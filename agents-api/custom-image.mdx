@@ -1,23 +1,23 @@
 ---
-title: "Build and upload a custom image"
-description: "Build a linux/amd64 Docker image, upload it privately or import it from a public registry, and run instances from the pinned template."
+title: "Build a custom image"
+description: "Write a Dockerfile, build the image on Agent37's infrastructure or import it from a public registry, and run instances from the pinned template."
 ---
 
-You can run an Agent37 instance from any Docker image. Build it for `linux/amd64`, then register it as a [workspace template](/agents-api/templates) in one of two ways:
+You can run an Agent37 instance from any Docker image. Register it as a [workspace template](/agents-api/templates) in one of two ways:
 
 | Your image | Register with | What Agent37 needs |
 | --- | --- | --- |
-| Local or in a private registry | `upload_id` | Build or pull it locally, then upload one `docker save` archive. The image never needs to be public. |
+| Not built yet, local, or private | A [cloud build](#build-it-in-the-cloud) | A folder with the `Dockerfile` and the files it `COPY`s. Agent37 runs the build; no local Docker needed. |
 | In a public registry | `image_ref` | A fully qualified reference that Agent37 can pull anonymously during registration. |
 
-Template registration does not accept private-registry credentials or source repositories. For a private registry, authenticate and pull in your own environment, then use the direct-upload path below. For a private Git repository, build its Dockerfile in your own CI or workstation first.
+A cloud build fetches everything itself — the `FROM` base image and anything `RUN` downloads — so those sources must be publicly reachable. There is no build-secret or private-registry-credential support yet; if your base image is private, [contact support](mailto:support@agent37.com).
 
-A complete example — a `Dockerfile`, an example skill, a registration script for both paths, and a tiny LLM proxy — lives in [`custom-agent-image/`](https://github.com/agent37-platform/starter-kit/tree/main/examples/custom-agent-image), ready to copy into your own repo.
+A complete example — a `Dockerfile`, an example skill, a registration script, and a tiny LLM proxy — lives in [`custom-agent-image/`](https://github.com/agent37-platform/starter-kit/tree/main/examples/custom-agent-image), ready to copy into your own repo.
 
 This page is the walkthrough; [Templates → build on the Hermes base image](/agents-api/templates#build-on-the-hermes-base-image) is the reference for the contract.
 
 <Note>
-  When you register a template, Agent37 copies your image once into private storage and pins it by digest. That snapshot is what every instance runs, so registering takes up to a few minutes for a large image. Re-pushing the same tag later does nothing: publish a new tag or create a fresh upload, then [update the template](/agents-api/templates#update-a-template). Your image is stored privately and never republished.
+  When you register a template, Agent37 copies your image once into private storage and pins it by digest. That snapshot is what every instance runs, so registering takes up to a few minutes for a large image. Re-pushing the same tag later does nothing: publish a new tag and [update the template](/agents-api/templates#update-a-template), or re-run the [cloud build](#build-it-in-the-cloud). Your image is stored privately and never republished.
 </Note>
 
 ## 1. Choose a starting image
@@ -42,9 +42,9 @@ You can also use an existing image or start from any base. Its main process must
   Your built image freezes its base at build time. `:latest` is convenient while getting started; pin a dated Hermes base tag for reproducible production rebuilds. Find published tags [on GHCR](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base), or read the current tag from `agent37-hermes`'s `image_ref` on `GET /v1/templates`.
 </Tip>
 
-## 2. Build and verify it
+## 2. Verify it locally (optional)
 
-Use one concrete local tag from build through upload. Plain `docker build` stores the amd64 result in your local Docker, including on an Apple Silicon Mac:
+You don't need Docker to publish — the [cloud build](#build-it-in-the-cloud) does the real build. If you have Docker, a local build is still the fastest way to test before publishing. Plain `docker build` stores the amd64 result in your local Docker, including on an Apple Silicon Mac:
 
 ```bash
 docker build --platform linux/amd64 -t my-agent:v1 .
@@ -52,52 +52,36 @@ docker image inspect my-agent:v1 --format '{{.Os}}/{{.Architecture}}'
 # linux/amd64
 ```
 
-Run the image locally if it is practical. Registration validates the image format and architecture, but only a running container proves that its entrypoint and service work.
+Run the image locally if it is practical: registration validates the image, but only a running container proves that its entrypoint and service work. If you take the [public registry path](#import-a-public-registry-image), this local `linux/amd64` build is also the artifact you push.
 
 ## 3. Register the image
 
-You have two ways to get the image to Agent37. Either way it must be built for **`linux/amd64`** and be **at most 8 GB decimal** (`8,000,000,000` bytes), and either way the platform copies it once into private storage at registration.
+You have two ways to get the image to Agent37. Either way the resulting image is capped at **8 GB decimal** (`8,000,000,000` bytes), and either way the platform copies it once into private storage at registration.
 
 <Note>
   Registration is synchronous and can take a few minutes for a large image. The returned `image_digest` identifies the immutable private copy every instance runs. Re-pushing a mutable source tag does not change that copy.
 </Note>
 
-### Upload a local or private image
+### Build it in the cloud
 
-Use this path for a local build or an image in a private registry. The Agent37 CLI verifies
-the architecture, exports and compresses the image, uploads retryable 64 MiB parts with
-progress, then creates or updates the workspace template.
+Use this path when the image isn't in a public registry — or doesn't exist yet. You upload a small **build context** (the `Dockerfile` and the files it `COPY`s), and Agent37 builds the image on its own infrastructure:
 
 ```bash
 export AGENT37_API_KEY=sk_live_...
-npx agent37 templates push my-agent:v1 --name my-custom-agent
+npx agent37 templates build . --name my-custom-agent
 ```
 
-Omit `--name` to derive it from the final image component: `ghcr.io/acme/perflo-agent:v3`
-becomes `perflo-agent`. If the name already exists, the command publishes a new template
-revision; otherwise it creates revision 1. It prints the applied `revision` and
-`image_digest`. Existing instances are never updated by this command.
+What it does:
 
-The CLI reads only `AGENT37_API_KEY`; there is no CLI login or stored session. It creates a
-temporary gzip archive, so the machine needs enough temporary disk for that compressed file
-(up to 8 GB). A failed part retries automatically while the command is running. If the
-process is killed, the next invocation starts a fresh upload.
+- Packs the directory (default `.`; it must have `Dockerfile` at its root) into a gzipped context, excluding `.git` and your `.dockerignore` patterns (plain patterns only; `!` negations are ignored). The context is capped at **100 MB** — it holds the Dockerfile's inputs, not the image, so it stays small.
+- Builds the image on Agent37's infrastructure and **streams the live build log** to your terminal. On failure the command exits non-zero with the failing step visible.
+- Publishes the result as the workspace template. `--name` defaults to the folder name; `--default-port <port>` sets the template's default port. Re-building an existing name publishes a new template revision; **existing instances never change**.
+- Ctrl-C does not cancel the build; it continues server-side and still publishes on success.
 
-Registration remains synchronous. After the bytes land, the CLI displays
-`Upload complete — validating and registering image…` until the private copy is ready. An
-upload-born template has an `image_digest` but no `image_ref`, because there is no customer
-registry reference.
+Builds are free, run one at a time per workspace, and time out after 45 minutes. The built image is capped at 8 GB decimal like any template image, and practically tops out around 4 GB today; if you need more, [contact support](mailto:support@agent37.com). Everything the build fetches — the `FROM` base image, anything `RUN` downloads — must be publicly reachable; there is no build-secret or private-registry-credential support yet. A template published this way has an `image_digest` but no `image_ref`, because there is no public registry reference.
 
-If the source image is in a private registry, pull the amd64 variant before saving it:
-
-```bash
-docker login registry.example.com
-docker pull --platform linux/amd64 registry.example.com/acme/my-agent:v1
-npx agent37 templates push registry.example.com/acme/my-agent:v1 --name my-custom-agent
-```
-
-To implement the upload flow in another client, see the raw multipart contract in
-[Templates → upload a local or private image](/agents-api/templates#upload-a-local-or-private-image).
+To script the same flow without the CLI, see the raw contract in
+[Templates → build an image in the cloud](/agents-api/templates#build-an-image-in-the-cloud).
 
 ### Import a public registry image
 
@@ -119,10 +103,10 @@ curl -X POST https://api.agent37.com/v1/templates \
   -d '{ "name": "my-custom-agent", "image_ref": "ghcr.io/you/my-agent:v1" }'
 ```
 
-Agent37 needs anonymous access only while it copies the image. The template and its instances no longer depend on the source registry after registration. A future image update needs a new public tag or a fresh upload.
+Agent37 needs anonymous access only while it copies the image. The template and its instances no longer depend on the source registry after registration. A future image update needs a new public tag.
 
 <Tip>
-  If your own image serves HTTP on port `8000`, include `"default_port": 8000` beside `name` and `image_ref` or `upload_id`. The bare instance URL then routes to that port, and instance creation probes it at boot. Omit it for `hermes-base`, whose gateway uses the `3737` fallback, or for a long-running private sandbox with no HTTP service.
+  If your own image serves HTTP on port `8000`, declare it: pass `--default-port 8000` on the build, or include `"default_port": 8000` beside `name` and `image_ref`. The bare instance URL then routes to that port, and instance creation probes it at boot. Omit it for `hermes-base`, whose gateway uses the `3737` fallback, or for a long-running private sandbox with no HTTP service.
 </Tip>
 
 ## 4. Create an instance
@@ -175,7 +159,7 @@ Write the config over [exec](/agents-api/exec) or the instance terminal; it live
 
 ## Keep it current
 
-Your image freezes its base; rebuilding is how it picks up platform updates. Each template revision is an immutable snapshot, so a new build takes effect only after you [update the template](/agents-api/templates#update-a-template): publish a **new registry tag** and PATCH `image_ref`, or create a **new upload** and PATCH `upload_id`. A changed `image_ref` or every fresh `upload_id` increments the template's automatic `revision`; a fresh upload counts even when its digest matches the previous image. PATCHing the same `image_ref` string deliberately reuses the existing snapshot and revision.
+Your image freezes its base; rebuilding is how it picks up platform updates. Each template revision is an immutable snapshot, so a new build takes effect only after the template changes: re-run the [cloud build](#build-it-in-the-cloud) under the same name, or publish a **new registry tag** and [PATCH `image_ref`](/agents-api/templates#update-a-template). Every successful build and every changed `image_ref` increments the template's automatic `revision`; a re-build counts even when its digest matches the previous image. PATCHing the same `image_ref` string deliberately reuses the existing snapshot and revision.
 
 Existing instances keep their installed `template_revision`. [Update each instance](/agents-api/instances#update) to recreate it from the template's current revision. A skill already seeded into an instance's `~/.hermes/skills` is not overwritten on update — only fresh instances get a changed skill.
 
@@ -183,9 +167,10 @@ Existing instances keep their installed `template_revision`. [Update each instan
 
 | Error or symptom | What to check |
 | --- | --- |
-| `invalid_image_archive` | Export exactly one image with `docker save`. Rebuild or pull it for `linux/amd64`. |
-| `image_too_large` | The uploaded archive or staged image is over 8 GB decimal. Remove build caches and unnecessary layers, or contact support. |
-| `upload_not_found` | The multipart upload was not completed, it expired, or the `upload_id` belongs to another workspace. Start a fresh push. |
-| `invalid_request` for `image_ref` | Use a fully qualified tag and confirm the registry allows anonymous pulls. Private registries must use direct upload. |
-| `image_ingest_failed` | The private copy failed on Agent37's side. Retry once, then contact `support@agent37.com`. |
+| `build_failed` | A Dockerfile step failed. Read the build log — the CLI streams it, and `GET /v1/template-builds/{id}/logs` keeps it readable afterward; the failing step is at the end. |
+| `build_conflict` | One build runs at a time per workspace. Wait for the running build to finish, then start again. |
+| `build_timeout` | The build ran past the 45-minute limit. Trim the Dockerfile's slowest steps and retry. |
+| `image_too_large` | The built or imported image is over 8 GB decimal. Remove build caches and unnecessary layers, or contact support. |
+| `invalid_request` for `image_ref` | Use a fully qualified tag and confirm the registry allows anonymous pulls. For an image that isn't public, run a [cloud build](#build-it-in-the-cloud) from its Dockerfile instead. |
+| `image_ingest_failed` | The private copy failed on Agent37's side. Retry once — re-run the build or the registration — then contact `support@agent37.com`. |
 | Instance status is `failed` | Read [instance logs](/agents-api/logs); confirm the main process stays alive and `default_port` listens when set. |
