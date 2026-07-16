@@ -12,7 +12,7 @@ curl -X POST https://api.agent37.com/v1/instances \
   -d '{ "template": "agent37-hermes" }'
 ```
 
-Templates come in two scopes. `system` templates are the built-in catalog, the same for every workspace and read-only. `workspace` templates are ones you register from your own image — a public registry reference or a [private upload](/agents-api/custom-image#upload-a-local-or-private-image) — visible only to your workspace.
+Templates come in two scopes. `system` templates are the built-in catalog, the same for every workspace and read-only. `workspace` templates are ones you register from your own image — a public registry reference or a [cloud build](/agents-api/custom-image#build-it-in-the-cloud) — visible only to your workspace.
 
 <Note>
   Registering a workspace template copies your image once into private storage and pins it by digest. That snapshot is what instances run: registration takes up to a few minutes for a large image, the image is stored privately and never republished, and re-pushing the same registry tag later has no effect until you [update the template](#update-a-template).
@@ -62,160 +62,196 @@ The pin sticks: the instance object's `template` field carries it (`"agent37-her
 | `GET` | `/v1/templates/{name}` | `200` with one template, system or workspace |
 | `PATCH` | `/v1/templates/{name}` | `200` with the updated workspace template |
 | `DELETE` | `/v1/templates/{name}` | `200` `{ "name": "...", "deleted": true }` |
-| `POST` | `/v1/template-uploads` | `201` with a presigned upload slot for a local or private image |
-| `POST` | `/v1/template-uploads/{id}/complete` | `200` after validating and completing a multipart upload |
+| `POST` | `/v1/template-builds` | `201` with a new cloud build and a presigned URL for its build context |
+| `POST` | `/v1/template-builds/{id}/start` | `200` with the build now `building` |
+| `GET` | `/v1/template-builds/{id}` | `200` with the build, including the published template once it succeeds |
+| `GET` | `/v1/template-builds/{id}/logs` | `200` with the build plus an incremental chunk of its build log |
 
 ```bash curl
 curl https://api.agent37.com/v1/templates \
   -H "Authorization: Bearer sk_live_..."
 ```
 
-## Upload a local or private image
+## Build an image in the cloud
 
-The supported path is the Agent37 CLI. It verifies the local image, exports and compresses it,
-uploads retryable 64 MiB parts with progress, and creates or updates the template:
+To publish a local or private image, you don't upload the image — you upload a small **build context** (a `Dockerfile` plus the files it `COPY`s) and Agent37 builds the image on its own infrastructure. No local Docker needed, and nothing has to be public except what the build fetches. The supported path is the Agent37 CLI:
 
 ```bash
 export AGENT37_API_KEY=sk_live_...
-npx agent37 templates push my-agent:v1 --name my-agent
+npx agent37 templates build ./my-agent --name my-agent
 ```
 
-The CLI derives `my-agent` from the image name when `--name` is omitted. It waits while
-registration validates and copies the image, then prints the resulting `revision` and
-`image_digest`. Existing instances are not updated.
+The directory defaults to `.` and must have a `Dockerfile` at its root. The CLI packs the folder — minus `.git` and your `.dockerignore` patterns (plain patterns only; `!` negations are ignored) — gzips it (100 MB cap), and streams the live build log to your terminal; on failure it exits non-zero with the failing step visible. `--name` defaults to the folder name, and `--default-port <port>` sets the published template's default port. Re-building an existing name publishes a new template revision; existing instances never change. Ctrl-C does not cancel the build — it keeps running server-side.
 
-The raw multipart API below is for clients implementing the same flow. First gzip one
-`docker save` archive and send its exact byte count:
+See [Build a custom image](/agents-api/custom-image) for the walkthrough. The raw flow below is for clients scripting the same thing without the CLI.
+
+### 1. Create a build
+
+`POST /v1/template-builds` with the template name and the exact byte count of your gzipped context:
+
+<ParamField body="name" type="string" required>
+  The template the build publishes, following the same rules as [template names](#register-a-workspace-template). A new name is created at revision `1` when the build succeeds; an existing name gets a new revision.
+</ParamField>
 
 <ParamField body="size_bytes" type="integer" required>
-  Exact size of the compressed archive, from `1` through `8,000,000,000` bytes. Providing
-  this field selects multipart mode and determines the signed size of each part.
+  Exact size of the gzipped context, from `1` through `100,000,000` bytes (100 MB).
+</ParamField>
+
+<ParamField body="default_port" type="integer">
+  Applied to the published template, with the same semantics as on [`POST /v1/templates`](#register-a-workspace-template).
+</ParamField>
+
+<ParamField body="description" type="string">
+  Optional free-text description for the published template.
 </ParamField>
 
 ```bash curl
-docker save my-agent:v1 | gzip -c > my-agent.tar.gz
-BYTES=$(wc -c < my-agent.tar.gz | tr -d ' ')
+tar --exclude-vcs -czf context.tar.gz -C ./my-agent .
+BYTES=$(wc -c < context.tar.gz | tr -d ' ')
 
-curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-uploads \
+curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-builds \
   -H "Authorization: Bearer $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"size_bytes\":$BYTES}" > upload.json
+  -d "{\"name\":\"my-agent\",\"size_bytes\":$BYTES}" > build.json
 ```
 
 ```json response
 {
-  "id": "up_7d3a90b81f264bc2a113",
-  "mode": "multipart",
-  "multipart_id": "opaque-multipart-upload-id",
-  "part_size_bytes": 67108864,
-  "parts": [
-    {
-      "part_number": 1,
-      "offset_bytes": 0,
-      "size_bytes": 1048576,
-      "upload_url": "https://uploads.example.com/...signed..."
-    }
-  ],
-  "abort_url": "https://uploads.example.com/...signed...",
+  "id": "tb_7d3a90b81f264bc2a113",
+  "name": "my-agent",
+  "status": "created",
+  "upload_url": "https://uploads.example.com/...signed...",
   "expires_at": 1784192400,
-  "max_bytes": 8000000000
+  "max_bytes": 100000000
 }
 ```
 
 <ResponseField name="id" type="string">
-  The workspace-scoped upload id, `up_` followed by 20 lowercase hex characters. Pass it as
-  `upload_id` only after multipart completion succeeds.
+  The workspace-scoped build id, `tb_` followed by 20 lowercase hex characters.
 </ResponseField>
 
-<ResponseField name="mode" type="string">
-  `multipart` when `size_bytes` is provided; `single` for the back-compatible no-body request.
-</ResponseField>
-
-<ResponseField name="multipart_id" type="string">
-  Opaque completion token. Return it unchanged to the completion endpoint.
-</ResponseField>
-
-<ResponseField name="part_size_bytes" type="integer">
-  Maximum bytes per part: `67,108,864` (64 MiB). Only the final part can be shorter.
-</ResponseField>
-
-<ResponseField name="parts" type="object[]">
-  Ordered 64 MiB parts, except for the shorter final part. PUT exactly `size_bytes` beginning
-  at `offset_bytes` to each `upload_url`, with that exact `Content-Length`. Part URLs are
-  bearer credentials: send no Agent37 key and do not log or share them.
-</ResponseField>
-
-<ResponseField name="abort_url" type="string">
-  A presigned `DELETE` the client can call after a failed upload. Abandoned multipart
-  uploads are also cleaned up automatically.
+<ResponseField name="upload_url" type="string">
+  A presigned `PUT` URL for the gzipped context, valid for one hour. It is a bearer credential: send no Agent37 key to it, and do not log or share it.
 </ResponseField>
 
 <ResponseField name="expires_at" type="integer">
-  When the part and abort URLs expire, in epoch seconds. Multipart URLs last 12 hours.
+  When `upload_url` expires, in epoch seconds.
 </ResponseField>
 
 <ResponseField name="max_bytes" type="integer">
-  The 8 GB decimal limit: exactly `8,000,000,000` bytes.
+  The context cap: exactly `100,000,000` bytes (100 MB).
 </ResponseField>
 
-For a one-part archive, upload it directly. Clear curl's default `Expect: 100-continue`
-header; it is incompatible with these presigned uploads:
+### 2. Upload the context
+
+`PUT` the gzipped tar to `upload_url`. The archive must have `Dockerfile` at its root — pack the folder's contents, not the folder. Clear curl's default `Expect: 100-continue` header; it is incompatible with these presigned uploads:
 
 ```bash curl
-PART_URL=$(jq -r '.parts[0].upload_url' upload.json)
-PART_BYTES=$(jq -r '.parts[0].size_bytes' upload.json)
-curl --fail-with-body -X PUT -H 'Expect:' -H "Content-Length: $PART_BYTES" \
-  --data-binary @my-agent.tar.gz "$PART_URL"
+curl --fail-with-body -X PUT -H 'Expect:' \
+  --data-binary @context.tar.gz "$(jq -r '.upload_url' build.json)"
 ```
 
-After every part returns `200`, complete the object:
+### 3. Start the build
 
 ```bash curl
-UPLOAD_ID=$(jq -r '.id' upload.json)
-MULTIPART_ID=$(jq -r '.multipart_id' upload.json)
+BUILD_ID=$(jq -r '.id' build.json)
 
-curl --fail-with-body -X POST \
-  "https://api.agent37.com/v1/template-uploads/$UPLOAD_ID/complete" \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n --arg id "$MULTIPART_ID" '{multipart_id:$id}')"
+curl --fail-with-body -sS -X POST \
+  "https://api.agent37.com/v1/template-builds/$BUILD_ID/start" \
+  -H "Authorization: Bearer $AGENT37_API_KEY"
+```
+
+```json response
+{ "id": "tb_7d3a90b81f264bc2a113", "status": "building" }
+```
+
+Starting a build whose context was never uploaded, or is over 100 MB, returns `400 invalid_request`. One build runs at a time per workspace: a build that already started, or a start while another build is running, returns `409 build_conflict`.
+
+### 4. Poll it and tail the log
+
+`GET /v1/template-builds/{id}` returns the build; `GET /v1/template-builds/{id}/logs?offset=N` returns the same fields plus a chunk of build log starting at `offset` — pass the returned `offset` back to tail incrementally. Poll rather than wait silently: the poll that finds the build finished is what triggers template registration (an unpolled build is still completed by a platform sweep within about five minutes).
+
+```bash curl
+curl -sS "https://api.agent37.com/v1/template-builds/$BUILD_ID/logs?offset=0" \
+  -H "Authorization: Bearer $AGENT37_API_KEY"
 ```
 
 ```json response
 {
-  "id": "up_7d3a90b81f264bc2a113",
-  "completed": true,
-  "size_bytes": 1048576
+  "id": "tb_7d3a90b81f264bc2a113",
+  "name": "my-agent",
+  "status": "succeeded",
+  "template": {
+    "name": "my-agent",
+    "revision": 1,
+    "image_digest": "sha256:9b2e...c41f"
+  },
+  "created": 1784190000,
+  "started": 1784190010,
+  "finished": 1784190190,
+  "offset": 5120,
+  "data": "#8 exporting layers\n#8 DONE 1.2s\n"
 }
 ```
 
-Then create or update a template with `UPLOAD_ID`. Missing, expired, and other-workspace
-uploads return `404 upload_not_found`.
+<ResponseField name="status" type="string">
+  `created` (waiting for the context and `start`), `building` (the Docker build is running), `ingesting` (build done; the image is being copied into private storage), `succeeded`, or `failed`.
+</ResponseField>
 
-<Note>
-  The 8 GB decimal cap is enforced on both the uploaded archive and the image's real staged
-  layer bytes. Outer gzip compression can make the archive smaller, but an image that expands
-  beyond `8,000,000,000` bytes is still rejected during registration.
-</Note>
+<ResponseField name="error" type="object">
+  On `failed`, the reason as `{ "code", "message" }`. See [the failure codes](#build-limits-and-failures).
+</ResponseField>
 
-For backward compatibility, `POST /v1/template-uploads` with no body returns `mode: "single"`
-and one `upload_url` valid for an hour. Use it only for small uploads and include
-`-H 'Expect:'` with curl; single PUTs cannot retry individual ranges.
+<ResponseField name="template" type="object">
+  On `succeeded`, the published result: the template `name`, its new `revision`, and the pinned `image_digest`.
+</ResponseField>
+
+<ResponseField name="created" type="integer">
+  When the build was created, in epoch seconds.
+</ResponseField>
+
+<ResponseField name="started" type="integer">
+  When the build started, in epoch seconds. Set once it starts.
+</ResponseField>
+
+<ResponseField name="finished" type="integer">
+  When the build finished, in epoch seconds. Set once it succeeds or fails.
+</ResponseField>
+
+<ResponseField name="offset" type="integer">
+  Logs endpoint only: the next offset to request.
+</ResponseField>
+
+<ResponseField name="data" type="string">
+  Logs endpoint only: the log chunk starting at your offset — the real Docker build output. It stays readable after the build finishes.
+</ResponseField>
+
+### Build limits and failures
+
+Builds are free. One build runs at a time per workspace, a build times out after 45 minutes, and the gzipped context is capped at 100 MB. The built image is capped at 8 GB decimal like a registry import, though built images practically top out around 4 GB today; if you need more, [talk to the team](https://cal.com/vishnukool/30min).
+
+Everything the build fetches — the `FROM` base image, anything `RUN` downloads — must be **publicly reachable**. There is no build-secret or private-registry-credential support yet; for a private base image, [contact support](mailto:support@agent37.com). A template published by a build has an `image_digest` and no `image_ref`, because no public reference exists.
+
+A failed build carries its reason in `error.code`:
+
+| Code | What happened |
+| --- | --- |
+| `build_failed` | A Dockerfile step failed; the failing step is at the end of the build log |
+| `build_timeout` | The build ran past the 45-minute limit |
+| `invalid_request` | The context is unusable: not a gzipped tar, or no `Dockerfile` at its root |
+| `image_too_large` | The built image is over the 8 GB decimal cap |
+| `image_ingest_failed` | The copy into private storage failed for a reason on our side; re-run the build, or [contact support](mailto:support@agent37.com) |
 
 ## Register a workspace template
 
-`POST /v1/templates` registers an amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it. The image can be anything, built from scratch or on [the Hermes base image](#build-on-the-hermes-base-image). Give the image as **either** an `image_ref` (a public registry reference) **or** an `upload_id` (a [private upload](#upload-a-local-or-private-image)) — exactly one; sending both or neither returns `400 invalid_request`. If you need an image larger than the 8 GB cap allows, [talk to the team](https://cal.com/vishnukool/30min).
+`POST /v1/templates` registers an amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it. The image can be anything, built from scratch or on [the Hermes base image](#build-on-the-hermes-base-image). Give the image as an `image_ref`, a **public** registry reference; for an image that isn't public, use a [cloud build](#build-an-image-in-the-cloud) instead — it publishes the template itself, so there is nothing to register afterward. If you need an image larger than the 8 GB cap allows, [talk to the team](https://cal.com/vishnukool/30min).
 
 <ParamField body="name" type="string" required>
   2 to 63 characters: lowercase letters, digits, and hyphens, starting with a letter (`^[a-z][a-z0-9-]{1,62}$`). The `agent37-` prefix is reserved. A name that already exists returns `409 template_conflict`.
 </ParamField>
 
-<ParamField body="image_ref" type="string">
-  A fully qualified **public** image reference with a registry or namespace path, like `ghcr.io/acme/my-agent:v1`. Up to 255 characters. The image must be public (so the platform can copy it), built for `linux/amd64`, and at most 8 GB. On registration the platform pulls it once into private storage and pins it by digest; a reference that isn't publicly pullable, isn't `linux/amd64`, or is over the cap is rejected then. Mutually exclusive with `upload_id`.
-</ParamField>
-
-<ParamField body="upload_id" type="string">
-  The `id` from a completed [`POST /v1/template-uploads`](#upload-a-local-or-private-image) slot. Use this for a private or unpublished image. The archive must be a `docker save` tarball (gzip optional), `linux/amd64`, and at most 8 GB decimal. Mutually exclusive with `image_ref`; a template registered this way has no `image_ref`, only an `image_digest`.
+<ParamField body="image_ref" type="string" required>
+  A fully qualified **public** image reference with a registry or namespace path, like `ghcr.io/acme/my-agent:v1`. Up to 255 characters. The image must be public (so the platform can copy it), built for `linux/amd64`, and at most 8 GB. On registration the platform pulls it once into private storage and pins it by digest; a reference that isn't publicly pullable, isn't `linux/amd64`, or is over the cap is rejected then.
 </ParamField>
 
 <ParamField body="description" type="string">
@@ -275,7 +311,7 @@ console.log(await resp.json());
 
 </CodeGroup>
 
-Registration copies the image into private storage before it returns, so `POST` and `PATCH` are synchronous and can take up to a few minutes for a large image. A reference that isn't publicly pullable, an archive that isn't a single `linux/amd64` image, or an image over the cap is rejected at registration — `400 invalid_request`, `400 invalid_image_archive`, or `400 image_too_large` — so a broken image never reaches instance create.
+Registration copies the image into private storage before it returns, so `POST` and `PATCH` are synchronous and can take up to a few minutes for a large image. A reference that isn't publicly pullable, isn't `linux/amd64`, or is over the cap is rejected at registration — `400 invalid_request` or `400 image_too_large` — so a broken image never reaches instance create.
 
 <Tip>
   Pin a tag on `image_ref`; do not rely on `latest`. A pinned tag makes rollback a one-field `PATCH` and keeps every instance you create reproducible. The template is a snapshot regardless — pinning is about which build you re-register next.
@@ -298,9 +334,9 @@ COPY my-skills/ /usr/local/share/agent37/default-skills/
 USER node
 ```
 
-Build it for `linux/amd64`, then [upload it privately](/agents-api/custom-image#upload-a-local-or-private-image) or push it to a public registry. OpenClaw builds have the same shape: the FROM target is [`ghcr.io/agent37-platform/openclaw-base`](https://github.com/orgs/agent37-platform/packages/container/package/openclaw-base), published with the same dated tags as `agent37-openclaw`.
+Publish it with a [cloud build](#build-an-image-in-the-cloud) — `npx agent37 templates build` from the folder holding the Dockerfile — or build it yourself for `linux/amd64` and push it to a public registry. OpenClaw builds have the same shape: the FROM target is [`ghcr.io/agent37-platform/openclaw-base`](https://github.com/orgs/agent37-platform/packages/container/package/openclaw-base), published with the same dated tags as `agent37-openclaw`.
 
-See [Build and upload a custom image](/agents-api/custom-image) for the step-by-step walkthrough, with a copy-able example — a `Dockerfile`, an example skill, a registration script, and a tiny bring-your-own-model proxy.
+See [Build a custom image](/agents-api/custom-image) for the step-by-step walkthrough, with a copy-able example — a `Dockerfile`, an example skill, a registration script, and a tiny bring-your-own-model proxy.
 
 The contract:
 
@@ -313,7 +349,7 @@ The contract:
 
 ## Update a template
 
-`PATCH /v1/templates/{name}` changes any of `name`, `image_ref` (or `upload_id`, for a new local image), `description`, or `default_port` (send `null` to clear it back to the `3737` fallback). Send at least one field; `image_ref` and `upload_id` remain mutually exclusive. A changed `image_ref` or any fresh `upload_id` is copied into private storage, so an image update is synchronous like create. Each successful image update increments the platform-controlled `revision`; a fresh upload increments it even when the new archive has the same `image_digest`. Sending the exact same `image_ref` string reuses the existing snapshot and does not increment it. Renaming or changing only `description` or `default_port` also leaves it unchanged. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
+`PATCH /v1/templates/{name}` changes any of `name`, `image_ref`, `description`, or `default_port` (send `null` to clear it back to the `3737` fallback). Send at least one field. A changed `image_ref` is copied into private storage, so an image update is synchronous like create, and each successful image update increments the platform-controlled `revision`. Sending the exact same `image_ref` string reuses the existing snapshot and does not increment it; renaming or changing only `description` or `default_port` also leaves it unchanged. To ship a new image on a template published by a [cloud build](#build-an-image-in-the-cloud) (no `image_ref`), run a new build under the same name — every successful build publishes a new revision, even when the built image's digest is unchanged. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
 
 ```bash curl
 curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
@@ -322,7 +358,7 @@ curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
   -d '{ "image_ref": "ghcr.io/acme/my-agent:v2" }'
 ```
 
-Point `image_ref` at an older tag (or upload an older build) to roll back. Existing instances keep running on the image they already pulled; [update each instance](/agents-api/instances) to recreate it from the template's current image.
+Point `image_ref` at an older tag — or, for a build-born template, re-run the [build](#build-an-image-in-the-cloud) from the older source — to roll back. Existing instances keep running on the image they already pulled; [update each instance](/agents-api/instances) to recreate it from the template's current image.
 
 Workspace templates start at `revision: 1`. Compare that value with an instance's `template_revision` to find instances that have not installed the current template release.
 
@@ -371,7 +407,7 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
 }
 ```
 
-A workspace template registered from a public reference echoes that reference as `image_ref` and adds the pinned `image_digest`; one registered from a local upload has an `image_digest` and no `image_ref`:
+A workspace template registered from a public reference echoes that reference as `image_ref` and adds the pinned `image_digest`; one published by a [cloud build](#build-an-image-in-the-cloud) has an `image_digest` and no `image_ref`:
 
 ```json response
 {
@@ -397,10 +433,10 @@ A workspace template registered from a public reference echoes that reference as
   The agents the template installs: `["hermes"]` on `agent37-hermes`. Workspace templates report `[]` — the platform does not inspect what your image installs.
 </ResponseField>
 <ResponseField name="revision" type="integer | null">
-  The platform-controlled workspace image revision. It starts at `1` and increments for a changed `image_ref` or every fresh `upload_id`, even when the digest is unchanged. Metadata-only updates and the same exact `image_ref` leave it unchanged. `null` for system templates.
+  The platform-controlled workspace image revision. It starts at `1` and increments for a changed `image_ref` or every successful [cloud build](#build-an-image-in-the-cloud), even when the digest is unchanged. Metadata-only updates and the same exact `image_ref` leave it unchanged. `null` for system templates.
 </ResponseField>
 <ResponseField name="image_ref" type="string">
-  For system templates and workspace templates registered from a registry, the image reference. **Absent** on a workspace template registered from a local upload — it lives only in Agent37's private storage, identified by `image_digest`.
+  For system templates and workspace templates registered from a registry, the image reference. **Absent** on a workspace template published by a [cloud build](#build-an-image-in-the-cloud) — its image lives only in Agent37's private storage, identified by `image_digest`.
 </ResponseField>
 <ResponseField name="image_digest" type="string">
   On workspace templates, the `sha256:...` digest of the private snapshot instances run — the immutable identity of the registered image. Absent on system templates.
@@ -422,13 +458,14 @@ A workspace template registered from a public reference echoes that reference as
 
 | Status | Code | When |
 | --- | --- | --- |
-| `400` | `invalid_request` | Bad `name`, `image_ref`, or `default_port`; both or neither of `image_ref`/`upload_id`; a not-publicly-pullable registry reference; the legacy `ports` array; a direct image reference passed as `template` on instance create |
-| `400` | `invalid_image_archive` | The uploaded archive is not a single `linux/amd64` image (wrong architecture, not a `docker save` tarball, or more than one image) |
-| `400` | `image_too_large` | The archive or staged image is over the 8 GB decimal cap |
-| `404` | `upload_not_found` | The multipart upload cannot be found, or `upload_id` names no completed upload in your workspace — never uploaded, expired, or another workspace's |
+| `400` | `invalid_request` | Bad `name`, `image_ref`, or `default_port`; a template create with no `image_ref`; a not-publicly-pullable registry reference; the legacy `ports` array; a direct image reference passed as `template` on instance create; a [build](#build-an-image-in-the-cloud) `start` with no uploaded context or one over 100 MB |
+| `400` | `image_too_large` | The staged image is over the 8 GB decimal cap |
 | `403` | `forbidden` | `PATCH` or `DELETE` on a system template: they are read-only |
-| `404` | `not_found` | Unknown template name; repeat `DELETE` |
+| `404` | `not_found` | Unknown template name or build id; repeat `DELETE` |
 | `409` | `template_conflict` | Create or rename onto a name that already exists |
+| `409` | `build_conflict` | A build `start` on a build that already started, or while another build is running in your workspace — one build runs at a time |
 | `502` | `image_ingest_failed` | The copy into private storage failed for a reason on our side; retry, or [contact support](mailto:support@agent37.com) |
+
+A build that fails after starting is not an HTTP error: `GET /v1/template-builds/{id}` returns `200` with `status: "failed"` and the reason in its `error` field — see [build limits and failures](#build-limits-and-failures).
 
 See [Errors](/agents-api/errors) for the envelope and the full catalog.

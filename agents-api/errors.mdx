@@ -34,10 +34,8 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | Code | HTTP | When |
 | --- | --- | --- |
 | `invalid_api_key` | 401 | The `sk_live_` Bearer key is missing, malformed, or revoked, on any `/v1` path. |
-| `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, both or neither of a [template](/agents-api/templates)'s `image_ref`/`upload_id`, a not-publicly-pullable registry reference, a lifecycle action in the wrong state, or an invalid [`update`](/agents-api/instances#update) body (any field other than `template`, or a `template` naming a different base template). |
-| `invalid_image_archive` | 400 | A [template](/agents-api/templates) upload is not a single `linux/amd64` image: wrong architecture, not a `docker save` tarball, or more than one image in the archive. |
-| `image_too_large` | 400 | A [template](/agents-api/templates) archive or staged image is over the 8 GB decimal cap (`8,000,000,000` bytes). |
-| `upload_not_found` | 404 | A multipart upload cannot be found, or a template create names an `upload_id` with no completed upload in your workspace — never uploaded, expired, or another workspace's. |
+| `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, a [template](/agents-api/templates) create with no `image_ref`, a not-publicly-pullable registry reference, starting a [template build](/agents-api/templates#build-an-image-in-the-cloud) whose context is missing or over 100 MB, a lifecycle action in the wrong state, or an invalid [`update`](/agents-api/instances#update) body (any field other than `template`, or a `template` naming a different base template). |
+| `image_too_large` | 400 | A [template](/agents-api/templates)'s staged image is over the 8 GB decimal cap (`8,000,000,000` bytes). |
 | `forbidden` | 403 | A write to a system template. System templates are read-only. |
 | `not_found` | 404 | No instance or template with that id or name in your workspace, or an unknown `/v1` path. |
 | `insufficient_balance` | 402 | The wallet holds less than a day of the instance's running rate at create, or is negative at `start` of a `past_due` instance. |
@@ -45,6 +43,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | `tier_limit` | 403 | Create or resize asks for a shape larger than your plan includes, or a [custom domain](/agents-api/domains) is registered before your top-ups total \$500. Free workspaces (before your first top-up) run any template up to the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
 | `capacity_unavailable` | 409 | `start` or `resize`: no host in the fleet can fit this instance, or the resize increase, right now. |
 | `template_conflict` | 409 | A template create or rename targets a name that already exists. |
+| `build_conflict` | 409 | A [template build](/agents-api/templates#build-an-image-in-the-cloud) `start` on a build that already started, or while another build is running in the workspace — one build runs at a time. |
 | `domain_exists` | 409 | A [custom domain](/agents-api/domains) registration names a hostname already registered, by your workspace or any other. |
 | `try_again` | 409 | A transient state conflict: the instance is mid-transition, for example `stop` during the second or so while a sleep checkpoint is being written. Retry in a few seconds. |
 | `no_capacity` | 503 | Create only: no host can fit the requested shape right now. Safe to retry. |
@@ -54,6 +53,8 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 <Note>
   Lookups are uniform: an id that belongs to another workspace returns the same 404 as an id that does not exist, and unknown `/v1` paths 404 only after your key is validated. Nothing about other workspaces leaks through error responses.
 </Note>
+
+A [template build](/agents-api/templates#build-an-image-in-the-cloud) that fails after starting is not an HTTP error: `GET /v1/template-builds/{id}` returns `200` with `status: "failed"` and the reason (`build_failed`, `build_timeout`, `invalid_request`, `image_too_large`, or `image_ingest_failed`) in its `error` field.
 
 ## Agent API errors
 
