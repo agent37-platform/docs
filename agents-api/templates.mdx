@@ -282,7 +282,7 @@ Registration copies the image into private storage before it returns, so `POST` 
 </Tip>
 
 <Note>
-  Build for `linux/amd64` even on an Apple Silicon Mac (`docker buildx build --platform linux/amd64 --load ...`). An arm64 image is rejected during registration.
+  Build for `linux/amd64` even on an Apple Silicon Mac (`docker build --platform linux/amd64 ...`). An arm64 image is rejected during registration.
 </Note>
 
 ## Build on the Hermes base image
