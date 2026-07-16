@@ -63,6 +63,7 @@ The pin sticks: the instance object's `template` field carries it (`"agent37-her
 | `PATCH` | `/v1/templates/{name}` | `200` with the updated workspace template |
 | `DELETE` | `/v1/templates/{name}` | `200` `{ "name": "...", "deleted": true }` |
 | `POST` | `/v1/template-uploads` | `201` with a presigned upload slot for a local or private image |
+| `POST` | `/v1/template-uploads/{id}/complete` | `200` after validating and completing a multipart upload |
 
 ```bash curl
 curl https://api.agent37.com/v1/templates \
@@ -71,56 +72,150 @@ curl https://api.agent37.com/v1/templates \
 
 ## Upload a local or private image
 
-`POST /v1/template-uploads` creates a workspace-scoped slot for one `docker save` archive. It takes no body. Use it when an image is local or in a private registry; Agent37 does not accept private-registry credentials.
+The supported path is the Agent37 CLI. It verifies the local image, exports and compresses it,
+uploads retryable 64 MiB parts with progress, and creates or updates the template:
+
+```bash
+export AGENT37_API_KEY=sk_live_...
+npx agent37 templates push my-agent:v1 --name my-agent
+```
+
+The CLI derives `my-agent` from the image name when `--name` is omitted. It waits while
+registration validates and copies the image, then prints the resulting `revision` and
+`image_digest`. Existing instances are not updated.
+
+The raw multipart API below is for clients implementing the same flow. First gzip one
+`docker save` archive and send its exact byte count:
+
+<ParamField body="size_bytes" type="integer" required>
+  Exact size of the compressed archive, from `1` through `8,000,000,000` bytes. Providing
+  this field selects multipart mode and determines the signed size of each part.
+</ParamField>
 
 ```bash curl
-curl -X POST https://api.agent37.com/v1/template-uploads \
-  -H "Authorization: Bearer sk_live_..."
+docker save my-agent:v1 | gzip -c > my-agent.tar.gz
+BYTES=$(wc -c < my-agent.tar.gz | tr -d ' ')
+
+curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-uploads \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"size_bytes\":$BYTES}" > upload.json
 ```
 
 ```json response
 {
   "id": "up_7d3a90b81f264bc2a113",
-  "upload_url": "https://uploads.example.com/...signed...",
-  "expires_at": 1784149200
+  "mode": "multipart",
+  "multipart_id": "opaque-multipart-upload-id",
+  "part_size_bytes": 67108864,
+  "parts": [
+    {
+      "part_number": 1,
+      "offset_bytes": 0,
+      "size_bytes": 1048576,
+      "upload_url": "https://uploads.example.com/...signed..."
+    }
+  ],
+  "abort_url": "https://uploads.example.com/...signed...",
+  "expires_at": 1784192400,
+  "max_bytes": 8000000000
 }
 ```
 
 <ResponseField name="id" type="string">
-  The workspace-scoped upload id, `up_` followed by 20 lowercase hex characters. Pass it as `upload_id` only after the archive PUT succeeds.
+  The workspace-scoped upload id, `up_` followed by 20 lowercase hex characters. Pass it as
+  `upload_id` only after multipart completion succeeds.
 </ResponseField>
 
-<ResponseField name="upload_url" type="string">
-  A presigned URL for one raw HTTP `PUT`. The URL is the temporary credential: send the archive bytes with no Agent37 authorization header, and do not log or share it.
+<ResponseField name="mode" type="string">
+  `multipart` when `size_bytes` is provided; `single` for the back-compatible no-body request.
+</ResponseField>
+
+<ResponseField name="multipart_id" type="string">
+  Opaque completion token. Return it unchanged to the completion endpoint.
+</ResponseField>
+
+<ResponseField name="part_size_bytes" type="integer">
+  Maximum bytes per part: `67,108,864` (64 MiB). Only the final part can be shorter.
+</ResponseField>
+
+<ResponseField name="parts" type="object[]">
+  Ordered 64 MiB parts, except for the shorter final part. PUT exactly `size_bytes` beginning
+  at `offset_bytes` to each `upload_url`, with that exact `Content-Length`. Part URLs are
+  bearer credentials: send no Agent37 key and do not log or share them.
+</ResponseField>
+
+<ResponseField name="abort_url" type="string">
+  A presigned `DELETE` the client can call after a failed upload. Abandoned multipart
+  uploads are also cleaned up automatically.
 </ResponseField>
 
 <ResponseField name="expires_at" type="integer">
-  When `upload_url` expires, in epoch seconds. Request a new slot if you have not finished the PUT by then.
+  When the part and abort URLs expire, in epoch seconds. Multipart URLs last 12 hours.
 </ResponseField>
 
-Export exactly one `linux/amd64` image, then upload it. Plain tar and gzip are accepted; the image may be at most 5 GB.
+<ResponseField name="max_bytes" type="integer">
+  The 8 GB decimal limit: exactly `8,000,000,000` bytes.
+</ResponseField>
+
+For a one-part archive, upload it directly. Clear curl's default `Expect: 100-continue`
+header; it is incompatible with these presigned uploads:
 
 ```bash curl
-docker save my-agent:v1 -o my-agent.tar
-curl --fail-with-body -T my-agent.tar "<upload_url>"
+PART_URL=$(jq -r '.parts[0].upload_url' upload.json)
+PART_BYTES=$(jq -r '.parts[0].size_bytes' upload.json)
+curl --fail-with-body -X PUT -H 'Expect:' -H "Content-Length: $PART_BYTES" \
+  --data-binary @my-agent.tar.gz "$PART_URL"
 ```
 
-The PUT returns `200` when the archive is stored. Then create or update a template with the slot's `id`. Missing, expired, and other-workspace ids all return `404 upload_not_found`. See [Build and upload a custom image](/agents-api/custom-image#upload-a-local-or-private-image) for a copy-pasteable end-to-end flow.
+After every part returns `200`, complete the object:
+
+```bash curl
+UPLOAD_ID=$(jq -r '.id' upload.json)
+MULTIPART_ID=$(jq -r '.multipart_id' upload.json)
+
+curl --fail-with-body -X POST \
+  "https://api.agent37.com/v1/template-uploads/$UPLOAD_ID/complete" \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --arg id "$MULTIPART_ID" '{multipart_id:$id}')"
+```
+
+```json response
+{
+  "id": "up_7d3a90b81f264bc2a113",
+  "completed": true,
+  "size_bytes": 1048576
+}
+```
+
+Then create or update a template with `UPLOAD_ID`. Missing, expired, and other-workspace
+uploads return `404 upload_not_found`.
+
+<Note>
+  The 8 GB decimal cap is enforced on both the uploaded archive and the image's real staged
+  layer bytes. Outer gzip compression can make the archive smaller, but an image that expands
+  beyond `8,000,000,000` bytes is still rejected during registration.
+</Note>
+
+For backward compatibility, `POST /v1/template-uploads` with no body returns `mode: "single"`
+and one `upload_url` valid for an hour. Use it only for small uploads and include
+`-H 'Expect:'` with curl; single PUTs cannot retry individual ranges.
 
 ## Register a workspace template
 
-`POST /v1/templates` registers an amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it. The image can be anything, built from scratch or on [the Hermes base image](#build-on-the-hermes-base-image). Give the image as **either** an `image_ref` (a public registry reference) **or** an `upload_id` (a [private upload](#upload-a-local-or-private-image)) — exactly one; sending both or neither returns `400 invalid_request`. If you need an image larger than the 5 GB cap allows, [talk to the team](https://cal.com/vishnukool/30min).
+`POST /v1/templates` registers an amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it. The image can be anything, built from scratch or on [the Hermes base image](#build-on-the-hermes-base-image). Give the image as **either** an `image_ref` (a public registry reference) **or** an `upload_id` (a [private upload](#upload-a-local-or-private-image)) — exactly one; sending both or neither returns `400 invalid_request`. If you need an image larger than the 8 GB cap allows, [talk to the team](https://cal.com/vishnukool/30min).
 
 <ParamField body="name" type="string" required>
   2 to 63 characters: lowercase letters, digits, and hyphens, starting with a letter (`^[a-z][a-z0-9-]{1,62}$`). The `agent37-` prefix is reserved. A name that already exists returns `409 template_conflict`.
 </ParamField>
 
 <ParamField body="image_ref" type="string">
-  A fully qualified **public** image reference with a registry or namespace path, like `ghcr.io/acme/my-agent:v1`. Up to 255 characters. The image must be public (so the platform can copy it), built for `linux/amd64`, and at most 5 GB. On registration the platform pulls it once into private storage and pins it by digest; a reference that isn't publicly pullable, isn't `linux/amd64`, or is over the cap is rejected then. Mutually exclusive with `upload_id`.
+  A fully qualified **public** image reference with a registry or namespace path, like `ghcr.io/acme/my-agent:v1`. Up to 255 characters. The image must be public (so the platform can copy it), built for `linux/amd64`, and at most 8 GB. On registration the platform pulls it once into private storage and pins it by digest; a reference that isn't publicly pullable, isn't `linux/amd64`, or is over the cap is rejected then. Mutually exclusive with `upload_id`.
 </ParamField>
 
 <ParamField body="upload_id" type="string">
-  The `id` from a [`POST /v1/template-uploads`](#upload-a-local-or-private-image) slot whose archive you have uploaded. Use this for a private or unpublished image. The archive must be a `docker save` tarball (gzip optional), `linux/amd64`, and at most 5 GB. Mutually exclusive with `image_ref`; a template registered this way has no `image_ref`, only an `image_digest`.
+  The `id` from a completed [`POST /v1/template-uploads`](#upload-a-local-or-private-image) slot. Use this for a private or unpublished image. The archive must be a `docker save` tarball (gzip optional), `linux/amd64`, and at most 8 GB decimal. Mutually exclusive with `image_ref`; a template registered this way has no `image_ref`, only an `image_digest`.
 </ParamField>
 
 <ParamField body="description" type="string">
@@ -329,8 +424,8 @@ A workspace template registered from a public reference echoes that reference as
 | --- | --- | --- |
 | `400` | `invalid_request` | Bad `name`, `image_ref`, or `default_port`; both or neither of `image_ref`/`upload_id`; a not-publicly-pullable registry reference; the legacy `ports` array; a direct image reference passed as `template` on instance create |
 | `400` | `invalid_image_archive` | The uploaded archive is not a single `linux/amd64` image (wrong architecture, not a `docker save` tarball, or more than one image) |
-| `400` | `image_too_large` | The image is over the 5 GB cap |
-| `404` | `upload_not_found` | `upload_id` names no upload in your workspace — never uploaded, expired, or another workspace's |
+| `400` | `image_too_large` | The archive or staged image is over the 8 GB decimal cap |
+| `404` | `upload_not_found` | The multipart upload cannot be found, or `upload_id` names no completed upload in your workspace — never uploaded, expired, or another workspace's |
 | `403` | `forbidden` | `PATCH` or `DELETE` on a system template: they are read-only |
 | `404` | `not_found` | Unknown template name; repeat `DELETE` |
 | `409` | `template_conflict` | Create or rename onto a name that already exists |

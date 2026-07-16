@@ -36,8 +36,8 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | `invalid_api_key` | 401 | The `sk_live_` Bearer key is missing, malformed, or revoked, on any `/v1` path. |
 | `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, both or neither of a [template](/agents-api/templates)'s `image_ref`/`upload_id`, a not-publicly-pullable registry reference, a lifecycle action in the wrong state, or an invalid [`update`](/agents-api/instances#update) body (any field other than `template`, or a `template` naming a different base template). |
 | `invalid_image_archive` | 400 | A [template](/agents-api/templates) upload is not a single `linux/amd64` image: wrong architecture, not a `docker save` tarball, or more than one image in the archive. |
-| `image_too_large` | 400 | A [template](/agents-api/templates) image (registry reference or upload) is over the 5 GB cap. |
-| `upload_not_found` | 404 | A template create names an `upload_id` with no matching upload in your workspace — never uploaded, expired, or another workspace's. |
+| `image_too_large` | 400 | A [template](/agents-api/templates) archive or staged image is over the 8 GB decimal cap (`8,000,000,000` bytes). |
+| `upload_not_found` | 404 | A multipart upload cannot be found, or a template create names an `upload_id` with no completed upload in your workspace — never uploaded, expired, or another workspace's. |
 | `forbidden` | 403 | A write to a system template. System templates are read-only. |
 | `not_found` | 404 | No instance or template with that id or name in your workspace, or an unknown `/v1` path. |
 | `insufficient_balance` | 402 | The wallet holds less than a day of the instance's running rate at create, or is negative at `start` of a `past_due` instance. |
