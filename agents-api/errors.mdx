@@ -54,7 +54,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
   Lookups are uniform: an id that belongs to another workspace returns the same 404 as an id that does not exist, and unknown `/v1` paths 404 only after your key is validated. Nothing about other workspaces leaks through error responses.
 </Note>
 
-A [template build](/agents-api/templates#build-an-image-in-the-cloud) that fails after starting is not an HTTP error: `GET /v1/template-builds/{id}` returns `200` with `status: "failed"` and the reason (`build_failed`, `build_timeout`, `invalid_request`, `image_too_large`, or `image_ingest_failed`) in its `error` field.
+A [template build](/agents-api/templates#build-an-image-in-the-cloud) that fails after starting is not an HTTP error: `GET /v1/template-builds/{id}` returns `200` with `status: "failed"` and the reason (`build_failed`, `build_timeout`, `invalid_request`, `invalid_image_archive`, `image_too_large`, `image_ingest_failed`, or `internal_error`) in its `error` field.
 
 ## Agent API errors
 

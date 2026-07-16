@@ -81,7 +81,7 @@ export AGENT37_API_KEY=sk_live_...
 npx agent37 templates build ./my-agent --name my-agent
 ```
 
-The directory defaults to `.` and must have a `Dockerfile` at its root. The CLI packs the folder — minus `.git` and your `.dockerignore` patterns (plain patterns only; `!` negations are ignored) — gzips it (100 MB cap), and streams the live build log to your terminal; on failure it exits non-zero with the failing step visible. `--name` defaults to the folder name, and `--default-port <port>` sets the published template's default port. Re-building an existing name publishes a new template revision; existing instances never change. Ctrl-C does not cancel the build — it keeps running server-side.
+The directory defaults to `.` and must have a `Dockerfile` at its root. The CLI packs the **whole folder** — minus `.git` and your `.dockerignore` patterns (plain patterns only; `!` negations are ignored) — gzips it (100 MB cap), and streams the live build log to your terminal; on failure it exits non-zero with the failing step visible. Every unexcluded file ships with the context, a stray `.env` included, and a `COPY . .` bakes it into the image — check the folder, or add a `.dockerignore`, before you build. `--name` defaults to the folder name, and `--default-port <port>` sets the published template's default port. Re-building an existing name publishes a new template revision; existing instances never change. Ctrl-C does not cancel the build — it keeps running server-side.
 
 See [Build a custom image](/agents-api/custom-image) for the walkthrough. The raw flow below is for clients scripting the same thing without the CLI.
 
@@ -239,8 +239,10 @@ A failed build carries its reason in `error.code`:
 | `build_failed` | A Dockerfile step failed; the failing step is at the end of the build log |
 | `build_timeout` | The build ran past the 45-minute limit |
 | `invalid_request` | The context is unusable: not a gzipped tar, or no `Dockerfile` at its root |
+| `invalid_image_archive` | The built image failed validation: not a readable single `linux/amd64` image |
 | `image_too_large` | The built image is over the 8 GB decimal cap |
 | `image_ingest_failed` | The copy into private storage failed for a reason on our side; re-run the build, or [contact support](mailto:support@agent37.com) |
+| `internal_error` | The build failed for a reason on our side; re-run the build, or [contact support](mailto:support@agent37.com) |
 
 ## Register a workspace template
 
