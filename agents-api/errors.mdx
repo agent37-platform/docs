@@ -34,7 +34,7 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | Code | HTTP | When |
 | --- | --- | --- |
 | `invalid_api_key` | 401 | The `sk_live_` Bearer key is missing, malformed, or revoked, on any `/v1` path. |
-| `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, a [template](/agents-api/templates) create with no `image_ref`, a not-publicly-pullable registry reference, starting a [template build](/agents-api/templates#build-an-image-in-the-cloud) whose context is missing or over 100 MB, a lifecycle action in the wrong state, or an invalid [`update`](/agents-api/instances#update) body (any field other than `template`, or a `template` naming a different base template). |
+| `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, a [template](/agents-api/templates) create with no `image_ref`, a not-publicly-pullable registry reference, starting a [template build](/agents-api/templates#build-an-image-in-the-cloud) whose context is missing or over 100 MB, a lifecycle action in the wrong state, or an invalid [`update`](/agents-api/instances#update) body (any field other than `template`, or a `template` whose shapes don't include the instance's current size). |
 | `image_too_large` | 400 | A [template](/agents-api/templates)'s staged image is over the 8 GB decimal cap (`8,000,000,000` bytes). |
 | `forbidden` | 403 | A write to a system template. System templates are read-only. |
 | `not_found` | 404 | No instance or template with that id or name in your workspace, or an unknown `/v1` path. |

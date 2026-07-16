@@ -372,7 +372,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
 
 `POST /v1/instances/{id}/update` pulls the template's image, resets the operating system layer to it, and preserves the data in `/home/node` and `/home/linuxbrew`. It is the one lifecycle call that discards changes outside those directories, which also makes it the clean-slate repair tool: use it to move an instance onto a newer version after a release (or after you point a workspace template at a new tag), or to recover a failed/stuck instance (read its [logs](/agents-api/logs) first to see why it failed). A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts.
 
-The body is optional. Without one, update re-resolves the instance's stored template: a workspace instance installs the template's current image and `revision`, an unpinned system instance moves to the template's current image, and a [version-pinned](/agents-api/templates#pin-a-system-template-version) instance stays on its pin. To set, move, or clear the pin, pass the one accepted field, `template`: the same template with an `@<version>` pins that release (this works on an unpinned instance too), and the bare name clears the pin to follow latest. A different base template returns `400` (create a new instance to change templates), and any other field returns `400`. The ack carries the resulting `status`, `image_ref`, `image_digest`, and `template_revision`. A `sleeping` instance cannot be updated: wake it first, with any request to its URL or an explicit [`start`](#start). A bad image reference on the template surfaces here as a `502 provisioning_failed`.
+The body is optional. Without one, update re-resolves the instance's stored template: a workspace instance installs the template's current image and `revision`, an unpinned system instance moves to the template's current image, and a [version-pinned](/agents-api/templates#pin-a-system-template-version) instance stays on its pin. The one accepted field, `template`, takes any template name: the same template with an `@<version>` pins that release (this works on an unpinned instance too), the bare name clears the pin to follow latest, and a *different* template migrates the instance onto it. A template migration keeps the instance's id, URLs, public ports, and data, and the recreated container adopts the new template's image, default port, and agent type. It returns `400` if the instance's current size isn't offered by the target template (the 1 vCPU / 3 GB shape exists only on templates that support it, like `agent37-hermes-small`). Any other field returns `400`. The ack carries the resulting `status`, the applied `template` when one was passed, `image_ref`, `image_digest`, and `template_revision`. A `sleeping` instance cannot be updated: wake it first, with any request to its URL or an explicit [`start`](#start). A bad image reference on the template surfaces here as a `502 provisioning_failed`.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
@@ -384,6 +384,13 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{ "template": "agent37-hermes@<tag>" }'
+
+# Migrate the instance onto a different template (data kept, container recreated from the new image):
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "my-custom-agent" }'
+# -> { "id": "ab12cd34ef", "status": "running", "template": "my-custom-agent", "image_ref": "ghcr.io/acme/my-agent:v2", "image_digest": "sha256:9b2e...c41f", "template_revision": 1 }
 ```
 
 ### Resize
