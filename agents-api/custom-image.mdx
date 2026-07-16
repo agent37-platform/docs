@@ -74,6 +74,7 @@ npx agent37 templates build . --name my-custom-agent
 What it does:
 
 - Packs the directory (default `.`; it must have `Dockerfile` at its root) into a gzipped context, excluding `.git` and your `.dockerignore` patterns (plain patterns only; `!` negations are ignored). The context is capped at **100 MB** — it holds the Dockerfile's inputs, not the image, so it stays small.
+- **Everything else in the folder ships with the context** — a stray `.env` or key file included, and a `COPY . .` bakes it into the image. Check the folder, or add a `.dockerignore`, before you build.
 - Builds the image on Agent37's infrastructure and **streams the live build log** to your terminal. On failure the command exits non-zero with the failing step visible.
 - Publishes the result as the workspace template. `--name` defaults to the folder name; `--default-port <port>` sets the template's default port. Re-building an existing name publishes a new template revision; **existing instances never change**.
 - Ctrl-C does not cancel the build; it continues server-side and still publishes on success.
