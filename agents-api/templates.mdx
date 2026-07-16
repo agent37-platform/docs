@@ -87,12 +87,17 @@ registration validates and copies the image, then prints the resulting `revision
 The raw multipart API below is for clients implementing the same flow. First gzip one
 `docker save` archive and send its exact byte count:
 
+<ParamField body="size_bytes" type="integer" required>
+  Exact size of the compressed archive, from `1` through `8,000,000,000` bytes. Providing
+  this field selects multipart mode and determines the signed size of each part.
+</ParamField>
+
 ```bash curl
 docker save my-agent:v1 | gzip -c > my-agent.tar.gz
 BYTES=$(wc -c < my-agent.tar.gz | tr -d ' ')
 
 curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-uploads \
-  -H "Authorization: Bearer sk_live_..." \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{\"size_bytes\":$BYTES}" > upload.json
 ```
@@ -101,7 +106,7 @@ curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-uploads \
 {
   "id": "up_7d3a90b81f264bc2a113",
   "mode": "multipart",
-  "multipart_id": "opaque-r2-upload-id",
+  "multipart_id": "opaque-multipart-upload-id",
   "part_size_bytes": 67108864,
   "parts": [
     {
@@ -130,6 +135,10 @@ curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-uploads \
   Opaque completion token. Return it unchanged to the completion endpoint.
 </ResponseField>
 
+<ResponseField name="part_size_bytes" type="integer">
+  Maximum bytes per part: `67,108,864` (64 MiB). Only the final part can be shorter.
+</ResponseField>
+
 <ResponseField name="parts" type="object[]">
   Ordered 64 MiB parts, except for the shorter final part. PUT exactly `size_bytes` beginning
   at `offset_bytes` to each `upload_url`, with that exact `Content-Length`. Part URLs are
@@ -137,8 +146,8 @@ curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-uploads \
 </ResponseField>
 
 <ResponseField name="abort_url" type="string">
-  A presigned `DELETE` the client can call after a failed upload. Hard-abandoned multipart
-  uploads are also removed by bucket lifecycle.
+  A presigned `DELETE` the client can call after a failed upload. Abandoned multipart
+  uploads are also cleaned up automatically.
 </ResponseField>
 
 <ResponseField name="expires_at" type="integer">
@@ -150,12 +159,12 @@ curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-uploads \
 </ResponseField>
 
 For a one-part archive, upload it directly. Clear curl's default `Expect: 100-continue`
-header; it is incompatible with these R2 presigned uploads:
+header; it is incompatible with these presigned uploads:
 
 ```bash curl
 PART_URL=$(jq -r '.parts[0].upload_url' upload.json)
 PART_BYTES=$(jq -r '.parts[0].size_bytes' upload.json)
-curl --fail-with-body -H 'Expect:' -H "Content-Length: $PART_BYTES" \
+curl --fail-with-body -X PUT -H 'Expect:' -H "Content-Length: $PART_BYTES" \
   --data-binary @my-agent.tar.gz "$PART_URL"
 ```
 
@@ -170,6 +179,14 @@ curl --fail-with-body -X POST \
   -H "Authorization: Bearer $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
   -d "$(jq -n --arg id "$MULTIPART_ID" '{multipart_id:$id}')"
+```
+
+```json response
+{
+  "id": "up_7d3a90b81f264bc2a113",
+  "completed": true,
+  "size_bytes": 1048576
+}
 ```
 
 Then create or update a template with `UPLOAD_ID`. Missing, expired, and other-workspace
@@ -408,7 +425,7 @@ A workspace template registered from a public reference echoes that reference as
 | `400` | `invalid_request` | Bad `name`, `image_ref`, or `default_port`; both or neither of `image_ref`/`upload_id`; a not-publicly-pullable registry reference; the legacy `ports` array; a direct image reference passed as `template` on instance create |
 | `400` | `invalid_image_archive` | The uploaded archive is not a single `linux/amd64` image (wrong architecture, not a `docker save` tarball, or more than one image) |
 | `400` | `image_too_large` | The archive or staged image is over the 8 GB decimal cap |
-| `404` | `upload_not_found` | `upload_id` names no upload in your workspace — never uploaded, expired, or another workspace's |
+| `404` | `upload_not_found` | The multipart upload cannot be found, or `upload_id` names no completed upload in your workspace — never uploaded, expired, or another workspace's |
 | `403` | `forbidden` | `PATCH` or `DELETE` on a system template: they are read-only |
 | `404` | `not_found` | Unknown template name; repeat `DELETE` |
 | `409` | `template_conflict` | Create or rename onto a name that already exists |

@@ -185,7 +185,7 @@ Existing instances keep their installed `template_revision`. [Update each instan
 | --- | --- |
 | `invalid_image_archive` | Export exactly one image with `docker save`. Rebuild or pull it for `linux/amd64`. |
 | `image_too_large` | The uploaded archive or staged image is over 8 GB decimal. Remove build caches and unnecessary layers, or contact support. |
-| `upload_not_found` | The PUT did not finish, the upload expired, or the `upload_id` belongs to another workspace. Request a new slot and upload again. |
+| `upload_not_found` | The multipart upload was not completed, it expired, or the `upload_id` belongs to another workspace. Start a fresh push. |
 | `invalid_request` for `image_ref` | Use a fully qualified tag and confirm the registry allows anonymous pulls. Private registries must use direct upload. |
 | `image_ingest_failed` | The private copy failed on Agent37's side. Retry once, then contact `support@agent37.com`. |
 | Instance status is `failed` | Read [instance logs](/agents-api/logs); confirm the main process stays alive and `default_port` listens when set. |
