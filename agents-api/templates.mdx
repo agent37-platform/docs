@@ -38,9 +38,9 @@ On every system template, port `3737` is the gateway: the [chat API](/agents-api
 
 System templates track the newest platform image: their `image_ref` moves forward as new versions ship, and each create uses whatever the template points at in that moment. Existing instances are unaffected — an instance keeps the image it was created from until you [update it](/agents-api/instances#update).
 
-## Pin a system template version
+## Pin a template version
 
-If you need every instance you create to be identical — say a setup script runs after each create and depends on exact paths or versions — pin the version: append `@<tag>` to the template name on create.
+If you need every instance you create to be identical — say a setup script runs after each create and depends on exact paths or versions — pin the version: append `@<tag>` (system templates) or `@<revision>` (workspace templates) to the template name on create.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances \
@@ -51,7 +51,9 @@ curl -X POST https://api.agent37.com/v1/instances \
 
 Every release is an immutable dated tag, never republished, so a pin is a freeze. The published tags are on GHCR: [hermes](https://github.com/orgs/agent37-platform/packages/container/package/hermes), [hermes-small](https://github.com/orgs/agent37-platform/packages/container/package/hermes-small), [openclaw](https://github.com/orgs/agent37-platform/packages/container/package/openclaw); the current tag is the one in each template's `image_ref` on `GET /v1/templates`. An unpublished tag returns `400 invalid_request`, and so does `@latest` — the bare name already follows the latest release. To check a version before creating from it, `GET /v1/templates/agent37-hermes@<tag>`: it returns the template with the pinned `image_ref`, or `404` if that version isn't published.
 
-The pin sticks: the instance object's `template` field carries it (`"agent37-hermes@2026.07.02b"`), and every lifecycle operation, including [`update`](/agents-api/instances#update), stays on the pinned version. To pin an existing instance, move its pin, or clear it, pass a `template` to update: the name with an `@<tag>` sets or switches the pin, the bare name clears it and follows latest again. Workspace templates don't take `@` — you control their `image_ref` tag directly.
+Workspace templates pin by revision number: every image publish (a changed `image_ref` or a successful [cloud build](#build-an-image-in-the-cloud)) appends a release, `GET /v1/templates/{name}` lists them under [`revisions`](#the-template-object), and `my-agent@2` freezes revision `2`. `GET /v1/templates/my-agent@2` probes one the same way as a system tag — `404` if it was never published — and an unpublished revision on create or update returns `400 invalid_request` naming the published ones.
+
+The pin sticks: the instance object's `template` field carries it (`"agent37-hermes@2026.07.02b"`, `"my-agent@2"`), and every lifecycle operation, including [`update`](/agents-api/instances#update), stays on the pinned version. To pin an existing instance, move its pin, or clear it, pass a `template` to update: the name with an `@<tag>` or `@<revision>` sets or switches the pin, the bare name clears it and follows latest again.
 
 ## Endpoints
 
@@ -360,7 +362,7 @@ curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
   -d '{ "image_ref": "ghcr.io/acme/my-agent:v2" }'
 ```
 
-Point `image_ref` at an older tag — or, for a build-born template, re-run the [build](#build-an-image-in-the-cloud) from the older source — to roll back. Existing instances keep running on the image they already pulled; [update each instance](/agents-api/instances) to recreate it from the template's current image.
+To roll back, [pin instances to the earlier revision](#pin-a-template-version) — `POST /v1/instances/{id}/update` with `{ "template": "my-agent@1" }` — no re-publish needed. To make an old release the template's *current* one again, point `image_ref` at the older tag (or, for a build-born template, re-run the [build](#build-an-image-in-the-cloud) from the older source); that publishes it as a new revision. Existing instances keep running on the image they already pulled; [update each instance](/agents-api/instances) to recreate it from the template's current image.
 
 Workspace templates start at `revision: 1`. Compare that value with an instance's `template_revision` to find instances that have not installed the current template release.
 
@@ -416,12 +418,16 @@ A workspace template registered from a public reference echoes that reference as
   "name": "my-agent",
   "scope": "workspace",
   "agents": [],
-  "revision": 1,
+  "revision": 2,
   "image_digest": "sha256:9b2e...c41f",
   "description": "My agent",
   "default_port": 8000,
   "created": 1752460800,
-  "updated": 1752460800
+  "updated": 1752547200,
+  "revisions": [
+    { "revision": 2, "image_digest": "sha256:9b2e...c41f", "created": 1752547200 },
+    { "revision": 1, "image_digest": "sha256:41d8...77aa", "created": 1752460800 }
+  ]
 }
 ```
 
@@ -436,6 +442,9 @@ A workspace template registered from a public reference echoes that reference as
 </ResponseField>
 <ResponseField name="revision" type="integer | null">
   The platform-controlled workspace image revision. It starts at `1` and increments for a changed `image_ref` or every successful [cloud build](#build-an-image-in-the-cloud), even when the digest is unchanged. Metadata-only updates and the same exact `image_ref` leave it unchanged. `null` for system templates.
+</ResponseField>
+<ResponseField name="revisions" type="array">
+  Every published release of a workspace template, newest first: `{ "revision": 2, "image_digest": "sha256:...", "created": 1752547200 }`. [Pin one](#pin-a-template-version) with `name@<revision>` on instance create or update. Returned on `GET /v1/templates/{name}` only; absent from the list endpoint and from system templates. Templates that predate release history list only the revisions published since.
 </ResponseField>
 <ResponseField name="image_ref" type="string">
   For system templates and workspace templates registered from a registry, the image reference. **Absent** on a workspace template published by a [cloud build](#build-an-image-in-the-cloud) — its image lives only in Agent37's private storage, identified by `image_digest`.
@@ -460,10 +469,10 @@ A workspace template registered from a public reference echoes that reference as
 
 | Status | Code | When |
 | --- | --- | --- |
-| `400` | `invalid_request` | Bad `name`, `image_ref`, or `default_port`; a template create with no `image_ref`; a not-publicly-pullable registry reference; the legacy `ports` array; a direct image reference passed as `template` on instance create; a [build](#build-an-image-in-the-cloud) `start` with no uploaded context or one over 100 MB |
+| `400` | `invalid_request` | Bad `name`, `image_ref`, or `default_port`; a template create with no `image_ref`; a not-publicly-pullable registry reference; the legacy `ports` array; a direct image reference passed as `template` on instance create; a bad [pin](#pin-a-template-version) on create or update (unpublished system tag, `@latest`, non-numeric or unpublished workspace revision); a [build](#build-an-image-in-the-cloud) `start` with no uploaded context or one over 100 MB |
 | `400` | `image_too_large` | The staged image is over the 8 GB decimal cap |
 | `403` | `forbidden` | `PATCH` or `DELETE` on a system template: they are read-only |
-| `404` | `not_found` | Unknown template name or build id; repeat `DELETE` |
+| `404` | `not_found` | Unknown template name or build id; a pinned `GET` for an unpublished version or revision; repeat `DELETE` |
 | `409` | `template_conflict` | Create or rename onto a name that already exists |
 | `409` | `build_conflict` | A build `start` on a build that already started, or while another build is running in your workspace — one build runs at a time |
 | `502` | `image_ingest_failed` | The copy into private storage failed for a reason on our side; retry, or [contact support](mailto:support@agent37.com) |
