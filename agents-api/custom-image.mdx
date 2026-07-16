@@ -56,7 +56,7 @@ Run the image locally if it is practical. Registration validates the image forma
 
 ## 3. Register the image
 
-You have two ways to get the image to Agent37. Either way it must be built for **`linux/amd64`** and be **at most 5 GB**, and either way the platform copies it once into private storage at registration.
+You have two ways to get the image to Agent37. Either way it must be built for **`linux/amd64`** and be **at most 8 GB decimal** (`8,000,000,000` bytes), and either way the platform copies it once into private storage at registration.
 
 <Note>
   Registration is synchronous and can take a few minutes for a large image. The returned `image_digest` identifies the immutable private copy every instance runs. Re-pushing a mutable source tag does not change that copy.
@@ -64,42 +64,40 @@ You have two ways to get the image to Agent37. Either way it must be built for *
 
 ### Upload a local or private image
 
-Use this path for a local build or an image in a private registry. Export exactly one image, request an upload slot, upload the raw archive to its presigned URL, then create the template with the returned `id`. The example below requires `curl` and `jq`.
+Use this path for a local build or an image in a private registry. The Agent37 CLI verifies
+the architecture, exports and compresses the image, uploads retryable 64 MiB parts with
+progress, then creates or updates the workspace template.
 
 ```bash
 export AGENT37_API_KEY=sk_live_...
-
-# A docker-save tarball; gzip is also accepted.
-docker save my-agent:v1 -o my-agent.tar
-
-# 1. Request a workspace-scoped upload slot.
-curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-uploads \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
-  -o upload.json
-
-UPLOAD_ID=$(jq -r '.id' upload.json)
-UPLOAD_URL=$(jq -r '.upload_url' upload.json)
-
-# 2. PUT the archive. The presigned URL is the credential; send no API key.
-curl --fail-with-body -T my-agent.tar "$UPLOAD_URL"
-
-# 3. Register the uploaded image as a template.
-curl --fail-with-body -X POST https://api.agent37.com/v1/templates \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n --arg id "$UPLOAD_ID" \
-    '{name:"my-custom-agent", upload_id:$id}')"
+npx agent37 templates push my-agent:v1 --name my-custom-agent
 ```
 
-The `upload_url` expires at the response's `expires_at` epoch-second timestamp. Treat the URL as a secret and register the template promptly after the PUT succeeds. An upload-born template has an `image_digest` but no `image_ref`, because there is no customer registry reference.
+Omit `--name` to derive it from the final image component: `ghcr.io/acme/perflo-agent:v3`
+becomes `perflo-agent`. If the name already exists, the command publishes a new template
+revision; otherwise it creates revision 1. It prints the applied `revision` and
+`image_digest`. Existing instances are never updated by this command.
+
+The CLI reads only `AGENT37_API_KEY`; there is no CLI login or stored session. It creates a
+temporary gzip archive, so the machine needs enough temporary disk for that compressed file
+(up to 8 GB). A failed part retries automatically while the command is running. If the
+process is killed, the next invocation starts a fresh upload.
+
+Registration remains synchronous. After the bytes land, the CLI displays
+`Upload complete — validating and registering image…` until the private copy is ready. An
+upload-born template has an `image_digest` but no `image_ref`, because there is no customer
+registry reference.
 
 If the source image is in a private registry, pull the amd64 variant before saving it:
 
 ```bash
 docker login registry.example.com
 docker pull --platform linux/amd64 registry.example.com/acme/my-agent:v1
-docker save registry.example.com/acme/my-agent:v1 -o my-agent.tar
+npx agent37 templates push registry.example.com/acme/my-agent:v1 --name my-custom-agent
 ```
+
+To implement the upload flow in another client, see the raw multipart contract in
+[Templates → upload a local or private image](/agents-api/templates#upload-a-local-or-private-image).
 
 ### Import a public registry image
 
@@ -186,7 +184,7 @@ Existing instances keep their installed `template_revision`. [Update each instan
 | Error or symptom | What to check |
 | --- | --- |
 | `invalid_image_archive` | Export exactly one image with `docker save`. Rebuild or pull it for `linux/amd64`. |
-| `image_too_large` | The archive or staged image is over 5 GB. Remove build caches and unnecessary layers, or contact support. |
+| `image_too_large` | The uploaded archive or staged image is over 8 GB decimal. Remove build caches and unnecessary layers, or contact support. |
 | `upload_not_found` | The PUT did not finish, the upload expired, or the `upload_id` belongs to another workspace. Request a new slot and upload again. |
 | `invalid_request` for `image_ref` | Use a fully qualified tag and confirm the registry allows anonymous pulls. Private registries must use direct upload. |
 | `image_ingest_failed` | The private copy failed on Agent37's side. Retry once, then contact `support@agent37.com`. |
