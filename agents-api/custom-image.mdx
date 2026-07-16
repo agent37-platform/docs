@@ -44,10 +44,10 @@ You can also use an existing image or start from any base. Its main process must
 
 ## 2. Build and verify it
 
-Use one concrete local tag from build through upload. `--load` makes the amd64 result available to `docker save`, including on an Apple Silicon Mac:
+Use one concrete local tag from build through upload. Plain `docker build` stores the amd64 result in your local Docker, including on an Apple Silicon Mac:
 
 ```bash
-docker buildx build --platform linux/amd64 --load -t my-agent:v1 .
+docker build --platform linux/amd64 -t my-agent:v1 .
 docker image inspect my-agent:v1 --format '{{.Os}}/{{.Architecture}}'
 # linux/amd64
 ```
