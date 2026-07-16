@@ -34,12 +34,12 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 | Code | HTTP | When |
 | --- | --- | --- |
 | `invalid_api_key` | 401 | The `sk_live_` Bearer key is missing, malformed, or revoked, on any `/v1` path. |
-| `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, both or neither of a [template](/agents-api/templates)'s `image_ref`/`upload_id`, a not-publicly-pullable registry reference, a lifecycle action in the wrong state, or an invalid [`update`](/agents-api/instances#update) body (any field other than `template`, or a `template` naming a different base template). |
-| `invalid_image_archive` | 400 | A [template](/agents-api/templates) upload is not a single `linux/amd64` image: wrong architecture, not a `docker save` tarball, or more than one image in the archive. |
-| `image_too_large` | 400 | A [template](/agents-api/templates) archive or staged image is over the 8 GB decimal cap (`8,000,000,000` bytes). |
-| `upload_not_found` | 404 | A multipart upload cannot be found, or a template create names an `upload_id` with no completed upload in your workspace — never uploaded, expired, or another workspace's. |
+| `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, a [template](/agents-api/templates) create without `image_ref` (or with the retired `upload_id`), a registry reference that isn't publicly pullable or has no `linux/amd64` image, a [build](/agents-api/templates#build-a-template-in-the-cloud) context over 100 MB or started before its upload, a lifecycle action in the wrong state, or an invalid [`update`](/agents-api/instances#update) body (any field other than `template`, or a `template` naming a different base template). |
+| `invalid_image_archive` | 400 | A [template build](/agents-api/templates#build-a-template-in-the-cloud)'s image failed validation: not a readable single `linux/amd64` image. (A registry `image_ref` with no `linux/amd64` image returns `invalid_request` instead.) |
+| `image_too_large` | 400 | A [template](/agents-api/templates)'s staged image is over the 8 GB decimal cap (`8,000,000,000` bytes). |
+| `build_conflict` | 409 | A [template build](/agents-api/templates#build-a-template-in-the-cloud) was started twice, or the workspace already has a build running — one at a time. |
 | `forbidden` | 403 | A write to a system template. System templates are read-only. |
-| `not_found` | 404 | No instance or template with that id or name in your workspace, or an unknown `/v1` path. |
+| `not_found` | 404 | No instance, template, or build with that id or name in your workspace, or an unknown `/v1` path. |
 | `insufficient_balance` | 402 | The wallet holds less than a day of the instance's running rate at create, or is negative at `start` of a `past_due` instance. |
 | `instance_limit_reached` | 409 | The workspace is at its instance limit: one instance on the free credit, 10 once you have topped up, 50 once top-ups total \$500. Email vishnu@agent37.com to raise it further. |
 | `tier_limit` | 403 | Create or resize asks for a shape larger than your plan includes, or a [custom domain](/agents-api/domains) is registered before your top-ups total \$500. Free workspaces (before your first top-up) run any template up to the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
@@ -53,6 +53,10 @@ Errors from `https://api.agent37.com/v1/*` always carry exactly `code` and `mess
 
 <Note>
   Lookups are uniform: an id that belongs to another workspace returns the same 404 as an id that does not exist, and unknown `/v1` paths 404 only after your key is validated. Nothing about other workspaces leaks through error responses.
+</Note>
+
+<Note>
+  A failed [template build](/agents-api/templates#build-a-template-in-the-cloud) is not an HTTP error: the build poll returns `200` with `status: "failed"` and an `error` object carrying `build_failed`, `build_timeout`, `invalid_request`, `invalid_image_archive`, `image_too_large`, `image_ingest_failed`, or `internal_error` (a failure on Agent37's side; retry). Branch on the build's `status`.
 </Note>
 
 ## Agent API errors
