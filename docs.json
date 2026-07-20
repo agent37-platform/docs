@@ -115,6 +115,9 @@
      "vscode"
    ]
   },
+  "seo": {
+    "indexing": "all"
+  },
   "redirects": [
     { "source": "/agents-api/quickstart", "destination": "/" },
     { "source": "/agents-api/messages", "destination": "/agents-api/chat" },
