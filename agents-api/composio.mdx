@@ -1,0 +1,76 @@
+---
+title: "Use your own Composio"
+sidebarTitle: "Your own Composio"
+description: "Run Hermes and OpenClaw on Agent37 with your own Composio API key — a forkable kit with a Composio MCP proxy you host, per-agent account isolation, OAuth connect, and per-agent tool-call metering."
+---
+
+Every instance ships with [managed Composio](/agents-api/integrations): zero setup, and Agent37 meters the agent's tool calls from your wallet. When you'd rather own the integration layer — your `COMPOSIO_API_KEY`, your Composio project, your users' connected accounts, your own per-user metering — the **hermes-openclaw-composio** kit is the supported path. It's a complete forkable app in which Hermes and OpenClaw agents reach Gmail, Slack, Notion, GitHub, and hundreds of other apps through a Composio MCP proxy hosted in your own app.
+
+<Card title="agent37-platform/hermes-openclaw-composio" icon="github" href="https://github.com/agent37-platform/hermes-openclaw-composio" horizontal>
+  The full app, ready to fork: auth, workspaces, chat, files, an integrations catalog with OAuth connect, and per-agent tool-call metering — all on your Composio project. Next.js and Supabase, deploys to Vercel. MIT.
+</Card>
+
+## Managed Composio or your own?
+
+| | Managed (default) | Your own (this kit) |
+| --- | --- | --- |
+| Setup | None — built into every instance | Fork the kit, add your `COMPOSIO_API_KEY` |
+| Composio project | Agent37's | Yours — your dashboard, your auth configs |
+| Tool-call path | Instance → Agent37's managed credentials | Instance → an MCP proxy in your app → Composio |
+| Metering | \$0.000114/call from your wallet, capped by the instance [budget](/agents-api/budgets) | Free on Agent37's side; you count calls per agent in your own database |
+| Connect UI | [Integrations endpoints](/agents-api/integrations) on the Hosting API | The kit's built-in **Integrations** tab, on your key |
+
+Either way the model stays managed: agents chat on Agent37's built-in LLM credentials and that spend is billed per instance as usual. Only the integration layer moves.
+
+## How it works
+
+```text
+agent instance (Hermes or OpenClaw, on Agent37 Cloud)
+  └─ MCP client: apps → https://your-app.com/api/composio-mcp   (per-agent token)
+        └─ your app: token → agent → Composio tool-router session
+             scoped to one Composio user per agent — isolated accounts
+             every tools/call metered per agent, per day
+                └─ Composio → Gmail / Slack / Notion / …
+```
+
+- **Your key stays home.** The instance only ever holds a revocable per-agent proxy token; the Composio API key lives in your app's environment and never reaches an instance or the browser.
+- **Per-user isolation.** Each agent maps to its own Composio user, and Composio binds account resolution server-side — one user's Gmail can never surface in another user's agent.
+- **Per-user metering.** The proxy counts every billable `tools/call` into Postgres, shown per agent in the kit's **Integrations** tab — the basis for your own limits or billing.
+- **Clean base images.** The kit publishes two workspace [templates](/agents-api/templates) built on Agent37's `hermes-base` and `openclaw-base` images. The stock templates rewrite their integration wiring on every boot; these never do, so your Composio config survives restarts and updates. The bases themselves boot with no model or integration config — the kit's post-create bootstrap writes both the managed model and your Composio MCP endpoint into each agent.
+
+## Get started
+
+<Steps>
+  <Step title="Get your keys">
+    Three secrets, each behind a login: an `sk_live_` [API key](https://www.agent37.com/dashboard/cloud/api-keys) from a funded workspace (see [Billing](/agents-api/billing)), your `COMPOSIO_API_KEY` from [platform.composio.dev](https://platform.composio.dev), and a [Supabase access token](https://supabase.com/dashboard/account/tokens) — the kit provisions a free Supabase project for you.
+  </Step>
+
+  <Step title="Clone it">
+    ```bash
+    git clone https://github.com/agent37-platform/hermes-openclaw-composio
+    cd hermes-openclaw-composio
+    ```
+  </Step>
+
+  <Step title="Run setup">
+    The fastest path is agent-driven: open the folder in Claude Code or Codex and paste the setup prompt from the README. It asks for your three keys, provisions Supabase, publishes the kit's two agent templates into your workspace (the Hermes one via an Agent37 [cloud build](/agents-api/custom-image) — no local Docker needed), and starts the app.
+
+    By hand: `npm install`, then `npm run setup` twice — the first run creates `.env.local` and exits asking for the keys; paste them in and run it again — then `npm run templates:publish`.
+  </Step>
+
+  <Step title="Run it">
+    ```bash
+    npm run dev
+    ```
+
+    Open `http://localhost:3000`, sign up, and create an agent. Agents run on Agent37 Cloud, so tool calls need your app on a public URL — in dev, `npm run dev` starts a free cloudflared quick tunnel automatically (needs the `cloudflared` binary — `brew install cloudflared` — but no Cloudflare account) and agents wire themselves to it; in production it's just your deployed URL. The repo's `SETUP.md` has the authoritative steps and the Vercel deploy guide.
+  </Step>
+</Steps>
+
+## What you get
+
+The kit is the [Agent37 Starter Kit](/agents-api/white-label) with the integration layer swapped: the same multi-tenant dashboard — email sign-in, workspaces, instance management, native **Chat** and **Files** tabs — plus an **Integrations** tab that browses your Composio catalog, runs OAuth connects against your project, and shows each agent's tool calls over the last 30 days. Fork it, rebrand it (`src/config/branding.ts`), and ship it.
+
+<Note>
+  Happy with managed Composio and just want the app? Use the [Starter Kit](/agents-api/white-label) — same experience on Agent37's built-in credentials, one key fewer.
+</Note>
