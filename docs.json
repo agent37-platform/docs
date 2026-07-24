@@ -23,11 +23,12 @@
       {
         "group": "Build with Agent37",
         "pages": [
-          "agents-api/hermes-webhooks",
+          "agents-api/examples",
           "agents-api/white-label",
           "agents-api/composio",
           "agents-api/chat-app",
-          "agents-api/custom-image"
+          "agents-api/custom-image",
+          "agents-api/hermes-webhooks"
         ]
       },
       {
