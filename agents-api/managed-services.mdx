@@ -49,6 +49,10 @@ curl -sS "$AGENT37_COMPOSIO_MCP_URL" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
+Some MCP clients append `/mcp` to whatever URL you give them. That lands on
+`https://api.agent37.com/mcp/composio/mcp`, which is the same server, so register the URL as-is
+either way.
+
 It exposes a handful of meta-tools rather than hundreds of individual ones, so it costs very
 little context: the agent searches the catalog for what it needs, then executes it. The tool
 names and their behavior are Composio's surface, documented in
