@@ -6,6 +6,17 @@ description: "Your Dockerfile becomes a template, each container becomes an inst
 
 If your app runs as Docker containers on servers you rent (Hetzner, AWS, DigitalOcean, a VPS), you pay for those servers around the clock. You also run them: capacity, images, restarts, certificates, a reverse proxy. Agent37 runs the same containers for you, one instance per container, and meters each by the minute: compute while it is up, disk alone while it is stopped or asleep. Nothing about your image changes.
 
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+My app runs as Docker containers on my own servers. Move it to Agent37, one container at a time.
+Each container I run becomes one instance: build its Dockerfile into a template with npx agent37 templates build . --name <service> --default-port <the port it serves>, create instances from it with POST /v1/instances, and pass the container's environment as env (fetch a credential that expires from my server at boot instead of passing it in env).
+Point my code and my reverse proxy at https://{instanceId}.agent37.app for the default port and https://{instanceId}-{port}.agent37.app for any other, with the X-Agent37-Key header, and use a public port for anything that must work without a key.
+Wherever my code calls docker run, call POST /v1/instances instead and store the instance id where the container id was.
+Keep data under /home/node, make the entrypoint safe to run again with last time's files still on disk, and turn on auto_sleep for anything idle between uses.
+Start with one container on the smallest shape; done when every container runs as an instance and my servers can be shut down.
+My key is in AGENT37_API_KEY.
+```
+
 ## One container, one instance
 
 An instance is one container from your image on its own isolated computer. Your `ENTRYPOINT` is its main process, its disk persists, and every port it listens on has an HTTPS URL derived from its id. There is no Docker to run inside an instance: whatever you `docker run` today becomes its own instance, created with one API call.
@@ -74,21 +85,3 @@ Most images need nothing. Two habits make the move smooth:
 - **Fetch short-lived secrets at boot.** `env` is set when the instance is created and replayed on every start. Long-lived configuration belongs there. Fetch a credential that expires, such as a one-hour installation token, from your own server when the container starts.
 
 Your image runs as the user it declares, `root` included. Bind services to `0.0.0.0`, as you would for any container.
-
-## Hand this to your coding agent
-
-If a coding agent is doing the move for you, give it the mental model up front:
-
-```text
-Read https://www.agent37.com/docs/llms-full.txt. My app runs as Docker containers on my own servers.
-Move it to Agent37. Each container I run becomes one instance: build its Dockerfile into a template
-with `npx agent37 templates build --default-port <the port it serves>`, create instances from it with
-POST /v1/instances, pass the container's environment as `env` (fetch a credential that expires from
-my server at boot instead), and reach its default port at https://{instanceId}.agent37.app and any
-other port at https://{instanceId}-{port}.agent37.app, both with the X-Agent37-Key header (a public
-port for anything that must work without a key). Do not run Docker inside an instance: wherever my
-code calls `docker run`, call POST /v1/instances instead and store the instance id where the
-container id was. Keep data under /home/node, make the entrypoint safe to run again on that disk,
-and turn on auto_sleep for anything idle between uses. Start with one container on the smallest
-shape. My key is in AGENT37_API_KEY.
-```

@@ -6,6 +6,14 @@ description: "A white-label, multi-tenant agent dashboard built on the Agent37 A
 
 The **Agent37 White-Label Dashboard** is a complete agent app built entirely on the public Agent37 API. It is a multi-tenant dashboard for creating and managing agent [instances](/agents-api/instances), with a native chat, file browser, and app integrations for each agent. Fork it, point it at your `sk_live_` key, change the name and logo, and deploy: you get a branded product on top of Agent37 without building the control plane or the agent UIs yourself.
 
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want to ship a branded product: a multi-tenant dashboard with chat, files, app integrations, and one-click access to each agent's terminal.
+Clone https://github.com/agent37-platform/starter-kit and follow the guide's Get started steps (npm run setup asks for my sk_live_ key and a Supabase access token; ask me for the token), then set my product name and logo (ask me for them).
+Done when npm run dev serves the dashboard and I can sign up, create an agent, and watch a reply stream in its Chat tab.
+My key is in AGENT37_API_KEY.
+```
+
 <Card title="agent37-platform/starter-kit" icon="github" href="https://github.com/agent37-platform/starter-kit" horizontal>
   The dashboard, ready to fork. Next.js and Supabase, deploys to Vercel. Clone it, add your keys, run `npm run setup`, and rebrand. (Formerly the `whitelabel` repo; the URL still redirects.)
 </Card>

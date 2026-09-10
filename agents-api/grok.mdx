@@ -5,6 +5,14 @@ description: "Run xAI's Grok coding agent on its own always-on instance, on your
 
 The `agent37-grok` [template](/agents-api/templates) runs Grok, xAI's coding agent, on an Agent37 instance: an always-on computer with the same chat API, sessions, files, and URLs as every other template. The image is lean, with no browser and no desktop. Grok runs on **your own xAI API key**: Agent37 never supplies or bills xAI model usage, and there is no managed-model option on this template, so set your key before the first chat turn.
 
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want Grok, xAI's coding agent, on its own always-on instance, using my own xAI API key.
+Create it with POST /v1/instances using the agent37-grok template, passing my xAI key as XAI_API_KEY in the instance's env (ask me for the key).
+Done when a message to https://{instanceId}.agent37.app/v1/responses returns a reply from Grok.
+My key is in AGENT37_API_KEY.
+```
+
 ## Create the instance
 
 One call to the hosting API at `https://api.agent37.com`, with your xAI API key as [instance env](/agents-api/instances#environment-variables):

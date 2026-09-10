@@ -5,6 +5,14 @@ description: "Let your users ask an agent for a website and get a live public UR
 
 A user types "make me a landing page". The agent builds the site on its own always-on computer, serves it on a port, and the user gets a permanent `https://` link to open and share. This guide is the pattern end to end: one instance per user, a [public port](/agents-api/public-ports) for the site, and a small publish endpoint in your app that decides when a port goes public.
 
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want a website builder: my users ask an agent for a website and get a live public URL back.
+Create one instance per user with POST /v1/instances (SITE_PUBLISH_TOKEN in env, plus budget.credit_micros), brief the agent to serve the site from ~/site on port 8788 and then to call my server to publish it, and have my server check the token and open that port with POST /v1/instances/{id}/public-ports.
+Done when the user gets an agent37.app link that opens the site for anyone who has it.
+My key is in AGENT37_API_KEY.
+```
+
 <Card title="site-builder: this guide as a working app" icon="github" href="https://github.com/agent37-platform/examples/tree/main/site-builder" horizontal>
   Everything on this page, runnable: create agents from a table, chat with starter prompts, and watch the agent hand back a live URL. Express plus vanilla JS, no build step. Clone it, add your key, `npm start`.
 </Card>

@@ -20,6 +20,14 @@ This page is the walkthrough; [Templates → build on the Hermes base image](/ag
   When you register a template, Agent37 copies your image once into private storage and pins it by digest. That snapshot is what every instance runs, so registering takes up to a few minutes for a large image. Re-pushing the same tag later does nothing: publish a new tag and [update the template](/agents-api/templates#update-a-template), or re-run the [cloud build](#build-it-in-the-cloud). Your image is stored privately and never republished.
 </Note>
 
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want to give my agent my own tools with a custom Docker image, and my own skills on top.
+Start the Dockerfile FROM ghcr.io/agent37-platform/hermes-base:latest, bake the tools into /usr/local/bin, publish it with npx agent37 templates build . --name my-custom-agent, point the agent at the managed model using AGENT37_LLM_PROXY_URL and AGENT37_MANAGED_TOKEN, create the instance with a budget, and install the skills into ~/.hermes/skills over exec once it is running.
+Done when the agent uses one of my tools in a chat turn.
+My key is in AGENT37_API_KEY.
+```
+
 ## 1. Choose a starting image
 
 To customize Hermes, build on [`ghcr.io/agent37-platform/hermes-base`](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base). It includes Hermes, the gateway, Chromium, and the standard toolchain. This example adds a CLI:

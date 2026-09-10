@@ -5,6 +5,14 @@ description: "Run OpenCode, SST's open-source coding agent, on its own always-on
 
 The `agent37-opencode` [template](/agents-api/templates) runs OpenCode, SST's open-source coding agent, on an Agent37 instance: an always-on computer with the same chat API, sessions, files, and URLs as every other template. The image is lean, with no browser and no desktop. OpenCode works out of the box on the **managed Agent37 model**: no login, no account, no keys. The first chat turn just runs, metered like Hermes against your wallet. Point it at your own provider key when you want a specific model.
 
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want OpenCode, SST's open-source coding agent, on its own always-on instance, running on the managed model with no account of my own.
+Create it with POST /v1/instances using the agent37-opencode template and a budget, then chat with no model field.
+Done when a message to https://{instanceId}.agent37.app/v1/responses returns a reply from OpenCode.
+My key is in AGENT37_API_KEY.
+```
+
 ## Create the instance
 
 One call to the hosting API at `https://api.agent37.com`:

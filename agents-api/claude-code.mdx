@@ -5,6 +5,14 @@ description: "Run Anthropic's Claude Code on its own always-on instance, signed 
 
 The `agent37-claude-code` [template](/agents-api/templates) runs Claude Code, Anthropic's coding agent, on an Agent37 instance: an always-on computer with the same chat API, sessions, files, and URLs as every other template. The image is lean, with no browser and no desktop. Claude Code runs on **your own Anthropic account**: Agent37 never supplies or bills Claude model usage, and there is no managed-model option on this template, so connect your account before the first chat turn.
 
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want Claude Code on its own always-on instance, signed in to my own Anthropic account.
+Create it with POST /v1/instances using the agent37-claude-code template; ask me for the token from claude setup-token and pass it as CLAUDE_CODE_OAUTH_TOKEN in env.
+Done when a message to https://{instanceId}.agent37.app/v1/responses returns a reply from Claude Code.
+My key is in AGENT37_API_KEY.
+```
+
 ## Create the instance
 
 One call to the hosting API at `https://api.agent37.com`:
