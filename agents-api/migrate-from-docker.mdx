@@ -1,0 +1,94 @@
+---
+title: "Move your Docker containers to Agent37"
+sidebarTitle: "Move from Docker"
+description: "Your Dockerfile becomes a template, each container becomes an instance that can sleep when idle, and the servers go away."
+---
+
+If your app runs as Docker containers on servers you rent (Hetzner, AWS, DigitalOcean, a VPS), you pay for those servers around the clock. You also run them: capacity, images, restarts, certificates, a reverse proxy. Agent37 runs the same containers for you, one instance per container, and meters each by the minute: compute while it is up, disk alone while it is stopped or asleep. Nothing about your image changes.
+
+## One container, one instance
+
+An instance is one container from your image on its own isolated computer. Your `ENTRYPOINT` is its main process, its disk persists, and every port it listens on has an HTTPS URL derived from its id. There is no Docker to run inside an instance: whatever you `docker run` today becomes its own instance, created with one API call.
+
+Three commands move a container:
+
+```bash
+export AGENT37_API_KEY=sk_live_...
+
+# 1. Your Dockerfile becomes a template (built on Agent37, no local Docker needed)
+npx agent37 templates build . --name web --default-port 3000
+
+# 2. docker run becomes a create call
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "web", "env": { "DATABASE_URL": "postgres://..." }, "auto_sleep": true }'
+
+# 3. The port you exposed is live at the instance URL
+curl https://ab12cd34ef.agent37.app/ -H "X-Agent37-Key: $AGENT37_API_KEY"
+```
+
+The build runs on Agent37's infrastructure and streams its log to your terminal (see [Build a custom image](/agents-api/custom-image)). The create call returns once the container is up, usually within seconds. The instance URL routes to the template's default port. Any other port is at `https://{instanceId}-{port}.agent37.app` with the same header. A port that must answer without a key (a webhook, an embed) gets a [public port](/agents-api/public-ports).
+
+## docker to Agent37
+
+| You run | On Agent37 |
+| --- | --- |
+| `docker build -t web .` | `npx agent37 templates build . --name web --default-port 3000` |
+| `docker run web` | `POST /v1/instances { "template": "web" }` |
+| `-e KEY=value` | `"env": { "KEY": "value" }` on create |
+| `-p 3000:3000` (or a random host port) | The URL replaces the host port: `https://{instanceId}.agent37.app` for the template's `default_port`, `https://{instanceId}-{port}.agent37.app` for any other |
+| `-v data:/data` | The instance's own disk, which persists across stop, start, and restart. Data under `/home/node` also survives an image update. |
+| `--memory 4g --cpus 2` | `"resources": { "cpu": 2, "memory": 4 }` (also 4/8 and 8/16) |
+| `--restart unless-stopped` | Built in. Once the instance has booted, a container that exits is started again. |
+| `docker exec web sh -c "..."` | [`POST /v1/instances/{id}/exec`](/agents-api/exec) |
+| `docker logs web` | [`GET /v1/instances/{id}/logs`](/agents-api/logs) |
+| `docker stats web` | [`GET /v1/instances/{id}/metrics`](/agents-api/metrics) |
+| `docker stop` / `start` / `rm` | `POST .../stop`, `POST .../start`, `DELETE /v1/instances/{id}` |
+| `docker pull web:v2` and recreate | Rebuild the template, then [`POST .../update`](/agents-api/instances#update). It resets the operating system layer to the new image and keeps `/home/node`. |
+
+A `docker-compose.yml` maps the same way, service by service. Services that call each other over HTTP each become an instance; route those calls through your own server, which holds the key, or give the called service a public port with its own authentication in front. Point the app at a managed database, or run the database in the same instance as its app with its data under `/home/node`; your instances reach anything on the public internet.
+
+## Why it costs less
+
+A rented server bills every hour it exists. Most containers on it do nothing for most of those hours: a per-user session waits for the user, a worker waits for a job, a preview waits for someone to open it.
+
+An instance created with `auto_sleep: true` sleeps once it has been idle for `idle_timeout_seconds` and wakes on the next request, usually in well under a second. Idle means no traffic through the instance's URLs or exec, so set `idle_timeout_seconds` to the longest gap you expect between requests. Awake minutes bill the compute rate; asleep minutes bill disk alone. A 2 vCPU / 4 GB instance awake an hour a day costs about \$0.54 per month, against \$4.76 always-on. Either price includes the URL, TLS, restarts, and the API to manage it. See [Billing](/agents-api/billing) and [Auto-sleep](/agents-api/instances#auto-sleep).
+
+One team kept an 8 vCPU / 16 GB server up around the clock for up to 13 coding-session containers, whether or not anyone was in a session. As instances with auto-sleep, each session bills compute only while its user is working in it.
+
+## If your app launches containers for its users
+
+Products that create a container per user, per session, or per job (a coding sandbox, a preview environment, an agent runner) carry a layer of machinery to do it. A pool of servers, an agent on each that talks to Docker, a registry, a scheduler, a watchdog, a router that maps each user to a server and port. On Agent37 that layer is the API. The plan:
+
+1. **Publish the image you launch.** Your session image, unchanged, becomes a workspace template with the port your users hit as its `default_port`. Each image you launch is its own template.
+2. **Replace `docker run` with create.** Where your scheduler starts a container, call `POST /v1/instances` with the container's environment as `env`, and store the returned instance `id` where you kept the container id. Where it stops one, call `DELETE`. Put your own session id in `name` or `metadata` so you can find the instance again from your side.
+3. **Point your reverse proxy at the instance URL.** Wherever you forward a user to `server-ip:port`, forward to `https://{instanceId}.agent37.app` instead and add the `X-Agent37-Key` header with your key. WebSockets pass through, so live reload and terminals keep working. Your own domain, cookies, and login stay as they are; your proxy is still the front door.
+4. **Delete the fleet.** Server provisioning, the per-server agent, capacity planning, the registry, the watchdog, and the wildcard certificate have nothing left to do.
+
+## Make the image at home here
+
+Most images need nothing. Two habits make the move smooth:
+
+- **Let the entrypoint run again on the same disk.** A restart, a stop followed by a start, or a wake that boots fresh runs your `ENTRYPOINT` again with last time's files still on disk. Skip work that is already done: a repository that is already cloned, a migration that already ran, a directory that already exists.
+- **Fetch short-lived secrets at boot.** `env` is set when the instance is created and replayed on every start. Long-lived configuration belongs there. Fetch a credential that expires, such as a one-hour installation token, from your own server when the container starts.
+
+Your image runs as the user it declares, `root` included. Bind services to `0.0.0.0`, as you would for any container.
+
+## Hand this to your coding agent
+
+If a coding agent is doing the move for you, give it the mental model up front:
+
+```text
+Read https://www.agent37.com/docs/llms-full.txt. My app runs as Docker containers on my own servers.
+Move it to Agent37. Each container I run becomes one instance: build its Dockerfile into a template
+with `npx agent37 templates build --default-port <the port it serves>`, create instances from it with
+POST /v1/instances, pass the container's environment as `env` (fetch a credential that expires from
+my server at boot instead), and reach its default port at https://{instanceId}.agent37.app and any
+other port at https://{instanceId}-{port}.agent37.app, both with the X-Agent37-Key header (a public
+port for anything that must work without a key). Do not run Docker inside an instance: wherever my
+code calls `docker run`, call POST /v1/instances instead and store the instance id where the
+container id was. Keep data under /home/node, make the entrypoint safe to run again on that disk,
+and turn on auto_sleep for anything idle between uses. Start with one container on the smallest
+shape. My key is in AGENT37_API_KEY.
+```
