@@ -20,6 +20,14 @@ Those four are the contract. A container's environment carries other `AGENT37_`-
 variables that are runtime internals; they change without notice, so build against the four
 above and nothing else.
 
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want to run my own agent in a custom image, using the managed model and Composio MCP server every instance gets from its environment, with no provider keys.
+Have the entrypoint read AGENT37_LLM_PROXY_URL, AGENT37_COMPOSIO_MCP_URL, and AGENT37_MANAGED_TOKEN from the environment on every boot and configure my agent from them, then publish the image as a template and create an instance from it with a budget.
+Done when my agent, run over exec, answers a question on the managed model and lists its Composio tools.
+My key is in AGENT37_API_KEY.
+```
+
 ## A model
 
 An OpenAI-compatible endpoint with exactly two routes: `GET /v1/models` and

@@ -6,6 +6,14 @@ description: "Run Hermes on Agent37 with your own OpenRouter key: a forkable kit
 
 Every instance boots with a [managed model](/agents-api/managed-services): zero setup, and Agent37 meters the spend from your wallet against each instance's [budget](/agents-api/budgets). When you'd rather own the model layer (your `OPENROUTER_API_KEY`, your choice of models, your own per-user metering and limits), the **hermes-byo-model** kit is the supported path. It's a complete forkable app in which every Hermes turn runs on your OpenRouter account, through a proxy hosted in your own app.
 
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want my agents to run on my own OpenRouter key instead of the managed model: my models, a revocable token per agent, my own spend caps.
+Clone https://github.com/agent37-platform/hermes-byo-model and follow the guide's Get started steps; setup needs my OPENROUTER_API_KEY and a Supabase access token (ask me for both), and npm run dev needs the cloudflared binary installed.
+Done when the agent answers a chat message through my OpenRouter key and its Settings tab shows the cost.
+My key is in AGENT37_API_KEY.
+```
+
 <Card title="agent37-platform/hermes-byo-model" icon="github" href="https://github.com/agent37-platform/hermes-byo-model" horizontal>
   The full app, ready to fork: auth, workspaces, chat, files, a per-agent model budget with real spend, and the money proxy that enforces it. Next.js and Supabase, deploys to Vercel. MIT.
 </Card>

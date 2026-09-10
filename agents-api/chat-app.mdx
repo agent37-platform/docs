@@ -5,6 +5,14 @@ description: "Give every user their own always-on agent. The simplest thing to b
 
 The pattern is four calls: create one instance per user at signup, start one session per chat thread, list sessions for the sidebar, and fetch one session for the open thread.
 
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want a chat UI on one always-on agent, with replies streamed token by token.
+Create one instance with POST /v1/instances (leave template unset for the default agent37-hermes, set budget.credit_micros so it can answer from the first message), send turns to https://{instanceId}.agent37.app/v1/responses with the X-Agent37-Key header and stream: true, and pass the session_id from the first reply back on every later turn.
+Done when response.output_text.delta events render in the UI as they arrive.
+My key is in AGENT37_API_KEY.
+```
+
 <Card title="hermes-chat: this guide as a working app" icon="github" href="https://github.com/agent37-platform/examples/tree/main/hermes-chat" horizontal>
   Everything on this page, runnable: create instances from a table, stream replies token by token, list and reopen threads, cancel a turn. Express plus vanilla JS, no build step. Clone it, add your key, `npm start`.
 </Card>

@@ -5,6 +5,14 @@ description: "Give Hermes a secure public webhook URL without exposing its Agent
 
 Hermes receives webhook events on port `8644`, which Agent37 keeps credential-protected by default. This page covers the Agent37-specific step: giving that port a stable public URL without exposing the Agent API on port `3737`.
 
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I have an agent37-hermes instance with a Hermes webhook subscription and want it to receive deliveries on a public URL without exposing its Agent API.
+Hermes listens on port 8644: create a public port on it with the prefix webhooks (POST /v1/instances/{id}/public-ports) and give me the public origin that replaces http://localhost:8644 in the URL Hermes shows.
+Done when a POST to https://webhooks-{instanceId}.agent37.app/webhooks/<subscription-name> reaches Hermes without an Agent37 key.
+My key is in AGENT37_API_KEY.
+```
+
 For Hermes route configuration, payload templates, delivery targets, and supported signatures, use the [Hermes webhook guide](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/webhooks).
 
 ## 1. Create the Hermes subscription

@@ -6,6 +6,14 @@ description: "Run Hermes and OpenClaw on Agent37 with your own Composio API key:
 
 Every instance ships with [managed Composio](/agents-api/integrations): zero setup, and Agent37 meters the agent's tool calls from your wallet. When you'd rather own the integration layer (your `COMPOSIO_API_KEY`, your Composio project, your users' connected accounts, your own per-user metering), the **hermes-openclaw-composio** kit is the supported path. It's a complete forkable app in which Hermes and OpenClaw agents reach Gmail, Slack, Notion, GitHub, and hundreds of other apps through a Composio MCP proxy hosted in your own app.
 
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want integrations on my own Composio: my API key, my users' connected accounts, my own metering.
+Clone https://github.com/agent37-platform/hermes-openclaw-composio and follow the guide's Get started steps; setup needs my COMPOSIO_API_KEY and a Supabase access token (ask me for both).
+Done when an agent I create in the kit calls a connected service and the call shows in its Integrations tab.
+My key is in AGENT37_API_KEY.
+```
+
 <Card title="agent37-platform/hermes-openclaw-composio" icon="github" href="https://github.com/agent37-platform/hermes-openclaw-composio" horizontal>
   The full app, ready to fork: auth, workspaces, chat, files, an integrations catalog with OAuth connect, and per-agent tool-call metering, all on your Composio project. Next.js and Supabase, deploys to Vercel. MIT.
 </Card>
