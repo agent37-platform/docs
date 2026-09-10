@@ -34,6 +34,7 @@
           "agents-api/grok",
           "agents-api/opencode",
           "agents-api/custom-image",
+          "agents-api/migrate-from-docker",
           "agents-api/managed-services",
           "agents-api/hermes-webhooks"
         ]
