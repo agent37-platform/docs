@@ -37,7 +37,7 @@ The build runs on Agent37's infrastructure and streams its log to your terminal 
 | `docker build -t web .` | `npx agent37 templates build . --name web --default-port 3000` |
 | `docker run web` | `POST /v1/instances { "template": "web" }` |
 | `-e KEY=value` | `"env": { "KEY": "value" }` on create |
-| `-p 3000:3000` (or a random host port) | The URL replaces the host port: `https://{instanceId}.agent37.app` for the template's `default_port`, `https://{instanceId}-{port}.agent37.app` for any other |
+| `-p 3000:3000` (or a random host port) | The URL replaces the host port, the public IP, and the certificate: `https://{instanceId}.agent37.app` for the template's `default_port`, `https://{instanceId}-{port}.agent37.app` for any other |
 | `-v data:/data` | The instance's own disk, which persists across stop, start, and restart. Data under `/home/node` also survives an image update. |
 | `--memory 4g --cpus 2` | `"resources": { "cpu": 2, "memory": 4 }` (also 4/8 and 8/16) |
 | `--restart unless-stopped` | Built in. Once the instance has booted, a container that exits is started again. |

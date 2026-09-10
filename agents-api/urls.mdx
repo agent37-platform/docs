@@ -5,6 +5,8 @@ description: "Reach the software running inside an instance over HTTPS, at insta
 
 Every instance with a default port is reachable at `https://{instanceId}.agent37.app`. The instance id is the DNS label, so instance `ab12cd34ef` lives at `https://ab12cd34ef.agent37.app`: you can construct the URL from the id alone, with no lookup step.
 
+An instance needs no public IP address. Every port it listens on has its own HTTPS URL, and the platform edge checks your key. A [signed URL](#browser-access-with-signed-urls) opens a port in a browser, a [public port](/agents-api/public-ports) serves one of your own ports without any key, and a [custom domain](/agents-api/domains) serves all of them under your own domain. [SSH](/agents-api/ssh) takes the same path: the stream travels over a WebSocket to the instance's SSH port.
+
 <Info>
   Instance URLs are the Agent API plane: you reach what runs *inside* an instance here, authenticated by the same `sk_live_` key as the hosting API, sent as the `X-Agent37-Key` header. See [Core concepts](/agents-api/concepts).
 </Info>
