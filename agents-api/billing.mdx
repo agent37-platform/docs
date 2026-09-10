@@ -126,4 +126,81 @@ Managed LLM, Brave search, and Composio calls debit the same wallet at cost, but
 
 ## Ledger and spend visibility
 
-Every wallet movement is recorded: top-ups, the signup credit, and metered compute debits land in an append-only ledger, while managed usage is metered per call into its own usage ledger and shown as a per-instance spend breakdown. Review the ledger, your balance, and the spend breakdown at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). For managed spend on a single instance, `GET /v1/instances/{id}/usage` returns a monthly rollup; compute charges are dashboard-only and never appear there.
+Every wallet movement is recorded: top-ups, the signup credit, and metered compute debits land in an append-only ledger, while managed usage is metered per call into its own usage ledger. Review the ledger, your balance, and the spend breakdown at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing); the [usage page](https://www.agent37.com/dashboard/cloud/usage) shows the same numbers by day and by instance for the last 30 days.
+
+### Read workspace usage
+
+`GET /v1/usage?from=YYYY-MM-DD&to=YYYY-MM-DD` returns everything the workspace spent, by UTC day and by instance, for a window of up to 90 days. Both parameters are optional: `to` defaults to today and `from` to 30 days ending there. Deleted instances stay in the list for the days they spent. Compute lands here within the hour (it is metered per minute and settled hourly); models, search, and tools land as each call is billed.
+
+<ResponseField name="from" type="string">
+  First UTC day covered, formatted `YYYY-MM-DD`.
+</ResponseField>
+
+<ResponseField name="to" type="string">
+  Last UTC day covered, inclusive.
+</ResponseField>
+
+<ResponseField name="total_micros" type="integer">
+  Everything spent in the window, in USD millionths.
+</ResponseField>
+
+<ResponseField name="by_integration" type="object">
+  `compute`, `llm`, `brave`, and `composio`, each with `cost_micros`. `llm` also carries `calls`, `input_tokens`, and `output_tokens`.
+</ResponseField>
+
+<ResponseField name="days" type="array">
+  One entry per UTC day in the window, oldest first: `date`, `total_micros`, `compute_micros`, `llm_micros`, `brave_micros`, `composio_micros`, `llm_calls`, `input_tokens`, `output_tokens`. Days with no spend are present with zeros.
+</ResponseField>
+
+<ResponseField name="instances" type="array">
+  One entry per instance that spent anything in the window, highest total first, with the same fields as a day plus the instance `id`.
+</ResponseField>
+
+<CodeGroup>
+```bash curl
+curl "https://api.agent37.com/v1/usage?from=2026-08-11&to=2026-09-09" \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```json response
+{
+  "from": "2026-08-11",
+  "to": "2026-09-09",
+  "total_micros": 4858130000,
+  "by_integration": {
+    "compute": { "cost_micros": 2100000000 },
+    "llm": { "cost_micros": 2588130000, "calls": 410212, "input_tokens": 23400000000, "output_tokens": 610000000 },
+    "brave": { "cost_micros": 110000000 },
+    "composio": { "cost_micros": 60000000 }
+  },
+  "days": [
+    {
+      "date": "2026-08-11",
+      "total_micros": 151200000,
+      "compute_micros": 70000000,
+      "llm_micros": 76200000,
+      "brave_micros": 3500000,
+      "composio_micros": 1500000,
+      "llm_calls": 12840,
+      "input_tokens": 720000000,
+      "output_tokens": 19000000
+    }
+  ],
+  "instances": [
+    {
+      "id": "ab12cd34ef",
+      "total_micros": 312400000,
+      "compute_micros": 21000000,
+      "llm_micros": 291400000,
+      "brave_micros": 0,
+      "composio_micros": 0,
+      "llm_calls": 9120,
+      "input_tokens": 2100000000,
+      "output_tokens": 48000000
+    }
+  ]
+}
+```
+</CodeGroup>
+
+For managed spend on a single instance for one month, `GET /v1/instances/{id}/usage` returns a monthly rollup; see [Budgets](/agents-api/budgets#read-managed-spend).
