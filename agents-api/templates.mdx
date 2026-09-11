@@ -12,7 +12,7 @@ curl -X POST https://api.agent37.com/v1/instances \
   -d '{ "template": "agent37-hermes" }'
 ```
 
-Templates come in two scopes. `system` templates are the built-in catalog, the same for every workspace and read-only. `workspace` templates are ones you register from your own image, either a public registry reference or a [cloud build](/agents-api/custom-image#build-it-in-the-cloud), and they are visible only to your workspace.
+Templates come in two scopes. `system` templates are the built-in catalog, the same for every workspace and read-only. `workspace` templates are ones you register from your own image, either a registry reference (public, or private with `registry_auth`) or a [cloud build](/agents-api/custom-image#build-it-in-the-cloud), and they are visible only to your workspace.
 
 <Note>
   Registering a workspace template copies your image once into private storage and pins it by digest. That snapshot is what instances run: registration takes up to a few minutes for a large image, the image is stored privately and never republished, and re-pushing the same registry tag later has no effect until you [update the template](#update-a-template).
@@ -87,7 +87,7 @@ export AGENT37_API_KEY=sk_live_...
 npx agent37 templates build ./my-agent --name my-agent
 ```
 
-The directory defaults to `.` and must have a `Dockerfile` at its root. The CLI packs the **whole folder**, minus `.git` and your `.dockerignore` patterns (plain patterns only; `!` negations are ignored), gzips it (100 MB cap), and streams the live build log to your terminal; on failure it exits non-zero with the failing step visible. Every unexcluded file ships with the context, a stray `.env` included, and a `COPY . .` bakes it into the image, so check the folder, or add a `.dockerignore`, before you build. `--name` defaults to the folder name, and `--default-port <port>` sets the published template's default port. Re-building an existing name publishes a new template revision; existing instances never change. Ctrl-C does not cancel the build; it keeps running server-side.
+The directory defaults to `.` and must have a `Dockerfile` at its root. The CLI packs the **whole folder**, minus `.git` and your `.dockerignore` patterns (plain patterns only; `!` negations are ignored), gzips it (1 GB cap), and streams the live build log to your terminal; on failure it exits non-zero with the failing step visible. Every unexcluded file ships with the context, a stray `.env` included, and a `COPY . .` bakes it into the image, so check the folder, or add a `.dockerignore`, before you build. `--name` defaults to the folder name, and `--default-port <port>` sets the published template's default port. Re-building an existing name publishes a new template revision; existing instances never change. Ctrl-C does not cancel the build; it keeps running server-side. `--secret id=NAME` hands a value to `RUN --mount=type=secret,id=NAME` steps and `--registry-auth HOST=USER:PASSWORD` lets `FROM` pull from a private registry; see [build secrets](/agents-api/custom-image#build-secrets).
 
 See [Build a custom image](/agents-api/custom-image) for the walkthrough. The raw flow below is for clients scripting the same thing without the CLI.
 
@@ -100,7 +100,7 @@ See [Build a custom image](/agents-api/custom-image) for the walkthrough. The ra
 </ParamField>
 
 <ParamField body="size_bytes" type="integer" required>
-  Exact size of the gzipped context, from `1` through `100,000,000` bytes (100 MB).
+  Exact size of the gzipped context, from `1` through `1,000,000,000` bytes (1 GB).
 </ParamField>
 
 <ParamField body="default_port" type="integer">
@@ -128,7 +128,7 @@ curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-builds \
   "status": "created",
   "upload_url": "https://uploads.example.com/...signed...",
   "expires_at": 1784192400,
-  "max_bytes": 100000000
+  "max_bytes": 1000000000
 }
 ```
 
@@ -145,7 +145,7 @@ curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-builds \
 </ResponseField>
 
 <ResponseField name="max_bytes" type="integer">
-  The context cap: exactly `100,000,000` bytes (100 MB).
+  The context cap: exactly `1,000,000,000` bytes (1 GB).
 </ResponseField>
 
 ### 2. Upload the context
@@ -159,19 +159,34 @@ curl --fail-with-body -X PUT -H 'Expect:' \
 
 ### 3. Start the build
 
+The body is optional. Send one when a `RUN` step needs a credential or `FROM` pulls from a private registry; both are used for this build only and are not stored.
+
+<ParamField body="secrets" type="object">
+  Build secrets, `{ "<id>": "<value>" }`. Each id (1 to 64 letters, digits, `_`, `.` or `-`, starting with a letter or `_`) is mounted for `RUN --mount=type=secret,id=<id>` steps at `/run/secrets/<id>` during that step only and never written into the image. Up to 32 entries, 256 KB in total.
+</ParamField>
+
+<ParamField body="registry_auth" type="object">
+  Registry logins for `FROM`, keyed by host: `{ "registry.acme.com": { "username": "...", "password": "..." } }`. Up to 8 registries.
+</ParamField>
+
 ```bash curl
 BUILD_ID=$(jq -r '.id' build.json)
 
 curl --fail-with-body -sS -X POST \
   "https://api.agent37.com/v1/template-builds/$BUILD_ID/start" \
-  -H "Authorization: Bearer $AGENT37_API_KEY"
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"secrets\": { \"GITHUB_TOKEN\": \"$GITHUB_TOKEN\" },
+    \"registry_auth\": { \"registry.acme.com\": { \"username\": \"bot\", \"password\": \"$REGISTRY_PASSWORD\" } }
+  }"
 ```
 
 ```json response
 { "id": "tb_7d3a90b81f264bc2a113", "status": "building" }
 ```
 
-Starting a build whose context was never uploaded, or is over 100 MB, returns `400 invalid_request`. Up to three builds run at once per workspace: a build that already started, or a start while three are already running, returns `409 build_conflict`.
+Starting a build whose context was never uploaded, or is over 1 GB, returns `400 invalid_request`; so does a malformed `secrets` or `registry_auth`. Up to three builds run at once per workspace: a build that already started, or a start while three are already running, returns `409 build_conflict`.
 
 ### 4. Poll it and tail the log
 
@@ -234,9 +249,9 @@ curl -sS "https://api.agent37.com/v1/template-builds/$BUILD_ID/logs?offset=0" \
 
 ### Build limits and failures
 
-Builds are free. Up to three run at once per workspace, a build times out after 45 minutes, and the gzipped context is capped at 100 MB. The built image is capped at 8 GB decimal, like a registry import; if you need more, [talk to the team](https://cal.com/vishnukool/30min).
+Builds are free. Up to three run at once per workspace, a build times out after 45 minutes, and the gzipped context is capped at 1 GB. The built image is capped at 8 GB decimal, like a registry import; if you need more, [talk to the team](https://cal.com/vishnukool/30min).
 
-Your Dockerfile and files upload straight to the build, so a private codebase never needs a registry. The build pulls its `FROM` image and anything `RUN` downloads from the public internet; for a private base image, email [support@agent37.com](mailto:support@agent37.com). A template published by a build has an `image_digest` and no `image_ref`, because no public reference exists.
+Your Dockerfile and files upload straight to the build, so a private codebase never needs a registry. A `FROM` on a private registry takes its login as `registry_auth` on the start call, and a `RUN` step that needs a token (a private repository, a private package index) reads it from a build secret passed the same way; see [build secrets](/agents-api/custom-image#build-secrets). A template published by a build has an `image_digest` and no `image_ref`, because no public reference exists.
 
 A failed build carries its reason in `error.code`:
 
@@ -252,14 +267,18 @@ A failed build carries its reason in `error.code`:
 
 ## Register a workspace template
 
-`POST /v1/templates` registers an amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it. The image can be anything, built from scratch or on [the Hermes base image](#build-on-the-hermes-base-image). Give the image as an `image_ref`, a **public** registry reference; for an image that isn't public, use a [cloud build](#build-an-image-in-the-cloud) instead. It publishes the template itself, so there is nothing to register afterward. If you need an image larger than the 8 GB cap allows, [talk to the team](https://cal.com/vishnukool/30min).
+`POST /v1/templates` registers an amd64 image under a name you choose. The platform runs it as a managed instance with the same lifecycle, billing, [exec](/agents-api/exec), and routed port URLs as the catalog; what the image serves on its ports is up to it. The image can be anything, built from scratch or on [the Hermes base image](#build-on-the-hermes-base-image). Give the image as an `image_ref`; for a private registry, add `registry_auth` beside it. An image that exists nowhere yet is a [cloud build](#build-an-image-in-the-cloud) instead, which publishes the template itself, so there is nothing to register afterward. If you need an image larger than the 8 GB cap allows, [talk to the team](https://cal.com/vishnukool/30min).
 
 <ParamField body="name" type="string" required>
   2 to 63 characters: lowercase letters, digits, and hyphens, starting with a letter (`^[a-z][a-z0-9-]{1,62}$`). The `agent37-` prefix is reserved. A name that already exists returns `409 template_conflict`.
 </ParamField>
 
 <ParamField body="image_ref" type="string" required>
-  A fully qualified **public** image reference with a registry or namespace path, like `ghcr.io/acme/my-agent:v1`. Up to 255 characters. The image must be public (so the platform can copy it), built for `linux/amd64`, and at most 8 GB. On registration the platform pulls it once into private storage and pins it by digest; a reference that isn't publicly pullable, isn't `linux/amd64`, or is over the cap is rejected then.
+  A fully qualified image reference with a registry or namespace path, like `ghcr.io/acme/my-agent:v1`. Up to 255 characters. The image must be built for `linux/amd64` and at most 8 GB, and either public or reachable with `registry_auth`. On registration the platform pulls it once into private storage and pins it by digest; a reference it cannot pull, one that isn't `linux/amd64`, or one over the cap is rejected then.
+</ParamField>
+
+<ParamField body="registry_auth" type="object">
+  The login for the image's registry when it is private: `{ "username": "...", "password": "..." }` (on GHCR, a personal access token with `read:packages` as the password). The platform uses it once for the copy into private storage and does not store it, so a later `PATCH` that changes `image_ref` sends it again. Not accepted for `ghcr.io/agent37-platform/` images, which are public.
 </ParamField>
 
 <ParamField body="description" type="string">
@@ -319,7 +338,7 @@ console.log(await resp.json());
 
 </CodeGroup>
 
-Registration copies the image into private storage before it returns, so `POST` and `PATCH` are synchronous and can take up to a few minutes for a large image. A reference that isn't publicly pullable, isn't `linux/amd64`, or is over the cap is rejected at registration with `400 invalid_request` or `400 image_too_large`, so a broken image never reaches instance create.
+Registration copies the image into private storage before it returns, so `POST` and `PATCH` are synchronous and can take up to a few minutes for a large image. A reference the platform cannot pull (private without `registry_auth`, or a wrong login), one that isn't `linux/amd64`, or one over the cap is rejected at registration with `400 invalid_request` or `400 image_too_large`, so a broken image never reaches instance create.
 
 <Tip>
   Pin a tag on `image_ref`; do not rely on `latest`. A pinned tag makes rollback a one-field `PATCH` and keeps every instance you create reproducible. The template is a snapshot regardless; pinning is about which build you re-register next.
@@ -341,7 +360,7 @@ RUN apt-get update && apt-get install -y postgresql-client
 USER node
 ```
 
-Publish it with a [cloud build](#build-an-image-in-the-cloud) (`npx agent37 templates build` from the folder holding the Dockerfile), or build it yourself for `linux/amd64` and push it to a public registry. OpenClaw builds have the same shape: the FROM target is [`ghcr.io/agent37-platform/openclaw-base`](https://github.com/orgs/agent37-platform/packages/container/package/openclaw-base), published with the same dated tags as `agent37-openclaw`. So do [Claude Code](/agents-api/claude-code) builds: the FROM target is [`ghcr.io/agent37-platform/claude-code-base`](https://github.com/orgs/agent37-platform/packages/container/package/claude-code-base), the clean base with no managed integrations, published with the same dated tags as `agent37-claude-code`. [Codex](/agents-api/codex) builds follow suit: the FROM target is [`ghcr.io/agent37-platform/codex-base`](https://github.com/orgs/agent37-platform/packages/container/package/codex-base), published with the same dated tags as `agent37-codex`. [Grok](/agents-api/grok) builds as well: the FROM target is [`ghcr.io/agent37-platform/grok-base`](https://github.com/orgs/agent37-platform/packages/container/package/grok-base), published with the same dated tags as `agent37-grok`. [OpenCode](/agents-api/opencode) builds too: the FROM target is [`ghcr.io/agent37-platform/opencode-base`](https://github.com/orgs/agent37-platform/packages/container/package/opencode-base), published with the same dated tags as `agent37-opencode`.
+Publish it with a [cloud build](#build-an-image-in-the-cloud) (`npx agent37 templates build` from the folder holding the Dockerfile), or build it yourself for `linux/amd64` and push it to a registry. OpenClaw builds have the same shape: the FROM target is [`ghcr.io/agent37-platform/openclaw-base`](https://github.com/orgs/agent37-platform/packages/container/package/openclaw-base), published with the same dated tags as `agent37-openclaw`. So do [Claude Code](/agents-api/claude-code) builds: the FROM target is [`ghcr.io/agent37-platform/claude-code-base`](https://github.com/orgs/agent37-platform/packages/container/package/claude-code-base), the clean base with no managed integrations, published with the same dated tags as `agent37-claude-code`. [Codex](/agents-api/codex) builds follow suit: the FROM target is [`ghcr.io/agent37-platform/codex-base`](https://github.com/orgs/agent37-platform/packages/container/package/codex-base), published with the same dated tags as `agent37-codex`. [Grok](/agents-api/grok) builds as well: the FROM target is [`ghcr.io/agent37-platform/grok-base`](https://github.com/orgs/agent37-platform/packages/container/package/grok-base), published with the same dated tags as `agent37-grok`. [OpenCode](/agents-api/opencode) builds too: the FROM target is [`ghcr.io/agent37-platform/opencode-base`](https://github.com/orgs/agent37-platform/packages/container/package/opencode-base), published with the same dated tags as `agent37-opencode`.
 
 See [Build a custom image](/agents-api/custom-image) for the step-by-step walkthrough, and [agent37-platform/custom-agent-image](https://github.com/agent37-platform/custom-agent-image) for a working app that builds its own image and installs a skill into every agent it creates.
 
@@ -357,7 +376,7 @@ The contract:
 
 ## Update a template
 
-`PATCH /v1/templates/{name}` changes any of `name`, `image_ref`, `description`, or `default_port` (send `null` to clear it back to the `3737` fallback). Send at least one field. A changed `image_ref` is copied into private storage, so an image update is synchronous like create, and each successful image update increments the platform-controlled `revision`. Sending the exact same `image_ref` string reuses the existing snapshot and does not increment it; renaming or changing only `description` or `default_port` also leaves it unchanged. To ship a new image on a template published by a [cloud build](#build-an-image-in-the-cloud) (no `image_ref`), run a new build under the same name; every successful build publishes a new revision, even when the built image's digest is unchanged. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
+`PATCH /v1/templates/{name}` changes any of `name`, `image_ref`, `description`, or `default_port` (send `null` to clear it back to the `3737` fallback). Send at least one field. A changed `image_ref` is copied into private storage (send `registry_auth` again for a private registry), so an image update is synchronous like create, and each successful image update increments the platform-controlled `revision`. Sending the exact same `image_ref` string reuses the existing snapshot and does not increment it; renaming or changing only `description` or `default_port` also leaves it unchanged. To ship a new image on a template published by a [cloud build](#build-an-image-in-the-cloud) (no `image_ref`), run a new build under the same name; every successful build publishes a new revision, even when the built image's digest is unchanged. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
 
 ```bash curl
 curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
@@ -415,7 +434,7 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
 }
 ```
 
-A workspace template registered from a public reference echoes that reference as `image_ref` and adds the pinned `image_digest`; one published by a [cloud build](#build-an-image-in-the-cloud) has an `image_digest` and no `image_ref`:
+A workspace template registered from a registry reference echoes that reference as `image_ref` and adds the pinned `image_digest`; one published by a [cloud build](#build-an-image-in-the-cloud) has an `image_digest` and no `image_ref`:
 
 ```json response
 {
@@ -473,12 +492,12 @@ A workspace template registered from a public reference echoes that reference as
 
 | Status | Code | When |
 | --- | --- | --- |
-| `400` | `invalid_request` | Bad `name`, `image_ref`, or `default_port`; a template create with no `image_ref`; a not-publicly-pullable registry reference; the legacy `ports` array; a direct image reference passed as `template` on instance create; a bad [pin](#pin-a-template-version) on create or update (unpublished system tag, `@latest`, non-numeric or unpublished workspace revision); a [build](#build-an-image-in-the-cloud) `start` with no uploaded context or one over 100 MB |
+| `400` | `invalid_request` | Bad `name`, `image_ref`, or `default_port`; a template create with no `image_ref`; a registry reference the platform cannot pull (private without `registry_auth`, or a wrong login); a malformed `registry_auth`; the legacy `ports` array; a direct image reference passed as `template` on instance create; a bad [pin](#pin-a-template-version) on create or update (unpublished system tag, `@latest`, non-numeric or unpublished workspace revision); a [build](#build-an-image-in-the-cloud) `start` with no uploaded context, one over 1 GB, or a malformed `secrets` or `registry_auth` body |
 | `400` | `image_too_large` | The staged image is over the 8 GB decimal cap |
 | `403` | `forbidden` | `PATCH` or `DELETE` on a system template: they are read-only |
 | `404` | `not_found` | Unknown template name or build id; a pinned `GET` for an unpublished version or revision; repeat `DELETE` |
 | `409` | `template_conflict` | Create or rename onto a name that already exists |
-| `409` | `build_conflict` | A build `start` on a build that already started, or while another build is running in your workspace (one build runs at a time) |
+| `409` | `build_conflict` | A build `start` on a build that already started, or while three builds are already running in your workspace |
 | `502` | `image_ingest_failed` | The copy into private storage failed for a reason on our side; retry, or [contact support](mailto:support@agent37.com) |
 
 A build that fails after starting is not an HTTP error: `GET /v1/template-builds/{id}` returns `200` with `status: "failed"` and the reason in its `error` field. See [build limits and failures](#build-limits-and-failures).
