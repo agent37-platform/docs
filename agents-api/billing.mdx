@@ -9,7 +9,7 @@ Billing is prepaid. You top up one workspace wallet in the dashboard, and everyt
 
 - **\$1 free to start.** Your first visit to the dashboard grants a one-time \$1 credit, enough to run your first instance for days, or a mostly-idle [auto-sleep](/agents-api/instances#auto-sleep) instance for a month or more. Until your first real top-up, the workspace runs one instance of any template on the 2 vCPU / 4 GB shape; a larger shape returns `403 tier_limit`. Your first top-up unlocks the 4/8 and 8/16 shapes, and up to 10 instances; once your top-ups total \$100 the cap rises to 50, and at \$250 to 200. See [Instance limits](#instance-limits).
 - **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are \$5 to \$1000 each, paid through Stripe.
-- **Automatic top-up is on by default.** Your first top-up saves its card and turns on a refill rule (below \$10, buy \$25) so the wallet refills itself; adjust or turn it off any time. See [Automatic top-up](#automatic-top-up).
+- **Automatic top-up is on by default and follows your top-up.** The Add funds dialog sets the refill rule next to the amount you are adding: buy the same amount again once the balance drops below half of it (a \$25 top-up refills \$25 below \$12.50; a \$5 top-up refills \$5 below \$3). Change the two numbers or turn it off before you pay, or any time after. See [Automatic top-up](#automatic-top-up).
 - **Instances draw it down.** Compute is metered per minute: time an instance spends running bills its full rate, time spent stopped or sleeping bills its disk alone. See [Per-minute metering](#per-minute-metering).
 - **Managed usage draws it down.** Managed LLM, Brave search, and Composio calls are metered at cost against the same wallet, gated by each instance's [budget](/agents-api/budgets).
 - **Delete to stop billing.** Deleting an instance settles its final minutes and ends billing. Nothing is ever prepaid, so there is nothing to refund.
@@ -92,10 +92,10 @@ The monthly price is the rate; the wallet is metered per minute (the monthly pri
 
 ## Automatic top-up
 
-Automatic top-up keeps instances from being suspended when the balance runs low: when it falls below your threshold, your card is charged for a fixed amount. The rule is checked every hour, and once more right before any instance would be suspended, so instances stay up as long as the card charges.
+Automatic top-up keeps instances from being suspended when the balance runs low: when it falls below your threshold, your card is charged for a fixed amount. The rule is checked the moment a charge takes the balance below the threshold, every hour, and once more right before any instance would be suspended, so instances stay up as long as the card charges.
 
-- It turns on by default at your first top-up (below \$10, buy \$25), charging the most recently saved card. Adjust both amounts or turn it off at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing).
-- The threshold can be \$1 to \$1000. The purchase amount follows the usual \$5 to \$1000 top-up range.
+- It is on by default and follows your top-up. Each time you add funds, the rule becomes "buy the same amount again once the balance drops below half of it": \$5 refills \$5 below \$3, \$10 refills \$10 below \$5, \$100 refills \$100 below \$50. The two numbers and the switch sit next to the Add button, and the Stripe payment page restates them, so you see what will be charged before you pay. Edit them or turn it off any time at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing).
+- The threshold can be \$3 to \$1000. The purchase amount follows the usual \$5 to \$1000 top-up range.
 - If a charge fails, automatic top-up turns itself off and emails the workspace owner. Add funds manually, which saves a new card, then re-enable it.
 
 ## Past due and suspension
