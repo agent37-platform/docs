@@ -171,7 +171,7 @@ curl --fail-with-body -sS -X POST \
 { "id": "tb_7d3a90b81f264bc2a113", "status": "building" }
 ```
 
-Starting a build whose context was never uploaded, or is over 100 MB, returns `400 invalid_request`. One build runs at a time per workspace: a build that already started, or a start while another build is running, returns `409 build_conflict`.
+Starting a build whose context was never uploaded, or is over 100 MB, returns `400 invalid_request`. Up to three builds run at once per workspace: a build that already started, or a start while three are already running, returns `409 build_conflict`.
 
 ### 4. Poll it and tail the log
 
@@ -234,9 +234,9 @@ curl -sS "https://api.agent37.com/v1/template-builds/$BUILD_ID/logs?offset=0" \
 
 ### Build limits and failures
 
-Builds are free. One build runs at a time per workspace, a build times out after 45 minutes, and the gzipped context is capped at 100 MB. The built image is capped at 8 GB decimal, like a registry import; if you need more, [talk to the team](https://cal.com/vishnukool/30min).
+Builds are free. Up to three run at once per workspace, a build times out after 45 minutes, and the gzipped context is capped at 100 MB. The built image is capped at 8 GB decimal, like a registry import; if you need more, [talk to the team](https://cal.com/vishnukool/30min).
 
-Everything the build fetches, including the `FROM` base image and anything `RUN` downloads, must be **publicly reachable**. There is no build-secret or private-registry-credential support yet; for a private base image, [contact support](mailto:support@agent37.com). A template published by a build has an `image_digest` and no `image_ref`, because no public reference exists.
+Your Dockerfile and files upload straight to the build, so a private codebase never needs a registry. The build pulls its `FROM` image and anything `RUN` downloads from the public internet; for a private base image, email [support@agent37.com](mailto:support@agent37.com). A template published by a build has an `image_digest` and no `image_ref`, because no public reference exists.
 
 A failed build carries its reason in `error.code`:
 
