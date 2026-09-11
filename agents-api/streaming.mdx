@@ -65,7 +65,7 @@ There are exactly eight event types:
 Rules the stream always follows:
 
 - `response.created` is always first, and exactly one terminal event (`response.completed` or `response.failed`) ends every live stream.
-- Every 30 seconds the gateway writes the comment line `:keepalive`, whether or not events are flowing. Comments are not events: ignore any line starting with `:`.
+- Every 30 seconds the gateway writes the comment line `:keepalive`, whether or not events are flowing. Comments are not events: ignore any line starting with `:`. There is no time limit on a turn; the stream stays open until the agent is done.
 - There is no `[DONE]` sentinel. The server closes the connection right after the terminal event; terminal event plus close is end of stream.
 - Once streaming starts, failures arrive as a `response.failed` event with the standard error body, never as an HTTP error status.
 

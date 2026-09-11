@@ -10,7 +10,7 @@ You can run an Agent37 instance from any Docker image. Register it as a [workspa
 | Not built yet, local, or private | A [cloud build](#build-it-in-the-cloud) | A folder with the `Dockerfile` and the files it `COPY`s. Agent37 runs the build; no local Docker needed. |
 | In a public registry | `image_ref` | A fully qualified reference that Agent37 can pull anonymously during registration. |
 
-A cloud build fetches everything itself, including the `FROM` base image and anything `RUN` downloads, so those sources must be publicly reachable. There is no build-secret or private-registry-credential support yet; if your base image is private, [contact support](mailto:support@agent37.com).
+Your Dockerfile and files upload straight to the build, so a private codebase never needs a registry. The build pulls its `FROM` image and anything `RUN` downloads from the public internet; for a private base image, email [support@agent37.com](mailto:support@agent37.com).
 
 A complete example lives in [agent37-platform/custom-agent-image](https://github.com/agent37-platform/custom-agent-image): a working agent app (auth, chat, files, integrations) whose agents run an image it builds itself from one `Dockerfile` and one skill folder. Click **Use this template**, edit the `Dockerfile`, run `npm run release:agent`. Smaller ready-to-build recipes live in the [Agent37 Cookbook](https://github.com/agent37-platform/examples), like [hermes-vnc-desktop](https://github.com/agent37-platform/examples/tree/main/custom-images/hermes-vnc-desktop), a live desktop view of the agent's browser.
 
@@ -98,7 +98,7 @@ What it does:
 - Publishes the result as the workspace template. `--name` defaults to the folder name; `--default-port <port>` sets the template's default port. Re-building an existing name publishes a new template revision; **existing instances never change**.
 - Ctrl-C does not cancel the build; it continues server-side and still publishes on success.
 
-Builds are free, run one at a time per workspace, and time out after 45 minutes. The built image is capped at 8 GB decimal, like any template image; if you need more, [contact support](mailto:support@agent37.com). Everything the build fetches, including the `FROM` base image and anything `RUN` downloads, must be publicly reachable; there is no build-secret or private-registry-credential support yet. A template published this way has an `image_digest` but no `image_ref`, because there is no public registry reference.
+Builds are free, run up to three at once per workspace, and time out after 45 minutes. The built image is capped at 8 GB decimal, like any template image; if you need more, [contact support](mailto:support@agent37.com). The build pulls its `FROM` image and anything `RUN` downloads from the public internet; for a private base image, email [support@agent37.com](mailto:support@agent37.com). A template published this way has an `image_digest` but no `image_ref`, because there is no public registry reference.
 
 To script the same flow without the CLI, see the raw contract in
 [Templates → build an image in the cloud](/agents-api/templates#build-an-image-in-the-cloud).
