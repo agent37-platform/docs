@@ -19,7 +19,7 @@ curl -N https://ab12cd34ef.agent37.app/v1/responses \
   }'
 ```
 
-The connection stays open and frames arrive as `event:` plus `data:` pairs separated by a blank line:
+If the instance is sleeping, the request wakes it first and no response headers arrive until the wake completes, so the first frame is subject to the same wait as any other request to the instance URL: give the request a first-byte timeout of at least three minutes, and past its wake budget the edge answers `503 wake_timeout` instead. The connection stays open and frames arrive as `event:` plus `data:` pairs separated by a blank line:
 
 ```text stream
 event: response.created

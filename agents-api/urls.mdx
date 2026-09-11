@@ -164,7 +164,7 @@ console.log((await res.json()).url);
   Unix seconds when the URL stops working. Mint a fresh one when it expires.
 </ResponseField>
 
-The instance must be running or sleeping (opening the link is exactly the kind of request that [wakes it](#sleeping-instances-wake-on-request)); any `port` from 1 to 65535 mints, except `22022`, the [SSH](/agents-api/ssh) port, which no credential-free URL can ever reach. An optional `ttl_seconds` sets how long the URL lives, default `3600` (one hour), clamped to `[60, 604800]` (one minute to seven days); pass a short value for a quick preview link, or the max to keep a terminal or dashboard tab open for a week. A missing or invalid port, or a `ttl_seconds` that is not a positive integer, returns `400`; an unknown or cross-workspace instance returns `404`.
+The instance must be running, sleeping, or waking (opening the link is exactly the kind of request that [wakes it](#sleeping-instances-wake-on-request), and a link minted mid-wake works once the wake completes); any `port` from 1 to 65535 mints, except `22022`, the [SSH](/agents-api/ssh) port, which no credential-free URL can ever reach. An optional `ttl_seconds` sets how long the URL lives, default `3600` (one hour), clamped to `[60, 604800]` (one minute to seven days); pass a short value for a quick preview link, or the max to keep a terminal or dashboard tab open for a week. A missing or invalid port, or a `ttl_seconds` that is not a positive integer, returns `400`; an unknown or cross-workspace instance returns `404`.
 
 The token rides in the `a37_token` query param. The edge consumes it (promoting it to the cookie) and strips it before forwarding, so it never reaches the instance and never collides with a query param your own app uses.
 
@@ -230,7 +230,7 @@ console.log(await res.json());
 
 ## Sleeping instances wake on request
 
-An [auto-sleep](/agents-api/instances#auto-sleep) instance that has gone to sleep keeps every one of its URLs. A request to any of them wakes it transparently: the edge holds the request while the instance restores, then forwards it, usually well under a second (a few seconds when the wake falls back to a fresh boot). No status polling, no retry logic; the response you get is the response to the request you sent.
+An [auto-sleep](/agents-api/instances#auto-sleep) instance that has gone to sleep keeps every one of its URLs. A request to any of them wakes it transparently: the edge holds the request while the instance restores, then forwards it. Restoring the checkpoint takes a few seconds. When the wake has to rebuild the instance instead (it was moved to another host, pulled back from cold storage after a long sleep, or the restore failed), it takes about two minutes and boots fresh: processes and in-memory state from before the sleep are gone, files on disk are kept. No status polling, no retry logic; the response you get is the response to the request you sent. No response headers arrive until the wake completes, so give the client a first-byte timeout of at least three minutes.
 
 A wake can be refused or fail, and those answers use the same flat error shape as the other [transport errors](/agents-api/errors#transport-errors):
 

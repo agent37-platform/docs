@@ -168,7 +168,7 @@ Six names are set by the platform and rejected with `400 invalid_request` rather
 </ResponseField>
 
 <ResponseField name="status" type="string">
-  The lifecycle state. `running` means the instance's computer is up; poll `GET /v1/health` before the first message. See the [statuses table](#statuses) below.
+  The lifecycle state. `running` means the instance's computer is up; poll `GET /v1/health` before the first message. Around a wake or a start the field can trail reality by a few seconds: the response to your own request, or the instance's [health endpoint](/agents-api/health), is the authority. See the [statuses table](#statuses) below.
 </ResponseField>
 
 <ResponseField name="status_reason" type="object | null">
@@ -228,7 +228,7 @@ Six names are set by the platform and rejected with `400 invalid_request` rather
 </ResponseField>
 
 <ResponseField name="slept_at" type="integer | null">
-  Present only while `status` is `sleeping` or `waking`: when the instance fell asleep, in epoch seconds (`null` for the second or so while the checkpoint is being written). Instances that have been asleep for a long stretch may take a few seconds to start instead of waking sub-second.
+  Present only while `status` is `sleeping` or `waking`: when the instance fell asleep, in epoch seconds. It does not signal that the checkpoint has finished: `status` flips to `sleeping` before the checkpoint is written, and during the write this field can be `null` or still carry an earlier timestamp. Instances that have been asleep for a long stretch may be rebuilt from cold storage on wake, which takes about two minutes (see [Auto-sleep](#auto-sleep)).
 </ResponseField>
 
 <ResponseField name="past_due" type="boolean">
@@ -367,7 +367,7 @@ The whole disk persists, like a VM. Files anywhere on the filesystem, installed 
 
 `POST /v1/instances/{id}/stop` halts the container. The agent stops doing work (no cron, no heartbeats, no responses) and `status` becomes `stopped`. The data stays intact, CPU and memory are released back to the host, and the disk stays reserved on that host.
 
-Stop also works on a `sleeping` instance, and the difference is intent: a sleeper wakes on any request, a stopped instance stays down until an explicit `start`. Stopping a sleeper discards its checkpoint (the data stays) and its URLs stop waking it. The one exception is the second or so while the sleep checkpoint is being written: stop then returns `409 try_again`, and you retry in a few seconds.
+Stop also works on a `sleeping` instance, and the difference is intent: a sleeper wakes on any request, a stopped instance stays down until an explicit `start`. Stopping a sleeper discards its checkpoint (the data stays) and its URLs stop waking it. There are two exceptions. While the sleep checkpoint is being written, stop returns `409 try_again`; the window is tens of seconds on a large instance, so retry with backoff. A sleeper that has been moved to cold storage after a long idle stretch cannot be stopped: stop returns `400 invalid_request` saying the instance is parked in cold storage. Wake it first, with [`start`](#start) or any request to its URL, or delete it.
 
 Stopping an already stopped instance returns the same ack again; any other state returns `400`.
 
@@ -381,7 +381,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/stop \
 
 `POST /v1/instances/{id}/start` brings a `stopped` instance back up, recreating the container from the image it already ran. It normally returns to its host in seconds; if that host no longer has room for the instance's CPU and memory, the platform moves the instance to one that does, and the start takes a couple of minutes while the data syncs over. Only when no host has room does it return `409 capacity_unavailable`, changing nothing. If the instance is `past_due` (suspended for non-payment), start returns `402 insufficient_balance` until the workspace is funded; topping up clears the flag on its own, and start (or any request to the instance's URLs) then boots it fresh. Starting an already running instance returns the same ack again.
 
-Start also wakes a `sleeping` instance, with the same effect as a request to one of its URLs. For a [private sandbox with no ports](/agents-api/templates#register-a-workspace-template) there is no URL to request, so start is its only wake path. During the brief window while the sleep checkpoint is being written it returns `409 try_again`; retry in a few seconds.
+Start also wakes a `sleeping` instance, with the same effect as a request to one of its URLs, and returns in 5 to 15 seconds in the common case. For a [private sandbox with no ports](/agents-api/templates#register-a-workspace-template) there is no URL to request, so start is its only wake path. It is also the explicit way back for a sleeper that has been moved to cold storage: that wake takes about two minutes and boots the instance fresh (files kept, processes and in-memory state gone). While the sleep checkpoint is being written it returns `409 try_again`; the window is tens of seconds on a large instance, so retry with backoff.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/start \
@@ -441,17 +441,17 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
 
 ## Auto-sleep
 
-An instance with `auto_sleep: true` does not have to be up to be available. Once no bytes have moved through any of its URLs for `idle_timeout_seconds` (default 300, from one minute to a day), the platform checkpoints it and `status` becomes `sleeping`: CPU and memory are released, the disk stays reserved, and billing drops to the disk rate alone (see [Billing](/agents-api/billing)). Activity is data flow in either direction on any of the instance's URLs, or a command run through [exec](/agents-api/exec); a connection that is open but silent does not count, and API reads like `GET /v1/instances/{id}` never reset the timer.
+An instance with `auto_sleep: true` does not have to be up to be available. Once no bytes have moved through any of its URLs for `idle_timeout_seconds` (default 300, from one minute to a day), the platform checkpoints it and `status` becomes `sleeping`: CPU and memory are released, the disk stays reserved, and billing drops to the disk rate alone (see [Billing](/agents-api/billing)). The status flips at the start of the checkpoint, not the end; writing it takes tens of seconds on a large instance, and `stop`, `start`, and `exec` return `409 try_again` until it is done. Activity is data flow in either direction on any of the instance's URLs, or a command run through [exec](/agents-api/exec); a connection that is open but silent does not count, and API reads like `GET /v1/instances/{id}` never reset the timer.
 
 Sleeping carries no price premium: awake minutes bill the ordinary compute rate, the same as an always-on instance, and asleep time bills disk alone. A mostly-idle instance therefore costs a fraction of the always-on price: a 2 vCPU / 4 GB instance awake an hour a day costs about \$0.54 per month, versus \$4.76 always-on. It is worth turning on for anything that is idle most of the day.
 
-Waking is transparent. Any request to any of the instance's URLs wakes it: the request is held while the instance restores, then forwarded, usually well under a second. So does an explicit [`POST /v1/instances/{id}/start`](#start) or a command sent through [exec](/agents-api/exec); for a private sandbox with no ports, which receives no requests, those are the only wake paths. If the checkpoint cannot be restored, or the instance was moved to cold storage after a long idle stretch, the wake falls back to a fresh boot and takes a few seconds instead. In-memory state usually survives a wake, but it is not guaranteed: treat anything that must outlive a sleep as a file.
+Waking is transparent. Any request to any of the instance's URLs wakes it: the request is held while the instance restores, then forwarded. The restore itself takes a few seconds. An explicit [`POST /v1/instances/{id}/start`](#start) or a command sent through [exec](/agents-api/exec) wakes it too, returning in 5 to 15 seconds in the common case; for a private sandbox with no ports, which receives no requests, those are the only wake paths. If the checkpoint cannot be restored, or the instance was moved to another host or to cold storage after a long idle stretch, the wake rebuilds the instance instead: it takes about two minutes and boots fresh, so processes and in-memory state from before the sleep are gone while files on disk are kept. A wake that boots fresh returns `running` while the agent inside is still starting; poll `GET /v1/health` for `"healthy": true` before sending work. In-memory state usually survives a wake, but it is not guaranteed: treat anything that must outlive a sleep as a file.
 
 While asleep:
 
-- The instance object reports `status: "sleeping"` and `slept_at`, for example `"slept_at": 1781222400`.
+- The instance object reports `status: "sleeping"` from the moment the checkpoint starts, and `slept_at`, for example `"slept_at": 1781222400`.
 - [Signed URLs](/agents-api/urls#browser-access-with-signed-urls) can still be minted, and opening one is exactly the kind of request that wakes the instance.
-- `stop` works, and means "stay down until I `start`" (see [Stop](#stop)). During the brief window while the checkpoint is being written it returns `409 try_again`; retry in a few seconds.
+- `stop` works, and means "stay down until I `start`" (see [Stop](#stop)). While the checkpoint is being written it returns `409 try_again`, for tens of seconds on a large instance; retry with backoff. A sleeper already moved to cold storage returns `400 invalid_request` (parked in cold storage): wake it with `start` or any request to its URL, or delete it.
 - `restart`, `update`, and `resize` require `running` and return `400`: wake the instance first, with any request to its URL or an explicit [`start`](#start).
 
 Both fields are set at create and editable any time with `PATCH /v1/instances/{id}`, no restart needed. Instances default to `auto_sleep: false` and never sleep unless you opt them in.
@@ -463,12 +463,12 @@ Both fields are set at create and editable any time with `PATCH /v1/instances/{i
 | `provisioning` | Being created. You only observe this if a create is in flight. |
 | `running` | Up. Poll `GET /v1/health` before the first message. |
 | `stopping` | A stop is in progress. |
-| `stopped` | Halted until an explicit `start`. Data intact, disk reserved, compute released. Bills disk only. |
+| `stopped` | Halted until an explicit `start`. Only an explicit `stop` produces this state; the platform never stops an instance on its own. Data intact, disk reserved, compute released. Bills disk only. |
 | `starting` | A start is in progress. |
 | `restarting` | A restart is in progress. |
 | `updating` | An update or resize is in progress. |
-| `sleeping` | Checkpointed on idle ([auto-sleep](#auto-sleep)). Any request to its URLs, an explicit `start`, or an `exec` wakes it. Bills disk only. |
-| `waking` | A wake is in progress on the slower fallback path; the held request completes when it finishes. |
+| `sleeping` | Checkpointed on idle ([auto-sleep](#auto-sleep)), or force-slept for non-payment (with `past_due: true`). Any request to its URLs, an explicit `start`, or an `exec` wakes it; while the checkpoint is still being written, `stop`, `start`, and `exec` return `409 try_again`. A sleeper moved to cold storage can be woken or deleted but not stopped. Bills disk only. |
+| `waking` | A wake is in progress. Every `start` or `exec` wake shows it, as does a URL wake that has to move the instance to another host or pull it back from cold storage: a few seconds after a checkpoint restore, about two minutes on a rebuild. The held request completes when it finishes. Bills disk only. |
 | `failed` | A create or lifecycle action failed. |
 | `deleting` | A delete is in progress. |
 | `deleted` | Gone. The id reads as `404` from here on. |
