@@ -84,6 +84,14 @@ The image is lean, with no browser and no desktop, so there is no dashboard port
 
 The image is lean, with no browser and no desktop, so there is no dashboard port. OpenCode runs on the managed model out of the box, so there is nothing to log in to; see [Host OpenCode](/agents-api/opencode).
 
+### What `agent37-n8n` serves
+
+| Port | URL | Serves |
+| --- | --- | --- |
+| `5678` | `https://ab12cd34ef.agent37.app` (default) and `https://n8n-ab12cd34ef.agent37.app` (public, no credential) | The n8n editor, webhooks (`/webhook/...`), and OAuth callbacks |
+
+This template runs a web app, not an agent: there is no gateway, terminal, or file browser port, and no chat API. Every create mints the public port on `5678` with the fixed prefix `n8n`, so the public URL is the one to open in a browser; n8n's own login guards it. See [Host n8n](/agents-api/n8n).
+
 ## Authentication
 
 A port accepts either credential, so you can reach the same port two ways:

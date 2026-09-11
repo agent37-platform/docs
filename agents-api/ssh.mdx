@@ -5,7 +5,7 @@ description: "Open a real shell on an instance with your own SSH keypair: ssh, s
 
 `ssh` into any instance your workspace owns, with the keypair you already have. Once your public key is registered, the whole OpenSSH toolchain works: interactive shells with a PTY, `scp` and `sftp` for files, port forwarding with `-L`, and **VS Code Remote SSH** for editing straight on the box.
 
-Nothing is installed in your image. The platform injects the SSH server into the sandbox at runtime, so SSH works on `agent37-hermes`, `agent37-openclaw`, `agent37-claude-code`, `agent37-codex`, `agent37-grok`, `agent37-opencode`, and every [custom image](/agents-api/custom-image) you build, including images that ship no `sshd` and no shell tooling of their own.
+Nothing is installed in your image. The platform injects the SSH server into the sandbox at runtime, so SSH works on `agent37-hermes`, `agent37-openclaw`, `agent37-claude-code`, `agent37-codex`, `agent37-grok`, `agent37-opencode`, `agent37-n8n`, and every [custom image](/agents-api/custom-image) you build, including images that ship no `sshd` and no shell tooling of their own.
 
 ## Quickstart
 

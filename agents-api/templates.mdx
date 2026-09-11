@@ -20,7 +20,7 @@ Templates come in two scopes. `system` templates are the built-in catalog, the s
 
 ## System catalog
 
-The `agent37-` prefix is reserved for system templates. The catalog has six entries today:
+The `agent37-` prefix is reserved for system templates. The catalog has eight entries today:
 
 | Template | What it runs |
 | --- | --- |
@@ -31,14 +31,15 @@ The `agent37-` prefix is reserved for system templates. The catalog has six entr
 | `agent37-codex` | Codex, OpenAI's coding agent, on your own OpenAI account: chat, code, files, shell. No browser or desktop. |
 | `agent37-grok` | Grok, xAI's coding agent, on your own xAI API key: chat, code, files, shell. No browser or desktop. |
 | `agent37-opencode` | OpenCode, SST's open-source coding agent, on the managed model out of the box: chat, code, files, shell. No browser or desktop. |
+| `agent37-n8n` | n8n, the workflow automation tool, on its own always-on instance: visual editor, webhooks, app integrations, with the managed model ready for its AI nodes. Not an agent harness. |
 
-Every template, system or your own, offers the same three shapes and starts at 2 vCPU / 4 GB, \$4.76 per month; see [sizing](/agents-api/instances). `agent37-hermes-small` is worth picking when your agent does not need a browser or a desktop: the image is far smaller, so it pulls and boots faster and leaves more of the shape to your own work. `agent37-claude-code` runs on your own Anthropic account: connect it before the first chat turn; see [Host Claude Code](/agents-api/claude-code). `agent37-codex` runs on your own OpenAI account, same rule; see [Host Codex](/agents-api/codex). `agent37-grok` runs on your own xAI API key, same rule; see [Host Grok](/agents-api/grok). `agent37-opencode` runs on the managed model out of the box, no account or key needed; point it at your own provider when you want a specific model, see [Host OpenCode](/agents-api/opencode).
+Every template, system or your own, offers the same three shapes and starts at 2 vCPU / 4 GB, \$4.76 per month; see [sizing](/agents-api/instances). `agent37-hermes-small` is worth picking when your agent does not need a browser or a desktop: the image is far smaller, so it pulls and boots faster and leaves more of the shape to your own work. `agent37-claude-code` runs on your own Anthropic account: connect it before the first chat turn; see [Host Claude Code](/agents-api/claude-code). `agent37-codex` runs on your own OpenAI account, same rule; see [Host Codex](/agents-api/codex). `agent37-grok` runs on your own xAI API key, same rule; see [Host Grok](/agents-api/grok). `agent37-opencode` runs on the managed model out of the box, no account or key needed; point it at your own provider when you want a specific model, see [Host OpenCode](/agents-api/opencode). `agent37-n8n` runs a web app, not an agent: there is no chat API on it, and its editor gets a public URL on create; see [Host n8n](/agents-api/n8n).
 
 <Note>
   Passing any other `agent37-` name on instance create returns `400 invalid_request`, because the prefix is reserved for system templates.
 </Note>
 
-On every system template, port `3737` is the gateway: the [chat API](/agents-api/chat) at `https://{instanceId}.agent37.app`. Any other port an instance serves, including the built-in dashboard, terminal, and file browser, is reachable at its derivable `https://{instanceId}-{port}.agent37.app` URL; see [Instance and preview URLs](/agents-api/urls).
+On every system template but one, port `3737` is the gateway: the [chat API](/agents-api/chat) at `https://{instanceId}.agent37.app`. Any other port an instance serves, including the built-in dashboard, terminal, and file browser, is reachable at its derivable `https://{instanceId}-{port}.agent37.app` URL; see [Instance and preview URLs](/agents-api/urls). `agent37-n8n` is the exception: its default port is `5678`, there is no gateway, and it serves the n8n editor on a public URL; see [Host n8n](/agents-api/n8n).
 
 System templates track the newest platform image: their `image_ref` moves forward as new versions ship, and each create uses whatever the template points at in that moment. Existing instances are unaffected: an instance keeps the image it was created from until you [update it](/agents-api/instances#update).
 
@@ -442,7 +443,7 @@ A workspace template registered from a public reference echoes that reference as
   `system` for built-in `agent37-` templates, `workspace` for ones you register.
 </ResponseField>
 <ResponseField name="agents" type="string[]">
-  The agents the template installs: `["hermes"]` on `agent37-hermes`, `["claude-code"]` on `agent37-claude-code`, `["codex"]` on `agent37-codex`, `["grok"]` on `agent37-grok`, `["opencode"]` on `agent37-opencode`. Workspace templates report `[]`, because the platform does not inspect what your image installs.
+  The agents the template installs: `["hermes"]` on `agent37-hermes`, `["claude-code"]` on `agent37-claude-code`, `["codex"]` on `agent37-codex`, `["grok"]` on `agent37-grok`, `["opencode"]` on `agent37-opencode`, and `[]` on `agent37-n8n`, which runs a web app rather than an agent. Workspace templates report `[]`, because the platform does not inspect what your image installs.
 </ResponseField>
 <ResponseField name="revision" type="integer | null">
   The platform-controlled workspace image revision. It starts at `1` and increments for a changed `image_ref` or every successful [cloud build](#build-an-image-in-the-cloud), even when the digest is unchanged. Metadata-only updates and the same exact `image_ref` leave it unchanged. `null` for system templates.

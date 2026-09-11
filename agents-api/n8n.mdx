@@ -1,0 +1,71 @@
+---
+title: "Host n8n"
+description: "Run n8n, the open-source workflow automation tool, on its own always-on instance, with a public URL for the editor and webhooks and the managed model ready for its AI nodes."
+---
+
+The `agent37-n8n` [template](/agents-api/templates) runs n8n, the open-source workflow automation tool, on an Agent37 instance: an always-on computer serving n8n's visual editor, webhooks, hundreds of app integrations, and AI nodes, from the official n8n image. It is a web app, not an agent harness: there is no chat API on this instance, and `https://{instanceId}.agent37.app/v1/responses` does not exist on it. Every create mints a public URL for the editor, `https://n8n-{instanceId}.agent37.app`, and n8n's own owner account guards it.
+
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want n8n, the workflow automation tool, on its own always-on instance.
+Create it with POST /v1/instances using the agent37-n8n template.
+Done when the public URL in the response's public_ports (https://n8n-{instanceId}.agent37.app) shows n8n's owner sign-up page.
+My key is in AGENT37_API_KEY.
+```
+
+## Create the instance
+
+One call to the hosting API at `https://api.agent37.com`:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "agent37-n8n" }'
+```
+
+The `201` response carries the instance id and, in `public_ports`, the editor's public URL. The template mints a [public port](/agents-api/public-ports) on `5678` with the fixed prefix `n8n` on every create, so `public_ports[0].url` is `https://n8n-{instanceId}.agent37.app`. Trimmed to the fields that matter here:
+
+```json
+{
+  "id": "ab12cd34ef",
+  "status": "running",
+  "template": "agent37-n8n",
+  "public_ports": [
+    { "port": 5678, "prefix": "n8n", "url": "https://n8n-ab12cd34ef.agent37.app" }
+  ]
+}
+```
+
+Open that URL in a browser. The first visit shows n8n's owner sign-up (email, name, password); after that it is n8n's normal login. There is one owner; invite teammates from inside n8n. The URL needs no Agent37 credential, because n8n's own account guards it.
+
+To pick your own hostname, declare a `public_ports` entry for port `5678` yourself (say a different `prefix`): the template uses yours and adds no default. Other declared ports are kept alongside the default. Unlike the other system templates there is no gateway on `3737` and no terminal or file browser port; [SSH](/agents-api/ssh) still works, log in as `node`. The template offers the same three [shapes](/agents-api/instances#shapes-and-pricing) as every other; 2 vCPU / 4 GB is fine for a single-user n8n. Pin a release with `agent37-n8n@<tag>`, like any [system template](/agents-api/templates#pin-a-template-version).
+
+## Webhooks and OAuth
+
+The public URL is permanent and unauthenticated, which is what webhooks and OAuth callbacks need: an external service POSTs to `https://n8n-{instanceId}.agent37.app/webhook/...` with no credential, and an OAuth provider redirects back to the same host. n8n's webhook paths are unguessable per node, so the URL supplies reachability, not trust. The OAuth redirect URLs n8n shows when you create a credential already use the public URL; copy them into the provider as shown.
+
+## AI nodes on the managed model
+
+On every boot the image seeds an n8n credential named **Agent37 managed model**, of type OpenAI, pointed at the managed LLM endpoint with the instance's managed token. In the editor, pick it on the **OpenAI Chat Model** node (or any OpenAI-compatible node); the model list comes from the managed endpoint, `default` plus the other managed models. Usage bills to the workspace wallet under the instance's [budget](/agents-api/budgets), exactly like managed usage on any other template; see [Managed services](/agents-api/managed-services). Add your own OpenAI, Anthropic, or OpenRouter credentials in n8n as usual when you want a specific provider.
+
+## What persists
+
+Everything n8n stores (workflows, credentials, execution history, its encryption key) lives in its SQLite database on the instance's persistent disk. It survives stop, start, restart, resize, and [image updates](/agents-api/instances#update). No external database is needed.
+
+## Auto-sleep and schedules
+
+`auto_sleep` is off by default. With it on, n8n's Schedule triggers do not fire while the instance sleeps; an incoming webhook does wake it, after a cold-start delay. Leave [auto-sleep](/agents-api/instances#auto-sleep) off for scheduled workflows.
+
+## Settings
+
+Pass any `N8N_*` variable n8n documents as [instance env](/agents-api/instances#environment-variables). The image sets `N8N_EDITOR_BASE_URL` and `N8N_WEBHOOK_URL` from the public port automatically, so those need no setting.
+
+## Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| The public URL shows the owner sign-up again after an update | It should not: n8n's database lives on the persistent disk and an update keeps it. If your workflows are missing, [contact support](mailto:support@agent37.com) before creating anything new. |
+| A Schedule trigger did not fire | The instance was asleep. Schedules do not run while an instance sleeps; set `auto_sleep: false` with `PATCH /v1/instances/{id}`. |
+| An AI node lists no models, or a run on the managed credential fails | The instance budget is exhausted or the wallet is empty, so the managed endpoint refuses the call with `402`. See [when a managed call is refused](/agents-api/budgets#when-a-managed-call-is-refused). |
+| A webhook URL returns `404` | The workflow is not active, or you used the test URL instead of the production URL. Activate the workflow and copy the production URL from the Webhook node. |

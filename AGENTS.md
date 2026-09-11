@@ -56,7 +56,7 @@ Use these exactly; consistent terms are what make `llms-full.txt` usable as a sp
 
 - Document **only the two public planes**. The dashboard, internal/admin APIs, and fleet/host architecture are out of scope.
 - The OpenClaw setup guides are **gone from this repo** and are not coming back. All 18 hidden pages (`openclaw/`, `channels/`, `models/`, `runtime/`, `networking/`, `tailscale/`) moved to the blog in July 2026: they were B2C dashboard how-tos making up 22% of `llms-full.txt`, diluting the B2B spec coding agents consume. They live at `www.agent37.com/blog/*` now, and the `website` repo's `vercel.json` redirects every old `/docs/*` URL there. Don't recreate them here, and don't add a redirect for them in `docs.json` (the website handles it).
-- The system template catalog has seven entries: `agent37-hermes`, `agent37-hermes-small`, `agent37-openclaw`, `agent37-claude-code`, `agent37-codex`, `agent37-grok`, and `agent37-opencode`. Claude Code, Codex, Grok, and OpenCode are all live and documented as available.
+- The system template catalog has eight entries: `agent37-hermes`, `agent37-hermes-small`, `agent37-openclaw`, `agent37-claude-code`, `agent37-codex`, `agent37-grok`, `agent37-opencode`, and `agent37-n8n`. Claude Code, Codex, Grok, and OpenCode are all live and documented as available. `agent37-n8n` is a web app, not an agent harness: it has no chat API and is served on a default public URL, `https://n8n-{instanceId}.agent37.app`.
 - Drafts go in `drafts/` or `*.draft.mdx` (ignored via `.mintignore`).
 
 ## Style

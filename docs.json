@@ -33,6 +33,7 @@
           "agents-api/codex",
           "agents-api/grok",
           "agents-api/opencode",
+          "agents-api/n8n",
           "agents-api/custom-image",
           "agents-api/migrate-from-docker",
           "agents-api/managed-services",
