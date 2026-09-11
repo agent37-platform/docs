@@ -142,7 +142,7 @@ Your endpoint is the consent gate. In a real product this is where quotas, port 
     The published URL routes to the port; whatever serves that port must survive the instance's lifecycle. Two habits from the brief cover it:
 
     - **Files under `~`.** The home directory is the instance's persistent disk: it survives restarts, image updates, and recovery. Site edits in a later chat turn show up on the live URL with no republish.
-    - **Start command in `~/.agent37/hooks/post-restart.sh`.** The platform runs this hook on every boot of the instance, so the server comes back after a restart or an update. Commands in it must run in the background (`nohup ... &`); a foreground command stalls the boot.
+    - **Start command in `~/.agent37/hooks/post-restart.sh`.** The platform runs this hook on every boot of the instance, so the server comes back after a restart or an update. Commands in it must run in the background (`nohup ... &`): the hook runs before the agent starts, so a foreground command holds up the agent (the hook is cut off after five minutes), even though the instance already reads `running`.
 
     Leave `auto_sleep` off (the default) for a site that must answer instantly around the clock: the first visitor after a quiet spell waits for the wake. [Auto-sleep](/agents-api/instances#auto-sleep) is the cheaper setting for a site that goes long stretches unvisited, and steady traffic keeps the instance awake either way.
   </Step>
