@@ -29,7 +29,7 @@ Errors from `https://api.agent37.com/v1/*` always carry `code` and `message`, pl
   A human-readable description. Safe to show, but do not parse it.
 </ResponseField>
 <ResponseField name="error.detail" type="string">
-  Optional. Raw failure output, present on a failed create's `provisioning_failed`: the last lines of your container's console log (host paths and IPs redacted, truncated to the final 2,000 characters). The same text persists on the instance as [`status_reason.detail`](/agents-api/instances#the-instance-object).
+  Optional. Raw failure output, present on a failed create's `provisioning_failed`: the last lines of your container's console log (host paths and IPs redacted, truncated to the final 2,000 characters). The console log is appended across boots, so lines from an earlier boot can appear above the failing boot's lines; read from the bottom. The same text persists on the instance as [`status_reason.detail`](/agents-api/instances#the-instance-object).
 </ResponseField>
 
 ### Hosting API codes
@@ -38,7 +38,7 @@ Errors from `https://api.agent37.com/v1/*` always carry `code` and `message`, pl
 | --- | --- | --- |
 | `invalid_api_key` | 401 | The `sk_live_` Bearer key is missing, malformed, or revoked, on any `/v1` path. |
 | `ip_not_allowed` | 403 | The key is valid but the request came from an IP outside the key's [IP allowlist](/agents-api/concepts#two-planes-one-key). The `message` includes the observed IP. |
-| `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, a [template](/agents-api/templates) create with no `image_ref`, a not-publicly-pullable registry reference, starting a [template build](/agents-api/templates#build-an-image-in-the-cloud) whose context is missing or over 100 MB, a lifecycle action in the wrong state, or an invalid [`update`](/agents-api/instances#update) body (any field other than `template`, or a bad or unpublished [version pin](/agents-api/templates#pin-a-template-version)). |
+| `invalid_request` | 400 | A request field is invalid: bad JSON, an unsupported resource shape, a direct image ref where a template name belongs, a [template](/agents-api/templates) create with no `image_ref`, a not-publicly-pullable registry reference, starting a [template build](/agents-api/templates#build-an-image-in-the-cloud) whose context is missing or over 100 MB, a lifecycle action in the wrong state, `stop` on a sleeping instance parked in cold storage (wake it with `start` or delete it), or an invalid [`update`](/agents-api/instances#update) body (any field other than `template`, or a bad or unpublished [version pin](/agents-api/templates#pin-a-template-version)). |
 | `image_too_large` | 400 | A [template](/agents-api/templates)'s staged image is over the 8 GB decimal cap (`8,000,000,000` bytes). |
 | `forbidden` | 403 | A write to a system template. System templates are read-only. |
 | `not_found` | 404 | No instance or template with that id or name in your workspace, or an unknown `/v1` path. |
@@ -46,14 +46,14 @@ Errors from `https://api.agent37.com/v1/*` always carry `code` and `message`, pl
 | `instance_limit_reached` | 409 | The workspace is at its instance limit: one instance on the free credit, 10 once you have topped up, 50 once top-ups total \$100, 200 once they total \$250. Email vishnu@agent37.com to raise it further. |
 | `tier_limit` | 403 | Create or resize asks for a shape larger than your plan includes, or a [custom domain](/agents-api/domains) is registered before your top-ups total \$100. Free workspaces (before your first top-up) run any template on the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
 | `shared_unavailable` | 403 | [Create](/agents-api/instances#create-an-instance) asks for `"type": "shared"` on a workspace it isn't enabled for. Nothing is provisioned and nothing is charged; book the call in the message. |
-| `capacity_unavailable` | 409 | `start` or `resize`: no host in the fleet can fit this instance, or the resize increase, right now. |
+| `capacity_unavailable` | 409 | `start` or `resize`: no host in the fleet can fit this instance, or the resize increase, right now. Also a wake (`start` or `exec` on a sleeping instance) that has to move the instance to another host when none has room. |
 | `template_conflict` | 409 | A template create or rename targets a name that already exists. |
 | `build_conflict` | 409 | A [template build](/agents-api/templates#build-an-image-in-the-cloud) `start` on a build that already started, or while three builds are already running in the workspace. Wait for one to finish and retry. |
 | `domain_exists` | 409 | A [custom domain](/agents-api/domains) registration names a hostname already registered, by your workspace or any other. |
-| `try_again` | 409 | A transient state conflict: the instance is mid-transition, for example `stop` during the second or so while a sleep checkpoint is being written. Retry in a few seconds. |
+| `try_again` | 409 | A transient state conflict: the instance is mid-transition, for example `stop`, `start` or `exec` while a sleep checkpoint is being written, which takes tens of seconds on a large instance. Retry with backoff. |
 | `no_capacity` | 503 | Create only: no host can fit the requested shape right now. Safe to retry. |
 | `image_ingest_failed` | 502 | Registering a [template](/agents-api/templates) failed while copying the image into private storage, for a reason on our side (not a bad image). Retry, or contact support@agent37.com. |
-| `provisioning_failed` | 502/500 | A container or host operation failed (image pull, container start, lifecycle action). A failed create carries `error.detail` with your container's console tail. Creates debit nothing, so a failed create costs nothing. |
+| `provisioning_failed` | 502/500 | A container or host operation failed (image pull, container start, lifecycle action), including a wake via `start` or `exec` that failed; after a failed wake the instance reads `sleeping` again. A failed create carries `error.detail` with your container's console tail. Creates debit nothing, so a failed create costs nothing. |
 
 <Note>
   Lookups are uniform: an id that belongs to another workspace returns the same 404 as an id that does not exist, and unknown `/v1` paths 404 only after your key is validated. Nothing about other workspaces leaks through error responses.

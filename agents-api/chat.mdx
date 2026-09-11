@@ -112,7 +112,7 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
 </Note>
 
 <Note>
-  On a non-streaming call the gateway sends the `200` and headers as soon as the turn starts, then keeps the connection alive with a whitespace tick every 25 seconds while the agent works. There is no time limit on a turn; the connection stays open until the agent is done. The JSON body arrives when the turn finishes, prefixed by that whitespace. Leading whitespace is valid JSON, so standard parsers handle it unchanged. Don't treat the early headers as the response being ready.
+  On a non-streaming call the gateway sends the `200` and headers as soon as the turn starts, then keeps the connection alive with a whitespace tick every 25 seconds while the agent works. There is no time limit on a turn; the connection stays open until the agent is done. The JSON body arrives when the turn finishes, prefixed by that whitespace. Leading whitespace is valid JSON, so standard parsers handle it unchanged. Don't treat the early headers as the response being ready. On a sleeping instance no headers arrive at all until the wake completes, so give the request a first-byte timeout of at least three minutes; past the edge's three-minute wake budget the request gets `503 wake_timeout` instead.
 </Note>
 
 ## Example

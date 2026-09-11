@@ -14,7 +14,7 @@ The command runs through `sh -c` as the image's default user, on the same box th
 </ParamField>
 
 <Note>
-  A `running` instance runs the command right away. A `sleeping` instance is woken first, the same way a request to one of its URLs or an explicit [start](/agents-api/instances#start) wakes it, so the first call after a sleep takes a few seconds longer; a `409 try_again` means a sleep checkpoint was in flight, retry in a few seconds. Any other status returns `400 invalid_request` (a deleted instance returns `404 not_found`). If the platform cannot reach the instance at all, you get `502 provisioning_failed`. Every exec counts as [activity](/agents-api/instances#auto-sleep), so an instance you drive only through exec stays up while commands keep coming.
+  A `running` instance runs the command right away. A `sleeping` instance is woken first, the same way a request to one of its URLs or an explicit [start](/agents-api/instances#start) wakes it, so the first call after a sleep takes about 10 seconds longer in the common case, and a couple of minutes when the wake has to rebuild the instance (it then boots fresh: files on disk are kept, processes and in-memory state are not). The wake can fail the way a start can: `409 try_again` means a sleep checkpoint was being written (tens of seconds on a large instance, retry with backoff), `502 provisioning_failed` means the wake failed, `409 capacity_unavailable` means a rebuild found no host with room, and `402 insufficient_balance` means the instance is suspended for non-payment. Exec does not wait for a wake another request started: an instance that is already `waking` returns `400 invalid_request`, as does any other status that is not `running` or `sleeping` (a deleted instance returns `404 not_found`). If the platform cannot reach the instance at all, you get `502 provisioning_failed`. Every exec counts as [activity](/agents-api/instances#auto-sleep), so an instance you drive only through exec stays up while commands keep coming.
 </Note>
 
 ## Response
@@ -35,7 +35,7 @@ A command that runs but exits nonzero is a normal result: you get `200` with its
 </ResponseField>
 
 <Note>
-  `exit_code` values 125, 126, and 127 may come from the container runtime rather than your command, for example 127 when the binary is not found. The call waits up to 13 minutes (780 seconds) for the command, then fails with `502 provisioning_failed`. The command itself is not stopped by that: it keeps running inside the instance, so a blind retry starts a second copy. For longer jobs, start the command in the background with its output sent to a file, `nohup ./job.sh > job.log 2>&1 &`, and poll with a second exec. The redirect is required: a background command that still writes to the call's own output holds the call open until it exits.
+  `exit_code` values 125, 126, and 127 may come from the container runtime rather than your command, for example 127 when the binary is not found. The call waits up to 13 minutes (780 seconds) for the command, a wake from sleep included, then fails with `502 provisioning_failed`. The command itself is not stopped by that: it keeps running inside the instance, so a blind retry starts a second copy. For longer jobs, start the command in the background with its output sent to a file, `nohup ./job.sh > job.log 2>&1 &`, and poll with a second exec. The redirect is required: a background command that still writes to the call's own output holds the call open until it exits.
 </Note>
 
 ## Example
