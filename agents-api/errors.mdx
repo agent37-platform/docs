@@ -103,7 +103,7 @@ Auth, instance lookup, and routing happen on the platform between you and the ga
 | `host_mesh_not_ready` | 503 | The instance's host is still joining the platform network. Transient; retry. |
 | `wake_timeout` | 503 | A [wake](/agents-api/urls#sleeping-instances-wake-on-request) of a sleeping instance did not finish within about 3 minutes. It keeps waking in the background; retry. |
 | `wake_failed` | 503 | A wake of a sleeping instance failed. It stays `sleeping`, and the next request tries again. |
-| `upstream_timeout` | 504 | The instance stopped responding. Turns have no time limit; you only see this when the instance is stuck. Retry, or read the result from its session. |
+| `upstream_timeout` | 504 | The instance sent nothing back for 15 minutes, or stalled for 5 minutes mid-response (see [Long requests](/agents-api/urls#long-requests)). Agent turns have no time limit of their own, since the gateway answers immediately and streams. The work keeps running inside the instance: retry, or read the result from its session. |
 | `internal_error` | 500 | Unexpected platform error. |
 
 ### Agent API codes

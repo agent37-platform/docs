@@ -47,8 +47,8 @@ Creating an instance requires one day of compute at its running rate in your wor
   Opt the instance into [auto-sleep](#auto-sleep): once no bytes have moved through its URLs for `idle_timeout_seconds`, it is checkpointed to `sleeping` and bills disk alone until a request wakes it. Awake minutes bill the ordinary compute rate.
 </ParamField>
 
-<ParamField body="idle_timeout_seconds" type="integer" default="300">
-  How long the instance must be idle before it sleeps, in seconds. An integer from `60` to `86400` (one minute to one day). Only meaningful with `auto_sleep: true`.
+<ParamField body="idle_timeout_seconds" type="integer" default="900">
+  How long the instance must be idle before it sleeps, in seconds. An integer from `300` to `86400` (five minutes to one day). Only meaningful with `auto_sleep: true`.
 </ParamField>
 
 <ParamField body="public_ports" type="object[]">
@@ -130,7 +130,7 @@ const instance = await res.json();
   "name": null,
   "metadata": null,
   "auto_sleep": false,
-  "idle_timeout_seconds": 300,
+  "idle_timeout_seconds": 900,
   "past_due": false,
   "created": 1781222400
 }
@@ -224,7 +224,7 @@ Six names are set by the platform and rejected with `400 invalid_request` rather
 </ResponseField>
 
 <ResponseField name="idle_timeout_seconds" type="integer">
-  How long the instance must be idle before it sleeps, in seconds. Defaults to `300`.
+  How long the instance must be idle before it sleeps, in seconds. Defaults to `900`.
 </ResponseField>
 
 <ResponseField name="slept_at" type="integer | null">
@@ -293,7 +293,7 @@ The patch is partial: only the keys you send change, the rest are left alone. Se
 </ParamField>
 
 <ParamField body="idle_timeout_seconds" type="integer">
-  The new idle timeout: an integer from `60` to `86400` seconds.
+  The new idle timeout: an integer from `300` to `86400` seconds.
 </ParamField>
 
 Edits never bill and never recreate the container, and they work in any state except `deleted`. Unknown, deleted, or other-workspace ids return `404 not_found`.
@@ -350,7 +350,7 @@ const instance = await res.json();
   "name": "Production agent",
   "metadata": { "plan": "pro" },
   "auto_sleep": false,
-  "idle_timeout_seconds": 300,
+  "idle_timeout_seconds": 900,
   "past_due": false,
   "created": 1781222400
 }
@@ -441,7 +441,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
 
 ## Auto-sleep
 
-An instance with `auto_sleep: true` does not have to be up to be available. Once no bytes have moved through any of its URLs for `idle_timeout_seconds` (default 300, from one minute to a day), the platform checkpoints it and `status` becomes `sleeping`: CPU and memory are released, the disk stays reserved, and billing drops to the disk rate alone (see [Billing](/agents-api/billing)). The status flips at the start of the checkpoint, not the end; writing it takes tens of seconds on a large instance, and `stop`, `start`, and `exec` return `409 try_again` until it is done. Activity is data flow in either direction on any of the instance's URLs, or a command run through [exec](/agents-api/exec); a connection that is open but silent does not count, and API reads like `GET /v1/instances/{id}` never reset the timer.
+An instance with `auto_sleep: true` does not have to be up to be available. Once no bytes have moved through any of its URLs for `idle_timeout_seconds` (default 900, from five minutes to a day), the platform checkpoints it and `status` becomes `sleeping`: CPU and memory are released, the disk stays reserved, and billing drops to the disk rate alone (see [Billing](/agents-api/billing)). The status flips at the start of the checkpoint, not the end; writing it takes tens of seconds on a large instance, and `stop`, `start`, and `exec` return `409 try_again` until it is done. Activity is data flow in either direction on any of the instance's URLs, or a command run through [exec](/agents-api/exec); a connection that is open but silent does not count, and API reads like `GET /v1/instances/{id}` never reset the timer.
 
 Sleeping carries no price premium: awake minutes bill the ordinary compute rate, the same as an always-on instance, and asleep time bills disk alone. A mostly-idle instance therefore costs a fraction of the always-on price: a 2 vCPU / 4 GB instance awake an hour a day costs about \$0.54 per month, versus \$4.76 always-on. It is worth turning on for anything that is idle most of the day.
 

@@ -252,6 +252,17 @@ A wake can be refused or fail, and those answers use the same flat error shape a
 
 Plain HTTP requests, SSE streams, and WebSocket connections all pass end to end. [Streaming chat](/agents-api/streaming) with `stream: true` works on the bare URL, and the connection stays open until the server closes it after the terminal event. WebSocket upgrades pass through too: that is what the browser terminal uses for its interactive shell.
 
+## Long requests
+
+A request can take as long as it needs. The limits are on silence, not on total time:
+
+- **15 minutes to the first byte.** An endpoint that sends nothing at all, no status line and no headers, for 15 minutes gets the request answered with `504 upstream_timeout`. The work itself keeps running inside the instance.
+- **5 minutes between bytes** once the response has started. A response body, including an SSE stream, can run for hours as long as something moves at least every 5 minutes.
+
+So an install, a migration or a large `git push` behind an instance URL needs no streaming and no job queue: do the work, answer when it is done. For anything that can be slower than 15 minutes, send the response headers first and keep the connection alive with a heartbeat or an SSE stream, which puts you under the 5-minute rule instead.
+
+One interaction to watch with [auto-sleep](/agents-api/instances#auto-sleep): idle is measured in bytes moved, so an instance whose `idle_timeout_seconds` is shorter than its own slowest call can be checkpointed while that call is still running. Keep the idle timeout at or above the longest request you expect. The default, 900 seconds, matches the 15-minute ceiling.
+
 ## Private sandboxes
 
 A [template](/agents-api/templates) whose image listens on nothing still runs fine: with `default_port` omitted, boot is not probed, and every URL simply answers a transport error because nothing serves. Drive the instance from the hosting API with [exec](/agents-api/exec), which runs shell commands inside it without touching any port.
