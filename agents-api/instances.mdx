@@ -253,6 +253,9 @@ Six names are set by the platform and rejected with `400 invalid_request` rather
 | `POST` | `/v1/instances/{id}/restart` | `200` `{ id, status }` ack |
 | `POST` | `/v1/instances/{id}/update` | `200` `{ id, status, image_ref, image_digest, template_revision }` ack |
 | `POST` | `/v1/instances/{id}/resize` | `200` `{ id, status, resources }` ack |
+| `GET` | `/v1/instances/{id}/backups` | `200` `{ "data": [...] }`, newest first, each a [backup record](#list-backups) |
+| `POST` | `/v1/instances/{id}/backups` | `201` with the backup record |
+| `POST` | `/v1/instances/{id}/restore` | `200` `{ id, status }` ack |
 
 ## List, get, delete
 
@@ -439,6 +442,49 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
 # -> { "id": "ab12cd34ef", "status": "running", "resources": { "cpu": 4, "memory": 8, "disk": 6 } }
 ```
 
+## Backups
+
+Every instance's data (`/home/node` and `/home/linuxbrew`) is backed up nightly into three rotating slots, so the last three nights are always available as restore points. You can also take a backup on demand, into a fourth slot that only your next on-demand backup replaces. Backups and restores are free.
+
+### List backups
+
+`GET /v1/instances/{id}/backups` returns every restore point, newest first: up to three `automatic` backups and one `manual`.
+
+```bash curl
+curl https://api.agent37.com/v1/instances/ab12cd34ef/backups \
+  -H "Authorization: Bearer sk_live_..."
+# -> { "data": [
+#      { "id": "9f3c1a7e2b4d6f8091a2", "kind": "manual", "created": 1789135331, "size_bytes": 412337102 },
+#      { "id": "3ab0c4d5e6f708192a3b", "kind": "automatic", "created": 1789084800, "size_bytes": 401220981 }
+#    ] }
+```
+
+A backup's `id` names that one copy. When a slot is overwritten, by the nightly rotation or by your next on-demand backup, its old id leaves the list and a restore of it returns `404 not_found`. `created` is when the backup was taken (unix seconds); `size_bytes` is the compressed size.
+
+### Back up now
+
+`POST /v1/instances/{id}/backups` (no body) backs the instance up now and returns the record with `201`. The backup is taken live, without pausing the instance, so like the nightly ones it is crash-consistent: a database mid-write may need its own recovery when restored. One on-demand backup per instance every 15 minutes; a second call inside the window returns `429 rate_limited` with a `Retry-After` header. Running, stopped and sleeping instances can be backed up.
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/backups \
+  -H "Authorization: Bearer sk_live_..."
+# -> { "id": "9f3c1a7e2b4d6f8091a2", "kind": "manual", "created": 1789135331, "size_bytes": 412337102 }
+```
+
+### Restore
+
+`POST /v1/instances/{id}/restore` with `{ "backup": "<id>" }` rolls the instance back to that backup, in place: same id, URLs, and public ports. The data is replaced, not merged, so files written after the backup are gone. The container is recreated, so in-memory state is lost; a running instance comes back `running`, a stopped one stays `stopped`, and the instance reads `updating` in between. The operating-system layer comes back as it was at the backup when the instance still runs the same image, and fresh after an `update`, as `update` itself leaves it.
+
+Restore is destructive and takes no safety copy: back up first if you may want the current state back. Sleeping instances must be woken first (`400`).
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restore \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "backup": "3ab0c4d5e6f708192a3b" }'
+# -> { "id": "ab12cd34ef", "status": "running" }
+```
+
 ## Auto-sleep
 
 An instance with `auto_sleep: true` does not have to be up to be available. Once no bytes have moved through any of its URLs for `idle_timeout_seconds` (default 900, from five minutes to a day), the platform checkpoints it and `status` becomes `sleeping`: CPU and memory are released, the disk stays reserved, and billing drops to the disk rate alone (see [Billing](/agents-api/billing)). The status flips at the start of the checkpoint, not the end; writing it takes tens of seconds on a large instance, and `stop`, `start`, and `exec` return `409 try_again` until it is done. Activity is data flow in either direction on any of the instance's URLs, or a command run through [exec](/agents-api/exec); a connection that is open but silent does not count, and API reads like `GET /v1/instances/{id}` never reset the timer.
@@ -452,7 +498,7 @@ While asleep:
 - The instance object reports `status: "sleeping"` from the moment the checkpoint starts, and `slept_at`, for example `"slept_at": 1781222400`.
 - [Signed URLs](/agents-api/urls#browser-access-with-signed-urls) can still be minted, and opening one is exactly the kind of request that wakes the instance.
 - `stop` works, and means "stay down until I `start`" (see [Stop](#stop)). While the checkpoint is being written it returns `409 try_again`, for tens of seconds on a large instance; retry with backoff. A sleeper already moved to cold storage returns `400 invalid_request` (parked in cold storage): wake it with `start` or any request to its URL, or delete it.
-- `restart`, `update`, and `resize` require `running` and return `400`: wake the instance first, with any request to its URL or an explicit [`start`](#start).
+- `restart`, `update`, `resize`, and `restore` return `400`: wake the instance first, with any request to its URL or an explicit [`start`](#start).
 
 Both fields are set at create and editable any time with `PATCH /v1/instances/{id}`, no restart needed. Instances default to `auto_sleep: false` and never sleep unless you opt them in.
 
@@ -466,7 +512,7 @@ Both fields are set at create and editable any time with `PATCH /v1/instances/{i
 | `stopped` | Halted until an explicit `start`. Only an explicit `stop` produces this state; the platform never stops an instance on its own. Data intact, disk reserved, compute released. Bills disk only. |
 | `starting` | A start is in progress. |
 | `restarting` | A restart is in progress. |
-| `updating` | An update or resize is in progress. |
+| `updating` | An update, resize, or [restore](#restore) is in progress. |
 | `sleeping` | Checkpointed on idle ([auto-sleep](#auto-sleep)), or force-slept for non-payment (with `past_due: true`). Any request to its URLs, an explicit `start`, or an `exec` wakes it; while the checkpoint is still being written, `stop`, `start`, and `exec` return `409 try_again`. A sleeper moved to cold storage can be woken or deleted but not stopped. Bills disk only. |
 | `waking` | A wake is in progress. Every `start` or `exec` wake shows it, as does a URL wake that has to move the instance to another host or pull it back from cold storage: a few seconds after a checkpoint restore, about two minutes on a rebuild. The held request completes when it finishes. Bills disk only. |
 | `failed` | A create or lifecycle action failed. |
