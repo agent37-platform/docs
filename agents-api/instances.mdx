@@ -270,7 +270,7 @@ curl -X DELETE https://api.agent37.com/v1/instances/ab12cd34ef \
 ```
 
 <Warning>
-  Delete is destructive: the instance's files, memory, and sessions are gone. To pause work while keeping everything, `stop` it instead. A stopped instance bills its disk alone; delete is what ends billing entirely.
+  Delete is destructive: the instance's files, memory, sessions, and backups are gone. A backup belongs to the instance, not to your workspace, and [restore](#restore) only ever writes back in place, so [download](/agents-api/files#download-a-folder) anything you want to keep first. To pause work while keeping everything, `stop` it instead. A stopped instance bills its disk alone; delete is what ends billing entirely.
 </Warning>
 
 ## Edit name, metadata, and auto-sleep
@@ -444,7 +444,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
 
 ## Backups
 
-Every instance's data (`/home/node` and `/home/linuxbrew`) is backed up nightly into three rotating slots, so the last three nights are always available as restore points. You can also take a backup on demand, into a fourth slot that only your next on-demand backup replaces. Backups and restores are free.
+Every instance's data (`/home/node` and `/home/linuxbrew`) is backed up nightly into three rotating slots, so the last three nights are available as restore points. You can also take a backup on demand, into a fourth slot that only your next on-demand backup replaces. A new instance has none until its first nightly pass, so take one on demand if you need a restore point before then. Backups and restores are free.
 
 ### List backups
 
@@ -459,11 +459,15 @@ curl https://api.agent37.com/v1/instances/ab12cd34ef/backups \
 #    ] }
 ```
 
-A backup's `id` names that one copy. When a slot is overwritten, by the nightly rotation or by your next on-demand backup, its old id leaves the list and a restore of it returns `404 not_found`. `created` is when the backup was taken (unix seconds); `size_bytes` is the compressed size.
+A backup's `id` names that one copy. When a slot is overwritten, by the nightly rotation or by your next on-demand backup, its old id leaves the list and a restore of it returns `404 not_found`. `created` is when the backup was taken (unix seconds); `size_bytes` is the compressed size. Backups of a tree that has not changed hold the same bytes, so they share one id and list once: an idle or stopped instance can show a single record after three nights.
 
 ### Back up now
 
-`POST /v1/instances/{id}/backups` (no body) backs the instance up now and returns the record with `201`. The backup is taken live, without pausing the instance, so like the nightly ones it is crash-consistent: a database mid-write may need its own recovery when restored. One on-demand backup per instance every 15 minutes; a second call inside the window returns `429 rate_limited` with a `Retry-After` header. Running, stopped and sleeping instances can be backed up.
+`POST /v1/instances/{id}/backups` (no body) backs the instance up now and returns the record with `201`. The backup is taken live, without pausing the instance, so like the nightly ones it is crash-consistent: a database mid-write may need its own recovery when restored. The call returns when the backup finishes, minutes on a multi-GB instance, and a client that gives up does not cancel it: the backup lands and shows up in the list.
+
+One on-demand backup per instance every 15 minutes; a second call inside the window returns `429 rate_limited` with a `Retry-After` header. The window opens on the attempt, not on the result, so a failed backup still holds it, leaving your previous on-demand backup in place. Running, stopped and sleeping instances can be backed up; one parked in cold storage after a long idle stretch returns `400 invalid_request` until you [`start`](#start) it, since its data already sits in backup storage.
+
+A backup that comes out under a quarter of the size of the newest nightly one is refused with `400 invalid_request`, so an emptied tree cannot overwrite a good copy. The nightly pass skips it for the same reason, leaving the existing restore points in place. Email support@agent37.com if the instance shrank on purpose.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/backups \
@@ -475,7 +479,9 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/backups \
 
 `POST /v1/instances/{id}/restore` with `{ "backup": "<id>" }` rolls the instance back to that backup, in place: same id, URLs, and public ports. The data is replaced, not merged, so files written after the backup are gone. The container is recreated, so in-memory state is lost; a running instance comes back `running`, a stopped one stays `stopped`, and the instance reads `updating` in between. The operating-system layer comes back as it was at the backup when the instance still runs the same image, and fresh after an `update`, as `update` itself leaves it.
 
-Restore is destructive and takes no safety copy: back up first if you may want the current state back. Sleeping instances must be woken first (`400`).
+Restore is destructive and takes no safety copy: back up first if you may want the current state back. `backup` is the only accepted field; any other returns `400`. The instance must be `running` or `stopped`: a sleeping one has to be woken first, one parked in cold storage started first, and anything mid-transition or `failed` returns `400`.
+
+The call returns when the copy is done, up to 12 minutes. A client timeout does not stop it: the instance stays `updating` and a second restore returns `400` until the first finishes, so poll [`GET /v1/instances/{id}`](#list-get-delete) instead of retrying. A restore that fails returns `502 provisioning_failed` and leaves the instance `stopped`, or `running` if it never took the container down, with the reason in `status_reason`. Every backup is still there, so you can try again.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restore \
