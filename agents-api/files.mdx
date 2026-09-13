@@ -287,7 +287,7 @@ const entry = await (await fetch(
 
 ## Delete a file or directory
 
-`DELETE /v1/files?path=…` removes the path recursively and by force, like `rm -rf`: a directory and everything under it goes in one call. There is no confirmation and no guard, so a wrong `path` is unrecoverable. A symlink is removed itself, not followed. The response is `{ "ok": true }`.
+`DELETE /v1/files?path=…` removes the path recursively and by force, like `rm -rf`: a directory and everything under it goes in one call. There is no confirmation and no guard, so a wrong `path` is gone from the disk; the way back is [restoring a backup](/agents-api/instances#restore), which rolls the whole instance back to that point and drops everything written since. A symlink is removed itself, not followed. The response is `{ "ok": true }`.
 
 <ParamField query="path" type="string" required>
   The file or directory to delete. Accepts absolute and `~/` paths. A missing or empty `path` returns `400 validation_error`.
@@ -326,7 +326,7 @@ await fetch(
 </CodeGroup>
 
 <Warning>
-  Delete is recursive and unguarded. It removes whatever the key can reach, including directories full of files, with no undo. Double-check `path` before you send it.
+  Delete is recursive and unguarded. It removes whatever the key can reach, including directories full of files, and the only undo is [restoring a backup](/agents-api/instances#restore). Double-check `path` before you send it.
 </Warning>
 
 ## Rename or move a file
