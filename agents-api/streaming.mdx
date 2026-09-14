@@ -28,8 +28,11 @@ data: {"id":"c91d2a7e84f04b6f9a3d5e1c0b87f4a2","session_id":"7f3e0b6c52a949d2b1c
 event: response.reasoning.delta
 data: {"text":"Comparing deliveries and margins across the big three..."}
 
+event: response.tool_call.generating
+data: {"tool":"web_search"}
+
 event: response.tool_call.started
-data: {"tool":"web_search","label":"EV deliveries 2025"}
+data: {"tool":"web_search","label":"EV deliveries 2025","arguments":{"query":"EV deliveries 2025"}}
 
 event: response.tool_call.completed
 data: {"tool":"web_search","duration_ms":1840}
@@ -45,21 +48,22 @@ data: {"output_text":"## EV market memo\n\n...","usage":{"input_tokens":1840,"ou
 
 ## Events
 
-There are exactly eight event types:
+There are exactly nine event types:
 
 | Event | Payload |
 | --- | --- |
 | `response.created` | `{ id, session_id }`, always first; the response id and the session it runs in |
 | `response.reasoning.delta` | `{ text }`, a chunk of the agent's thinking |
 | `response.output_text.delta` | `{ text }`, a chunk of the visible answer |
-| `response.tool_call.started` | `{ tool, label? }` |
+| `response.tool_call.generating` | `{ tool }`, the model has begun a call to `tool` and is still writing its arguments; show the tool name so a long file write does not read as silence |
+| `response.tool_call.started` | `{ tool, label?, arguments? }`, the call is running; `label` is the harness's one-line summary and `arguments` the tool's actual input as an object, with long string values clipped |
 | `response.tool_call.completed` | `{ tool, duration_ms? }` |
 | `response.tool_call.failed` | `{ tool, error? }`, the run continues |
 | `response.completed` | `{ output_text, usage, context }`, terminal; `usage` and `context` can be `null`, and `cost_usd` inside `usage` is absent or `null` when the provider reports no cost |
 | `response.failed` | `{ error: { code, message, param?, hint? } }`, terminal |
 
 <Info>
-  These event names and payloads are the gateway's streaming contract, not a per-agent detail. Hermes, OpenClaw, Claude Code, Codex, Grok, and OpenCode emit them today, and the agents that follow will emit the same eight, so your client code does not change when you switch templates.
+  These event names and payloads are the gateway's streaming contract, not a per-agent detail. Hermes, OpenClaw, Claude Code, Codex, Grok, and OpenCode emit them today, and the agents that follow will emit the same nine, so your client code does not change when you switch templates. Two pieces depend on what the harness reports: `response.tool_call.generating` and the `arguments` field arrive from Hermes today and are absent on the others, so treat both as extra detail, never as something to wait for.
 </Info>
 
 Rules the stream always follows:
@@ -134,6 +138,9 @@ while (true) {
         break;
       case "response.reasoning.delta":
         // show the agent thinking, if you want
+        break;
+      case "response.tool_call.generating":
+        console.log(`\n[${data.tool}] writing the call...`);
         break;
       case "response.tool_call.started":
         console.log(`\n[${data.tool}] ${data.label ?? ""}`);
