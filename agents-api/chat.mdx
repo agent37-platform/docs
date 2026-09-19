@@ -264,6 +264,10 @@ To list a user's threads, read a thread's history, or delete one, see [Sessions]
 
 The agent asks by ending its turn: the response comes back `completed` with the question (and the options, if any) as `output_text`, and the turn is over. Answer by sending the reply as the next `input` on the same `session_id`. There is no in-turn prompt to answer while a response is `in_progress`, so a chat client needs nothing special: render the question like any other reply, and send the user's answer like any other message.
 
+### When the agent delegates to subagents
+
+On Hermes, subagents run inside the turn: the response stays `in_progress` until they finish, and the agent's final answer, their results included, arrives in that same response. A delegation can run for minutes with nothing on the stream but `:keepalive` comments between the `delegate_task` tool call's `started` and `completed` events, so keep the connection open or [reattach](#follow-up-on-a-response). Cancelling the turn stops the subagents too. This needs gateway `0.15.1`: older instances end the turn as soon as the subagents are dispatched and hand their results to the agent at the start of your next message, until [updated](/agents-api/instances#update).
+
 ## Follow up on a response
 
 Every response has an id you can use after the call returns.
