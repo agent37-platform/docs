@@ -55,11 +55,11 @@ Every template offers the same three shapes, and 2 vCPU / 4 GB is the smallest. 
 
 ### Default and Performance instances
 
-Every instance is a **default** instance unless you ask for something else, and the prices above are what one costs awake around the clock. It is the right fit for nearly every agent: most are idle most of the day.
+Every instance is a **default** instance unless you ask for something else, and the prices above are what one costs awake around the clock. For most harnesses the default is all you need: agents spend most of the day idle.
 
-A **Performance** instance gets dedicated vCPUs, for agents that keep their CPU busy all day and need the same speed every hour. Isolation and every endpoint on this reference behave identically; only the CPU allocation changes.
+A **Performance** instance runs on dedicated cores. Reach for it when the agent does heavy work, such as computer use (driving a browser or a desktop), and needs the same speed every hour. It is priced above the default. Isolation and every endpoint on this reference behave identically; only the CPU allocation changes.
 
-Start with the default. Performance is enabled per workspace: pass `"type": "performance"` on [create](/agents-api/instances#create-an-instance), and until your workspace has it, create returns `403 performance_unavailable` with a link to a short call where we turn it on and confirm its pricing.
+Start with the default. Performance is enabled per workspace: pass `"type": "performance"` on [create](/agents-api/instances#create-an-instance), and until your workspace has it, create returns `403 performance_unavailable` with a link to a short call where we turn it on.
 
 [Auto-sleep](/agents-api/instances#auto-sleep) does not change these rates. An auto-sleep instance bills the same rate as an always-on one for the time it is awake, and disk alone for the time it is asleep, so anything idle for most of the day costs a fraction of the always-on price. See [Per-minute metering](#per-minute-metering).
 

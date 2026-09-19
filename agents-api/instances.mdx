@@ -20,7 +20,7 @@ Creating an instance requires one day of compute at its running rate in your wor
 </ParamField>
 
 <ParamField body="type" type="string" default="default">
-  `default` is what every create uses and the right fit for nearly every agent. `performance` gives the instance dedicated vCPUs, for agents that keep their CPU busy all day, and is enabled per workspace: until yours is, create returns `403 performance_unavailable` with a link to set it up. Start with the default. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
+  `default` is what every create uses, and for most harnesses it is all you need. `performance` runs the instance on dedicated cores, for heavy work such as computer use, and is enabled per workspace: until yours is, create returns `403 performance_unavailable` with a link to set it up. Start with the default. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
 </ParamField>
 
 <ParamField body="user" type="string">
