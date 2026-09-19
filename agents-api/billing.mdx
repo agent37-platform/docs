@@ -53,13 +53,13 @@ Applied to the shapes at their default disk:
 
 Every template offers the same three shapes, and 2 vCPU / 4 GB is the smallest. Disk is any whole number of GB within the shape's range and defaults to 4, 6, or 12 GB by shape; every GB bills at \$0.09 per month. See [Instances](/agents-api/instances) for how to pick a shape with `resources` on create.
 
-### Default and shared instances
+### Default and Performance instances
 
-The **default** instance type reserves the full shape around the clock, and the prices above are what it bills, flat, every month.
+Every instance is a **default** instance unless you ask for something else, and the prices above are what one costs awake around the clock. It is the right fit for nearly every agent: most are idle most of the day.
 
-Most agents are idle most of the day. A **shared** instance still bursts to the whole shape whenever it works, but bills that shape's monthly average instead of the reservation, from \$1.99 per month on 2 vCPU / 4 GB and never more than the flat price. Burst capacity is best effort, so some contention is possible under sustained load. Isolation and every endpoint on this reference behave identically; only the capacity reservation changes.
+A **Performance** instance gets dedicated vCPUs, for agents that keep their CPU busy all day and need the same speed every hour. Isolation and every endpoint on this reference behave identically; only the CPU allocation changes.
 
-Start with the default. Reach for **shared** when cost is what you are optimizing: pass `"type": "shared"` on [create](/agents-api/instances#create-an-instance). Shared is enabled per workspace; until yours is, create returns `403 shared_unavailable` with a link to set it up.
+Start with the default. Performance is enabled per workspace: pass `"type": "performance"` on [create](/agents-api/instances#create-an-instance), and until your workspace has it, create returns `403 performance_unavailable` with a link to a short call where we turn it on and confirm its pricing.
 
 [Auto-sleep](/agents-api/instances#auto-sleep) does not change these rates. An auto-sleep instance bills the same rate as an always-on one for the time it is awake, and disk alone for the time it is asleep, so anything idle for most of the day costs a fraction of the always-on price. See [Per-minute metering](#per-minute-metering).
 
