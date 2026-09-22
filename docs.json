@@ -30,6 +30,7 @@
           "agents-api/byo-model",
           "agents-api/composio",
           "agents-api/claude-code",
+          "agents-api/claude-managed-agents",
           "agents-api/codex",
           "agents-api/grok",
           "agents-api/opencode",

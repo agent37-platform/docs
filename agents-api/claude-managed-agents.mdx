@@ -1,0 +1,194 @@
+---
+title: "Self-host Claude Managed Agents"
+sidebarTitle: "Claude Managed Agents"
+description: "Run the tools of Claude Managed Agents on an always-on Agent37 instance: Anthropic runs the agent loop, your instance runs every command and keeps every file."
+---
+
+[Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview) runs Claude's agent loop on Anthropic's platform. With a [self-hosted sandbox](https://platform.claude.com/docs/en/managed-agents/self-hosted-sandboxes), the agent's tools run on infrastructure you choose instead of Anthropic's cloud sandbox. An Agent37 instance makes a good one: an always-on Linux computer that runs Anthropic's environment worker as its main process, keeps the agent's files on its own disk, and bills by the minute, from \$4.76 a month.
+
+This is not the same as [Host Claude Code](/agents-api/claude-code). There, the whole agent runs on the instance and you talk to it through the Agent API. Here, Anthropic runs the agent, you talk to it through the Claude API, and the instance runs its tool calls.
+
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt and https://platform.claude.com/docs/en/managed-agents/self-hosted-sandboxes.
+I want my Claude Managed Agents sessions to run their tools on an Agent37 instance instead of Anthropic's cloud sandbox.
+Build the worker image from the Dockerfile on the Agent37 "Self-host Claude Managed Agents" page with npx agent37 templates build . --name claude-managed-agents-worker, then create an instance from that template with ANTHROPIC_ENVIRONMENT_KEY and ANTHROPIC_ENVIRONMENT_ID in env.
+Done when GET https://api.anthropic.com/v1/environments/{id}/work/stats shows workers_polling of 1 and a session on that environment runs a bash command on the instance.
+My keys are in AGENT37_API_KEY, ANTHROPIC_API_KEY, ANTHROPIC_ENVIRONMENT_KEY, and ANTHROPIC_ENVIRONMENT_ID.
+```
+
+## How it works
+
+- **Anthropic** runs the agent loop and the model. Each session you create on a self-hosted environment waits in that environment's work queue.
+- **Your Agent37 instance** runs `ant beta:worker poll`, the environment worker from Anthropic's `ant` CLI. It claims a session from the queue, runs the agent's bash and file tools in `/workspace`, and posts the results back. It works one session at a time.
+- The worker only makes outbound HTTPS calls to `api.anthropic.com`. The instance needs no public URL, open port, or webhook.
+
+## Before you begin
+
+- An Agent37 API key, exported as `AGENT37_API_KEY`. Create one in the [dashboard](https://www.agent37.com/dashboard/cloud).
+- A Claude API key, exported as `ANTHROPIC_API_KEY`.
+- Node.js, for the `npx agent37` CLI that builds the image. No local Docker is needed.
+
+## 1. Create a self-hosted environment
+
+Create the environment with the Claude API, or in the [Claude Console](https://platform.claude.com/workspaces/default/environments) under **Environments** > **New** > **Self-hosted**:
+
+```bash curl
+curl https://api.anthropic.com/v1/environments \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "anthropic-beta: managed-agents-2026-04-01" \
+  -H "content-type: application/json" \
+  -d '{ "name": "agent37", "config": { "type": "self_hosted" } }'
+```
+
+Then open the environment in the Console and click **Generate environment key**. Key generation is Console-only. Export both values:
+
+```bash
+export ANTHROPIC_ENVIRONMENT_ID="env_..."
+export ANTHROPIC_ENVIRONMENT_KEY="sk-ant-oat01-..."
+```
+
+The environment key is what the worker authenticates with. A Claude API key in its place fails with `401 Invalid bearer token`.
+
+## 2. Build the worker image
+
+Put this `Dockerfile` in an empty folder:
+
+```dockerfile Dockerfile
+FROM node:22-bookworm-slim
+
+# Tools the agent can reach for from its bash tool; add your own here.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl git python3 ripgrep tini \
+ && rm -rf /var/lib/apt/lists/*
+
+# The ant CLI ships Anthropic's environment worker.
+ARG ANT_VERSION=1.35.0
+RUN curl -fsSL "https://github.com/anthropics/anthropic-cli/releases/download/v${ANT_VERSION}/ant_${ANT_VERSION}_linux_amd64.tar.gz" \
+    | tar -xz -C /usr/local/bin ant
+
+WORKDIR /workspace
+ENTRYPOINT ["tini", "--", "ant", "beta:worker", "poll", "--workdir", "/workspace"]
+```
+
+The worker is the image's main process, and every bash command the agent issues runs inside this image, so install whatever your agent needs: a language runtime, a CLI, your internal packages. `tini` reaps the background processes those commands leave behind. The image runs on `linux/amd64`, which is why it fetches the amd64 build of `ant`; newer versions are on the [ant releases page](https://github.com/anthropics/anthropic-cli/releases).
+
+Build it on Agent37 and publish it as a [workspace template](/agents-api/templates):
+
+```bash
+npx agent37 templates build . --name claude-managed-agents-worker
+```
+
+The build runs on Agent37's infrastructure and streams its log to your terminal. See [Build a custom image](/agents-api/custom-image) for build secrets, private base images, and updates.
+
+## 3. Start the worker
+
+Create an instance from the template, with the environment id and key as [instance env](/agents-api/instances#environment-variables):
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"template\": \"claude-managed-agents-worker\",
+    \"env\": {
+      \"ANTHROPIC_ENVIRONMENT_ID\": \"$ANTHROPIC_ENVIRONMENT_ID\",
+      \"ANTHROPIC_ENVIRONMENT_KEY\": \"$ANTHROPIC_ENVIRONMENT_KEY\"
+    }
+  }"
+```
+
+The instance is `running` within seconds, and the worker starts polling. Leave [auto-sleep](/agents-api/instances#auto-sleep) off: the worker's outbound polling does not count as activity, so a sleeping instance stops claiming sessions.
+
+Confirm the worker is connected. `workers_polling` should read `1`:
+
+```bash curl
+curl https://api.anthropic.com/v1/environments/$ANTHROPIC_ENVIRONMENT_ID/work/stats \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "anthropic-beta: managed-agents-2026-04-01"
+```
+
+```json response
+{ "type": "work_queue_stats", "depth": 0, "pending": 0, "oldest_queued_at": null, "workers_polling": 1 }
+```
+
+The worker's own output is in the instance [logs](/agents-api/logs): `idle; polling for work` while it waits, then `claimed work` and `executing tool` lines once a session runs.
+
+## 4. Run a session
+
+Any Managed Agents agent works; nothing in the agent says where its tools run. If you don't have one yet, create one with the built-in toolset:
+
+```bash curl
+curl https://api.anthropic.com/v1/agents \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "anthropic-beta: managed-agents-2026-04-01" \
+  -H "content-type: application/json" \
+  -d '{
+    "name": "Agent37 assistant",
+    "model": "claude-sonnet-5",
+    "system": "You are a helpful assistant.",
+    "tools": [{ "type": "agent_toolset_20260401" }]
+  }'
+```
+
+Start a session on your self-hosted environment, then send it a message:
+
+```bash curl
+curl https://api.anthropic.com/v1/sessions \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "anthropic-beta: managed-agents-2026-04-01" \
+  -H "content-type: application/json" \
+  -d "{ \"agent\": \"$AGENT_ID\", \"environment_id\": \"$ANTHROPIC_ENVIRONMENT_ID\" }"
+
+curl https://api.anthropic.com/v1/sessions/$SESSION_ID/events \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "anthropic-beta: managed-agents-2026-04-01" \
+  -H "content-type: application/json" \
+  -d '{ "events": [{ "type": "user.message", "content": [{ "type": "text", "text": "Run hostname and save the output to /workspace/hello.txt." }] }] }'
+```
+
+Read the turn back with `GET /v1/sessions/$SESSION_ID/events`, or stream it; see Anthropic's [events and streaming](https://platform.claude.com/docs/en/managed-agents/events-and-streaming). The `bash` tool result shows the command ran on your instance, with the instance id as the hostname:
+
+```json response
+{
+  "type": "user.tool_result",
+  "content": [{ "type": "text", "text": "ab12cd34ef\n" }]
+}
+```
+
+## Work with the agent's files
+
+Everything the agent writes stays on the instance's disk, across sessions and restarts. Read it from your backend with [exec](/agents-api/exec):
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "cat /workspace/hello.txt" }'
+```
+
+Anthropic doesn't mount files or GitHub repositories into a self-hosted sandbox, so stage inputs yourself: `git clone` or `curl` them into `/workspace` over exec before you start the session. To watch the agent work, [SSH](/agents-api/ssh) into the instance.
+
+## Scale out
+
+- **More sessions at once.** A worker holds one session until a minute after its turn ends (the `--max-idle` flag, default `1m`), so the next message in a conversation continues without going back to the queue. Other sessions wait their turn. To run several at once, create more instances from the same template with the same env: every worker on an environment polls one queue, and each session goes to the first free worker. A later message on a session that was let go queues again and runs on whichever worker is free.
+- **Heavier tools.** [Resize](/agents-api/instances#resize) the instance for more CPU, memory, or disk.
+- **Separate customers.** Sessions on one instance share its disk. When customers must not see each other's files, give each one its own self-hosted environment and instance.
+- **Memory stores.** The `ant` worker doesn't mount [memory stores](https://platform.claude.com/docs/en/managed-agents/memory). If your sessions attach them, replace the `ENTRYPOINT` with the Python, TypeScript, or Go SDK's `EnvironmentWorker`; see [Use memory stores](https://platform.claude.com/docs/en/managed-agents/self-hosted-sandboxes#use-memory-stores).
+
+## Cost
+
+The default 2 vCPU / 4 GB instance costs \$4.76 a month running around the clock, metered per minute from your Agent37 wallet; larger shapes are on [Instances](/agents-api/instances#shapes-and-pricing). Model usage bills to your Claude account, not to Agent37.
+
+## Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| `workers_polling` stays `0` | Read the instance [logs](/agents-api/logs). `401 Unauthorized` with `Invalid bearer token` means `ANTHROPIC_ENVIRONMENT_KEY` is wrong or is a Claude API key. Env is set at create, so delete the instance and create it again with the right key. |
+| `restart_count` climbs in the logs health readout | The worker exits on a permanent error and the platform starts it again. The error is at the top of the logs. |
+| A session stays queued | Every worker is busy, or none is polling. Check that `workers_polling` is at least `1`, and add instances if sessions pile up in `depth`. |
+| A turn stalls after the instance restarts mid-session | The stopped worker still held the session. Anthropic releases it within a few minutes, and the session then runs on the next free worker. Restart, resize, or update between sessions to avoid the wait. |
