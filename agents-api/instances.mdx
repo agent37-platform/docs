@@ -20,7 +20,7 @@ Creating an instance requires one day of compute at its running rate in your wor
 </ParamField>
 
 <ParamField body="type" type="string" default="default">
-  `default` is what every create uses, and for most harnesses it is all you need. `performance` gives the instance first claim on its host's CPU, for heavy work such as computer use, and meters compute at 4x the default rate (disk is unchanged). Any other value is a `400 invalid_request`. Start with the default. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
+  `default` is what every create uses, and for most harnesses it is all you need. `performance` runs the instance on dedicated cores, for heavy work such as computer use, at 4x the default compute rate. Start with the default. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
 </ParamField>
 
 <ParamField body="user" type="string">

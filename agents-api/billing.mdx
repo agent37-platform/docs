@@ -57,17 +57,9 @@ Every template offers the same three shapes, and 2 vCPU / 4 GB is the smallest. 
 
 Every instance is a **default** instance unless you ask for something else, and the prices above are what one costs awake around the clock. For most harnesses the default is all you need: agents spend most of the day idle.
 
-A **Performance** instance gets first claim on its host's CPU: it holds its speed while a busy host slows the default instances around it, and it is never throttled for using what it bought. Reach for it when the agent does heavy work, such as computer use (driving a browser or a desktop), and needs the same speed every hour. Isolation and every endpoint on this reference behave identically; only the CPU priority changes.
+A **Performance** instance runs on dedicated cores. Reach for it when the agent does heavy work, such as computer use (driving a browser or a desktop), and needs the same speed every hour. Isolation and every endpoint on this reference behave identically.
 
-Pass `"type": "performance"` on [create](/agents-api/instances#create-an-instance). No approval, no call. Compute (vCPU and RAM) meters at 4x the default rate and disk is unchanged, so an instance that is asleep or stopped costs exactly what a default one does:
-
-| Shape | Default | Performance |
-| ----- | ------- | ----------- |
-| 2 vCPU / 4 GB RAM / 4 GB disk | \$4.76 | \$17.96 |
-| 4 vCPU / 8 GB RAM / 6 GB disk | \$9.34 | \$35.74 |
-| 8 vCPU / 16 GB RAM / 12 GB disk | \$18.68 | \$71.48 |
-
-Start with the default. `type` is fixed for the life of the instance: to move a workload the other way, create the instance you want.
+Start with the default. For a Performance instance, pass `"type": "performance"` on [create](/agents-api/instances#create-an-instance); compute is 4x the default rate, and disk is unchanged.
 
 [Auto-sleep](/agents-api/instances#auto-sleep) does not change these rates. An auto-sleep instance bills the same rate as an always-on one for the time it is awake, and disk alone for the time it is asleep, so anything idle for most of the day costs a fraction of the always-on price. See [Per-minute metering](#per-minute-metering).
 
