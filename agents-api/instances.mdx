@@ -20,7 +20,7 @@ Creating an instance requires one day of compute at its running rate in your wor
 </ParamField>
 
 <ParamField body="type" type="string" default="default">
-  `default` is what every create uses, and for most harnesses it is all you need. `performance` runs the instance on dedicated cores, for heavy work such as computer use, and is enabled per workspace: until yours is, create returns `403 performance_unavailable` with a link to set it up. Start with the default. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
+  `default` is what every create uses, and for most harnesses it is all you need. `performance` gives the instance first claim on its host's CPU, for heavy work such as computer use, and meters compute at 4x the default rate (disk is unchanged). Any other value is a `400 invalid_request`. Start with the default. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
 </ParamField>
 
 <ParamField body="user" type="string">
@@ -122,6 +122,7 @@ const instance = await res.json();
   "template_revision": null,
   "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
   "image_digest": "sha256:4f8d0d9e9f3b3a5a9f4488fb33274de9f7b7450c6cf6d3573e68fd231d7c8891",
+  "type": "default",
   "resources": { "cpu": 2, "memory": 4, "disk": 6 },
   "url": "https://ab12cd34ef.agent37.app",
   "domain_urls": [],
@@ -189,6 +190,10 @@ Six names are set by the platform and rejected with `400 invalid_request` rather
 
 <ResponseField name="image_digest" type="string | null">
   The immutable `sha256:...` digest of the image the instance runs. Use this, not a mutable `image_ref` tag, as the exact image identity. `null` only on older instances that predate digest pinning.
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  `default` or `performance`. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
 </ResponseField>
 
 <ResponseField name="resources" type="object">
@@ -536,7 +541,6 @@ Both fields are set at create and editable any time with `PATCH /v1/instances/{i
 | `402 insufficient_balance` | Create when the wallet holds less than one day of the instance's running rate, or start of a past-due instance while the balance is negative. |
 | `409 instance_limit_reached` | Create when the workspace is at its instance cap: one instance on the free credit, 10 once topped up, 50 once top-ups total \$100, 200 once they total \$250 (email vishnu@agent37.com to raise it further). |
 | `403 tier_limit` | Create or resize asks for a shape larger than your plan includes. Free workspaces run any template on the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
-| `403 performance_unavailable` | Create asks for `"type": "performance"` on a workspace it isn't enabled for. Nothing is provisioned; book the call in the message. |
 | `503 no_capacity` | Create when no host has capacity for the requested shape right now. |
 | `409 capacity_unavailable` | Start or resize when no host in the fleet can fit the instance right now; the platform first tries to move it to a host with room. |
 
