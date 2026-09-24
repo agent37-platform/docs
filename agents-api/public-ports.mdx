@@ -9,8 +9,6 @@ The canonical use is webhooks. An external service (a telephony provider, a paym
 
 Anyone who has the URL reaches the port. Put your app's own authentication in front of anything sensitive. Hermes, for example, rejects webhook deliveries without a valid subscription signature: the public URL supplies reachability, not trust.
 
-Hermes templates come with one. Every `agent37-hermes` and `agent37-hermes-small` instance is created with a public port on `8443`, labelled `telegram`, and the container sees it as `TELEGRAM_WEBHOOK_URL` alongside a `TELEGRAM_WEBHOOK_SECRET`. A Telegram bot connected in the Hermes dashboard therefore receives messages by webhook rather than by polling, so Telegram can wake an instance that sleeps when idle. Declare `8443` yourself in `public_ports` to choose the hostname, or set your own `TELEGRAM_WEBHOOK_URL` in `env` to override it.
-
 ## Create one
 
 Declare public ports when you [create the instance](/agents-api/instances#create-an-instance), or add one to a running instance:
