@@ -5,12 +5,15 @@ description: "Run any shell command inside an instance from your backend, the es
 
 `POST /v1/instances/{id}/exec` runs a shell command inside the instance, straight from your backend. It is the escape hatch for anything the API does not wrap as its own call.
 
-The command runs through `sh -c` as the image's default user, on the same box the agent works on, so it sees the agent's files, tools, and credentials.
+The command runs through `sh -c` as the image's default user (or as `root`, with `user`), on the same box the agent works on, so it sees the agent's files, tools, and credentials.
 
 ## Request
 
 <ParamField body="command" type="string" required>
   The shell command to run inside the instance. It is passed to `sh -c`, so pipes, redirects, and `&&` chains all work. It must not contain a null byte, which no shell can carry: one returns `400 invalid_request`.
+</ParamField>
+<ParamField body="user" type="string">
+  Who runs the command. Omit it to run as the image's default user; pass `"root"` to run as root, for example to install system packages with `apt-get`. Any other value returns `400 invalid_request`.
 </ParamField>
 
 <Note>
