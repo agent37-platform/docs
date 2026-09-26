@@ -49,7 +49,7 @@ Errors from `https://api.agent37.com/v1/*` always carry `code` and `message`, pl
 | `template_conflict` | 409 | A template create or rename targets a name that already exists. |
 | `build_conflict` | 409 | A [template build](/agents-api/templates#build-an-image-in-the-cloud) `start` on a build that already started, or while three builds are already running in the workspace. Wait for one to finish and retry. |
 | `domain_exists` | 409 | A [custom domain](/agents-api/domains) registration names a hostname already registered, by your workspace or any other. |
-| `try_again` | 409 | A transient state conflict: the instance is mid-transition, for example `stop`, `start` or `exec` while a sleep checkpoint is being written, which takes tens of seconds on a large instance. Retry with backoff. |
+| `try_again` | 409/503 | A transient state conflict: the instance is mid-transition, for example `stop`, `start` or `exec` while a sleep checkpoint is being written, which takes tens of seconds on a large instance. Retry with backoff. As a 503 it means a backing service was briefly unavailable: [metrics](/agents-api/metrics), or a [template build](/agents-api/templates#build-an-image-in-the-cloud) `start` that could not get a build machine (that build is left `failed`, so retry on a new one). |
 | `rate_limited` | 429 | An on-demand [backup](/agents-api/instances#back-up-now) inside the 15-minute per-instance window, or while another backup is running on the same host. `Retry-After` says how many seconds to wait. |
 | `no_capacity` | 503 | Create only: no host can fit the requested shape right now. Safe to retry. |
 | `image_ingest_failed` | 502 | Registering a [template](/agents-api/templates) failed while copying the image into private storage, for a reason on our side (not a bad image). Retry, or contact support@agent37.com. |
@@ -59,7 +59,7 @@ Errors from `https://api.agent37.com/v1/*` always carry `code` and `message`, pl
   Lookups are uniform: an id that belongs to another workspace returns the same 404 as an id that does not exist, and unknown `/v1` paths 404 only after your key is validated. Nothing about other workspaces leaks through error responses.
 </Note>
 
-A [template build](/agents-api/templates#build-an-image-in-the-cloud) that fails after starting is not an HTTP error: `GET /v1/template-builds/{id}` returns `200` with `status: "failed"` and the reason (`build_failed`, `build_timeout`, `invalid_request`, `invalid_image_archive`, `image_too_large`, `image_ingest_failed`, or `internal_error`) in its `error` field.
+A [template build](/agents-api/templates#build-an-image-in-the-cloud) that fails after starting is not an HTTP error: `GET /v1/template-builds/{id}` returns `200` with `status: "failed"` and the reason (`build_failed`, `build_timeout`, `invalid_request`, `invalid_image_archive`, `image_too_large`, `image_ingest_failed`, `try_again`, or `internal_error`) in its `error` field.
 
 ## Agent API errors
 

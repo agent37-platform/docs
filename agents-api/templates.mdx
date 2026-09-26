@@ -187,7 +187,7 @@ curl --fail-with-body -sS -X POST \
 { "id": "tb_7d3a90b81f264bc2a113", "status": "building" }
 ```
 
-Starting a build whose context was never uploaded, or is over 1 GB, returns `400 invalid_request`; so does a malformed `secrets` or `registry_auth`. Up to three builds run at once per workspace: a build that already started, or a start while three are already running, returns `409 build_conflict`.
+Starting a build whose context was never uploaded, or is over 1 GB, returns `400 invalid_request`; so does a malformed `secrets` or `registry_auth`. Up to three builds run at once per workspace: a build that already started, or a start while three are already running, returns `409 build_conflict`. If no build machine came up, the start returns `503 try_again` and the build is marked `failed`: upload the context to a new build and start that one.
 
 ### 4. Poll it and tail the log
 
@@ -265,6 +265,7 @@ A failed build carries its reason in `error.code`:
 | `image_too_large` | The built image is over the 8 GB decimal cap |
 | `image_ingest_failed` | The copy into private storage failed for a reason on our side; re-run the build, or [contact support](mailto:support@agent37.com) |
 | `internal_error` | The build failed for a reason on our side; re-run the build, or [contact support](mailto:support@agent37.com) |
+| `try_again` | No build machine was available, so the build never started; upload the context to a new build and start that one |
 
 ## Register a workspace template
 
@@ -500,6 +501,7 @@ A workspace template registered from a registry reference echoes that reference 
 | `409` | `template_conflict` | Create or rename onto a name that already exists |
 | `409` | `build_conflict` | A build `start` on a build that already started, or while three builds are already running in your workspace |
 | `502` | `image_ingest_failed` | The copy into private storage failed for a reason on our side; retry, or [contact support](mailto:support@agent37.com) |
+| `503` | `try_again` | A build `start` that could not get a build machine; the build is `failed`, so retry on a new build |
 
 A build that fails after starting is not an HTTP error: `GET /v1/template-builds/{id}` returns `200` with `status: "failed"` and the reason in its `error` field. See [build limits and failures](#build-limits-and-failures).
 
