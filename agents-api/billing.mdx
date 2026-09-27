@@ -145,7 +145,7 @@ Every wallet movement is recorded: top-ups, the signup credit, and metered compu
 </ResponseField>
 
 <ResponseField name="by_integration" type="object">
-  `compute`, `llm`, `brave`, `composio`, and `perflo`, each with `cost_micros`. `llm` also carries `calls`, `input_tokens`, and `output_tokens`.
+  `compute`, `llm`, `brave`, `composio`, and `perflo`, each with `cost_micros`. `llm` also carries `calls`, `input_tokens`, and `output_tokens`. `perflo` is [paid tools](/agents-api/managed-services#paid-tools).
 </ResponseField>
 
 <ResponseField name="by_model" type="array">
@@ -175,8 +175,8 @@ curl "https://api.agent37.com/v1/usage?from=2026-08-11&to=2026-09-09" \
     "compute": { "cost_micros": 2100000000 },
     "llm": { "cost_micros": 2588130000, "calls": 410212, "input_tokens": 23400000000, "output_tokens": 610000000 },
     "brave": { "cost_micros": 110000000 },
-    "composio": { "cost_micros": 100000000 },
-    "perflo": { "cost_micros": 0 }
+    "composio": { "cost_micros": 60000000 },
+    "perflo": { "cost_micros": 40000000 }
   },
   "by_model": [
     { "model": "openai/gpt-5.6-luna", "cost_micros": 2401000000, "calls": 380100, "input_tokens": 21900000000, "output_tokens": 570000000 },
@@ -189,8 +189,8 @@ curl "https://api.agent37.com/v1/usage?from=2026-08-11&to=2026-09-09" \
       "compute_micros": 70000000,
       "llm_micros": 76200000,
       "brave_micros": 3500000,
-      "composio_micros": 2700000,
-      "perflo_micros": 0,
+      "composio_micros": 1500000,
+      "perflo_micros": 1200000,
       "llm_calls": 12840,
       "input_tokens": 720000000,
       "output_tokens": 19000000
