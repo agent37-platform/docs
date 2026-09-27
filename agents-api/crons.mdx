@@ -190,6 +190,23 @@ Each firing opens its own session, so a cron never interleaves with your chat th
 
 A window the platform misses (a schedule that came due while the instance was stopped, or a cron paused for a week and then re-enabled) is skipped, never backfilled.
 
+## Your agent can schedule itself
+
+The agent running on the instance can create its own crons, with the `agent37 cron` CLI baked
+into every Agent37 agent image:
+
+```bash
+agent37 cron add --schedule "0 9 * * 1-5" --prompt "Check my inbox and summarise anything urgent." --timezone America/New_York
+```
+
+Also `agent37 cron list`, `agent37 cron update <id> [--pause|--resume]`, `agent37 cron remove <id>`
+and `agent37 cron runs <id>`. The images tell the agent this exists, so "check my email every
+weekday at 9" is usually enough; no key is involved, since the CLI uses the credential the
+instance already holds.
+
+Anything it creates is an ordinary cron: it appears in `GET /v1/instances/{id}/crons`, and you
+can edit or delete it there like any other.
+
 ## Cost
 
 A cron costs nothing to hold. What it costs is what the turn costs: the compute minutes the instance is awake for, and the [managed services](/agents-api/managed-services) the turn uses, exactly as if you had sent the message yourself. An instance with auto-sleep on, fired once an hour, is billed for the minutes it is actually working plus disk for the rest of the day.
