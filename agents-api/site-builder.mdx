@@ -155,6 +155,6 @@ Register a [custom domain](/agents-api/domains) once and every public-port URL i
 ## Worth knowing
 
 - **Public means public.** Anyone with the URL reaches the port, and a request wakes a sleeping instance, which bills compute. Delete the entry (`DELETE /v1/instances/{id}/public-ports/{port}`) when a site should go away; see [rules and limits](/agents-api/public-ports#rules-and-limits) for the full list.
-- One URL per port and at most 20 public ports per instance, so one instance can host several sites on different ports.
+- One URL per port and at most 50 public ports per instance, so one instance can host several sites on different ports.
 - The path `/health` is answered by the platform edge and never reaches the site.
 - Chat, streaming, and sessions are the standard [chat app](/agents-api/chat-app) wiring; this guide only adds the publish flow on top.
