@@ -50,6 +50,7 @@
           "agents-api/public-ports",
           "agents-api/domains",
           "agents-api/exec",
+          "agents-api/crons",
           "agents-api/ssh",
           "agents-api/logs",
           "agents-api/metrics",
@@ -120,7 +121,7 @@
     { "source": "/agents-api/quickstart", "destination": "/" },
     { "source": "/agents-api/messages", "destination": "/agents-api/chat" },
     { "source": "/agents-api/embeds", "destination": "/agents-api/urls" },
-    { "source": "/agents-api/scheduled-runs", "destination": "/agents-api/chat" },
+    { "source": "/agents-api/scheduled-runs", "destination": "/agents-api/crons" },
     { "source": "/agents-api/skills", "destination": "/agents-api/templates" },
     { "source": "/agents-api/build-your-own-image", "destination": "/agents-api/custom-image" }
   ],

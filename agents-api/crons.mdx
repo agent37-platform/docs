@@ -1,0 +1,195 @@
+---
+title: "Crons"
+description: "Schedule a message to your agent. Each firing wakes the instance, runs the turn on its own session, and lets the instance go back to sleep."
+---
+
+A **cron** is one sentence and a schedule: say this to my agent, every weekday at 9. Each firing sends the prompt to [`POST /v1/responses`](/agents-api/chat) on that instance's own gateway, on a fresh [session](/agents-api/sessions), and the request wakes the instance on its way in.
+
+That last part is the reason to use this instead of the scheduler inside the agent. A crontab inside the container only runs while the container is running, so on an instance with [auto-sleep](/agents-api/instances#auto-sleep) it stops firing the moment the instance sleeps, and it keeps the instance awake for nothing when it doesn't. A platform cron is outside the instance: it fires whether the instance is awake or asleep, and between firings the instance is free to sleep and cost you nothing but disk.
+
+Crons belong to an instance. Deleting the instance deletes its crons. `agent37-n8n` takes none: it serves a web app rather than an agent, so there is nothing to send a message to.
+
+## Create a cron
+
+`prompt` and `schedule` are required.
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/crons \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Weekday briefing",
+    "prompt": "Check my inbox and send me a two-line summary of anything that needs an answer today.",
+    "schedule": "0 9 * * 1-5",
+    "timezone": "America/New_York"
+  }'
+```
+
+```python python
+import requests
+
+cron = requests.post(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/crons",
+    headers={"Authorization": "Bearer sk_live_..."},
+    json={
+        "name": "Weekday briefing",
+        "prompt": "Check my inbox and send me a two-line summary of anything that needs an answer today.",
+        "schedule": "0 9 * * 1-5",
+        "timezone": "America/New_York",
+    },
+).json()
+```
+
+```javascript node
+const cron = await (await fetch("https://api.agent37.com/v1/instances/ab12cd34ef/crons", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer sk_live_...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    name: "Weekday briefing",
+    prompt: "Check my inbox and send me a two-line summary of anything that needs an answer today.",
+    schedule: "0 9 * * 1-5",
+    timezone: "America/New_York",
+  }),
+})).json();
+```
+
+```json response
+{
+  "id": "9903c325ee3c",
+  "name": "Weekday briefing",
+  "prompt": "Check my inbox and send me a two-line summary of anything that needs an answer today.",
+  "schedule": "0 9 * * 1-5",
+  "timezone": "America/New_York",
+  "enabled": true,
+  "last_run": null,
+  "next_run": 1790154000,
+  "created": 1790067720
+}
+```
+
+</CodeGroup>
+
+<ParamField body="prompt" type="string" required>
+  What to say to the agent. The same thing you would send as `input` on `POST /v1/responses`, so it can be a whole standing instruction, not just a line. Up to 8,000 characters.
+</ParamField>
+
+<ParamField body="schedule" type="string" required>
+  A five-field cron expression: minute, hour, day of month, month, day of week. `0 9 * * 1-5` is 9am on weekdays; `*/15 * * * *` is every fifteen minutes; `* * * * *` is every minute. Ranges, lists, steps, and three-letter day and month names all work. There is no seconds field: a six-field expression is rejected.
+</ParamField>
+
+<ParamField body="timezone" type="string" default="UTC">
+  An IANA timezone name, for example `America/New_York`. The schedule is read in this zone, so "9am" stays 9am across daylight saving.
+</ParamField>
+
+<ParamField body="name" type="string">
+  A label for your own UI. Up to 80 characters.
+</ParamField>
+
+<ParamField body="enabled" type="boolean" default="true">
+  `false` creates it paused. A paused cron has `next_run: null` and never fires.
+</ParamField>
+
+## The cron object
+
+<ResponseField name="id" type="string">
+  12-character hex id.
+</ResponseField>
+
+<ResponseField name="last_run" type="number | null">
+  When it last fired, epoch seconds. `null` until it has.
+</ResponseField>
+
+<ResponseField name="next_run" type="number | null">
+  When it fires next, epoch seconds. `null` while `enabled` is `false`.
+</ResponseField>
+
+<ResponseField name="created" type="number">
+  Epoch seconds.
+</ResponseField>
+
+## List, read, edit, delete
+
+```bash
+GET    /v1/instances/{id}/crons            # { "data": [ ... ] }, oldest first
+GET    /v1/instances/{id}/crons/{cronId}
+PATCH  /v1/instances/{id}/crons/{cronId}
+DELETE /v1/instances/{id}/crons/{cronId}   # { "id": "...", "deleted": true }
+```
+
+`PATCH` takes any of the create fields and changes only the keys you send. Changing `schedule`, `timezone` or `enabled` recomputes `next_run` from now, so a new schedule never replays a window that has already passed; editing only the `prompt` or the `name` leaves the next firing exactly where it was. Pausing is a `PATCH`:
+
+```bash
+curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "enabled": false }'
+```
+
+Delete acts once: a repeat is `404`. An instance holds at most 50 crons.
+
+## Run one now
+
+`POST /v1/instances/{id}/crons/{cronId}/run` fires the cron immediately, whether or not it is enabled, without touching its schedule. It answers `202` with the run record as soon as the turn is sent.
+
+```bash
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c/run \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+## Run history
+
+`GET /v1/instances/{id}/crons/{cronId}/runs` returns the latest 50 firings, newest first.
+
+```json
+{
+  "data": [
+    {
+      "id": "0f3a9c21",
+      "ran_at": 1790067720,
+      "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+      "status": "triggered",
+      "reason": null
+    },
+    {
+      "id": "b71e40aa",
+      "ran_at": 1789981320,
+      "session_id": null,
+      "status": "skipped",
+      "reason": "instance_stopped"
+    }
+  ]
+}
+```
+
+<ResponseField name="status" type="string">
+  `triggered` (the turn was started) or `skipped` (nothing was sent).
+</ResponseField>
+
+<ResponseField name="session_id" type="string | null">
+  The session the firing opened. Read what the agent actually did with [`GET /v1/sessions/{session_id}`](/agents-api/sessions#retrieve-a-session-with-history) on the instance URL. `null` on a skip, and on `agent37-codex`, `agent37-grok` and `agent37-opencode`, whose harnesses mint their own session ids.
+</ResponseField>
+
+<ResponseField name="reason" type="string | null">
+  Why it was skipped: `instance_stopped`, `past_due`, `free_hours_exhausted`, or `wake_failed`.
+</ResponseField>
+
+<Note>
+  A cron is fire and forget. `triggered` means the turn was started, not that it succeeded. The agent's answer, its tool calls, and any error live in the session, which is where you read them.
+</Note>
+
+## What fires, and what doesn't
+
+A sleeping instance is woken and the turn runs. An instance you [stopped](/agents-api/instances#lifecycle) stays stopped: a schedule never undoes an explicit stop, and the firing is recorded as `skipped` with `instance_stopped`. The same goes for an instance suspended for [non-payment](/agents-api/billing) (`past_due`).
+
+Each firing opens its own session, so a cron never interleaves with your chat thread and 15 crons never turn into 15 conversations in the same transcript. If a firing is still running when the next one is due, the next one starts its own session as usual.
+
+A window the platform misses (a schedule that came due while the instance was stopped, or a cron paused for a week and then re-enabled) is skipped, never backfilled.
+
+## Cost
+
+A cron costs nothing to hold. What it costs is what the turn costs: the compute minutes the instance is awake for, and the [managed services](/agents-api/managed-services) the turn uses, exactly as if you had sent the message yourself. An instance with auto-sleep on, fired once an hour, is billed for the minutes it is actually working plus disk for the rest of the day.
