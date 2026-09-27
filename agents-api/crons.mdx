@@ -84,7 +84,7 @@ const cron = await (await fetch("https://api.agent37.com/v1/instances/ab12cd34ef
 </ParamField>
 
 <ParamField body="agent" type="string">
-  Which harness runs the firing, for an image that ships more than one: `hermes`, `openclaw`, `claude-code`, `codex`, `opencode` or `grok`. Omit it and the firing goes to the template's own agent, which is what a single-harness image wants. Naming a harness the image does not ship fails the turn with [`agent_unavailable`](/agents-api/errors) exactly as it would on `POST /v1/responses`, so read the session to see it.
+  Which harness runs the firing, for an image that ships more than one: `hermes`, `openclaw`, `claude-code`, `codex`, `opencode`, `grok` or `pi`. Omit it and the firing goes to the template's own agent, which is what a single-harness image wants. Naming a harness the image does not ship fails the turn with [`agent_unavailable`](/agents-api/errors) exactly as it would on `POST /v1/responses`, so read the session to see it.
 </ParamField>
 
 <ParamField body="timezone" type="string" default="UTC">
@@ -176,7 +176,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c/
 </ResponseField>
 
 <ResponseField name="session_id" type="string | null">
-  The session the firing opened. Read what the agent actually did with [`GET /v1/sessions/{session_id}`](/agents-api/sessions#retrieve-a-session-with-history) on the instance URL. `null` on a skip, and on `agent37-codex`, `agent37-grok` and `agent37-opencode`, whose harnesses mint their own session ids.
+  The session the firing opened. Read what the agent actually did with [`GET /v1/sessions/{session_id}`](/agents-api/sessions#retrieve-a-session-with-history) on the instance URL. `null` on a skip, and on `agent37-codex`, `agent37-grok`, `agent37-opencode` and `agent37-pi`, whose harnesses issue their own session ids.
 </ResponseField>
 
 <ResponseField name="reason" type="string | null">

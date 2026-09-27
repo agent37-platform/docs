@@ -183,7 +183,9 @@ both reference the environment variable instead:
 </CodeGroup>
 
 A complete, runnable image doing exactly this lives at
-[agent37-platform/pi-agent-image](https://github.com/agent37-platform/pi-agent-image).
+[agent37-platform/pi-agent-image](https://github.com/agent37-platform/pi-agent-image). It stays here as the worked
+example of the pattern; Pi itself no longer needs it, since [`agent37-pi`](/agents-api/pi) is a system
+template with the managed model already wired.
 
 <Warning>
   **Reference the variable, never copy its value.** The token is reissued, and the previous one

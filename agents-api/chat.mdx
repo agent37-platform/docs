@@ -20,7 +20,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="session_id" type="string">
-  Continue an existing conversation. Omit it to start a new one; the response returns the new session's id. The harness owns sessions and creates one on first use, so an id it has not seen simply starts a fresh thread under that id rather than erroring. The exception is a harness that mints its own session ids: `codex` and `opencode` reject a first turn on an id they did not issue with `400 validation_error` (`param: session_id`), so on those two always start a thread by omitting `session_id` and reuse the id the response returns.
+  Continue an existing conversation. Omit it to start a new one; the response returns the new session's id. The harness owns sessions and creates one on first use, so an id it has not seen simply starts a fresh thread under that id rather than erroring. The exception is a harness that issues its own session ids: `codex`, `grok`, `opencode` and `pi` reject a first turn on an id they did not issue with `400 validation_error` (`param: session_id`), so on those four always start a thread by omitting `session_id` and reuse the id the response returns.
 </ParamField>
 
 <ParamField body="stream" type="boolean" default="false">
@@ -44,7 +44,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="agent" type="string">
-  Which agent harness runs the turn, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, or `opencode`. Omit it to use the instance's configured default (`hermes` on `agent37-hermes`, `openclaw` on `agent37-openclaw`, `claude-code` on `agent37-claude-code`, `codex` on `agent37-codex`, `grok` on `agent37-grok`, `opencode` on `agent37-opencode`). Routing is per request: the gateway keeps no session-to-agent binding, so if a session runs on a non-default harness, send `agent` on every turn of it. Targeting a harness the instance was not provisioned with does not reject the call: the turn settles with `status: "failed"` and `error.code` `agent_unavailable`.
+  Which agent harness runs the turn, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, `opencode`, or `pi`. Omit it to use the instance's configured default (`hermes` on `agent37-hermes`, `openclaw` on `agent37-openclaw`, `claude-code` on `agent37-claude-code`, `codex` on `agent37-codex`, `grok` on `agent37-grok`, `opencode` on `agent37-opencode`, `pi` on `agent37-pi`). Routing is per request: the gateway keeps no session-to-agent binding, so if a session runs on a non-default harness, send `agent` on every turn of it. Targeting a harness the instance was not provisioned with does not reject the call: the turn settles with `status: "failed"` and `error.code` `agent_unavailable`.
 </ParamField>
 
 <ParamField body="mode" type="string" default="chat">
@@ -72,7 +72,7 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
 </ResponseField>
 
 <ResponseField name="agent" type="string">
-  The agent that ran the turn, `hermes`, `openclaw`, `claude-code`, `codex`, or `opencode`.
+  The agent that ran the turn, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, `opencode`, or `pi`.
 </ResponseField>
 
 <ResponseField name="model" type="string | null">

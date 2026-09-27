@@ -7,7 +7,7 @@ The model is the LLM a turn runs on; the agent harness is the software driving i
 
 ## List models
 
-`GET /v1/models` lists the models a harness can run, in the OpenAI list shape, `{ "object": "list", "data": [...] }`, so any OpenAI-compatible client works against it. It reports on one harness: the instance default, or the one named by `?agent=`, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, or `opencode`, and the response echoes which `agent` answered. An unknown `?agent=` value is `400 validation_error`, omitting it (or sending it empty) targets the instance default, and targeting a harness the instance was not provisioned with is `503 agent_unavailable`. On Hermes the result is cached for about 60 seconds (the cache also clears when the Hermes config changes), so a newly available model can take up to a minute to appear. On OpenClaw the list is read live on every call.
+`GET /v1/models` lists the models a harness can run, in the OpenAI list shape, `{ "object": "list", "data": [...] }`, so any OpenAI-compatible client works against it. It reports on one harness: the instance default, or the one named by `?agent=`, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, `opencode`, or `pi`, and the response echoes which `agent` answered. An unknown `?agent=` value is `400 validation_error`, omitting it (or sending it empty) targets the instance default, and targeting a harness the instance was not provisioned with is `503 agent_unavailable`. On Hermes the result is cached for about 60 seconds (the cache also clears when the Hermes config changes), so a newly available model can take up to a minute to appear. On OpenClaw the list is read live on every call.
 
 Claude Code lists five aliases, `default`, `fable`, `opus`, `sonnet`, and `haiku`, all with `owned_by` `anthropic`. Pass one as `model` on a turn; the usage bills to your own Anthropic account.
 
@@ -17,6 +17,8 @@ OpenCode lists every model it can run as a `provider/model` id: `agent37/default
 
 Grok lists the models your xAI API key can run, the `grok-4.x` family; with no key set the list is empty. `reasoning_effort` maps onto Grok's effort levels by name (`ultra` maps to `max`), and non-reasoning models ignore the knob. See [Host Grok](/agents-api/grok).
 
+Pi lists every model it can run as a `provider/model` id: `agent37/default` (the managed model, metered against your wallet like Hermes) plus every model of any provider whose credential resolves on the instance, whether that is an [instance env](/agents-api/instances#environment-variables) key or a subscription you signed in to with `/login`. Pass one as `model` on a turn; omit it and the turn runs on `agent37/default`. A model Pi cannot resolve is rejected with `model_error`. `reasoning_effort` maps onto Pi's thinking level by name (`ultra` maps to `max`), clamped to what the target model supports. See [Host Pi](/agents-api/pi).
+
 What you get depends on the harness. Hermes lists the models of each provider it holds credentials for, plus custom providers, model aliases, and its configured default. OpenClaw lists its own configured LLM catalog as `provider/model` ids, with `owned_by` set to the provider; a provider whose OAuth login has gone idle stays listed, because OpenClaw refreshes it on the next turn. OpenClaw reports no default: `default_model` is `null`, `default_provider` is `openclaw`, and every entry has `is_default: false`.
 
 <ResponseField name="object" type="string">
@@ -24,7 +26,7 @@ What you get depends on the harness. Hermes lists the models of each provider it
 </ResponseField>
 
 <ResponseField name="agent" type="string">
-  Which harness this list is for, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, or `opencode`.
+  Which harness this list is for, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, `opencode`, or `pi`.
 </ResponseField>
 
 <ResponseField name="default_model" type="string | null">

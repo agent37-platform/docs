@@ -24,10 +24,10 @@ Everything on this page lives on the instance URL, not the hosting API: the base
 
 ## Choosing the harness
 
-Every read on this page takes an optional `?agent=` query, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, or `opencode`, that selects which harness on the instance answers. Omit it (or send it empty) and the instance's configured default harness answers; the response echoes which `agent` it was. An unknown value is `400 validation_error`, and targeting a harness the instance was not provisioned with is `503 agent_unavailable`. Your `agent37-hermes` Cloud instances serve Hermes, so you can leave `?agent=` off.
+Every read on this page takes an optional `?agent=` query, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, `opencode`, or `pi`, that selects which harness on the instance answers. Omit it (or send it empty) and the instance's configured default harness answers; the response echoes which `agent` it was. An unknown value is `400 validation_error`, and targeting a harness the instance was not provisioned with is `503 agent_unavailable`. Your `agent37-hermes` Cloud instances serve Hermes, so you can leave `?agent=` off.
 
 <Note>
-  `codex`, `grok`, and `opencode` mint their own session ids. A client cannot bring an unknown `session_id` on the first turn: `POST /v1/responses` rejects one it did not issue with `400 validation_error` (`param: session_id`). Omit `session_id` to start a thread and reuse the id the response returns. Sessions you start in the instance terminal appear in `GET /v1/sessions?agent=codex` (or `?agent=grok`, `?agent=opencode`) on their own. `grok` stores no editable session title, so `PATCH /v1/sessions/{id}` answers `405 rename_unsupported` there.
+  `codex`, `grok`, `opencode`, and `pi` issue their own session ids. A client cannot bring an unknown `session_id` on the first turn: `POST /v1/responses` rejects one it did not issue with `400 validation_error` (`param: session_id`). Omit `session_id` to start a thread and reuse the id the response returns. Sessions you start in the instance terminal appear in `GET /v1/sessions?agent=codex` (or `?agent=grok`, `?agent=opencode`, `?agent=pi`) on their own. `grok` and `pi` store no editable session title, so `PATCH /v1/sessions/{id}` answers `405 rename_unsupported` there.
 </Note>
 
 ## The session object

@@ -1,0 +1,98 @@
+---
+title: "Host Pi"
+description: "Run Pi, the minimal open-source agent harness, on its own always-on instance. Works out of the box on the managed model, no account required."
+---
+
+The `agent37-pi` [template](/agents-api/templates) runs [Pi](https://pi.dev), the minimal open-source agent harness, on an Agent37 instance: an always-on computer with the same chat API, sessions, files, and URLs as every other template. Pi is a four-tool core, read, bash, edit and write, that extends itself at runtime with TypeScript extensions, skills, prompt templates and themes. The image is lean, with no browser and no desktop. Pi works out of the box on the **managed Agent37 model**: no login, no account, no keys. The first chat turn just runs, metered like Hermes against your wallet. Bring your own credential when you want a specific model, either a provider key or a Claude, ChatGPT or Copilot subscription.
+
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want Pi, the minimal open-source agent harness, on its own always-on instance, running on the managed model with no account of my own.
+Create it with POST /v1/instances using the agent37-pi template and a budget, then chat with no model field.
+Done when a message to https://{instanceId}.agent37.app/v1/responses returns a reply from Pi.
+My key is in AGENT37_API_KEY.
+```
+
+## Create the instance
+
+One call to the hosting API at `https://api.agent37.com`:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "agent37-pi" }'
+```
+
+The `201` response carries the instance id and its URL, `https://{instanceId}.agent37.app`, which routes to the gateway on port `3737`. The terminal is on port `7681` and the file browser on `8080`, each at `https://{instanceId}-{port}.agent37.app`; see [Instance and preview URLs](/agents-api/urls).
+
+## Send the first message
+
+Chat is the instance URL plus a path, with the same `sk_live_` key sent as the `X-Agent37-Key` header. `pi` is the template's default agent, so there is no `agent` field to pass:
+
+```bash curl
+curl https://ab12cd34ef.agent37.app/v1/responses \
+  -H "X-Agent37-Key: sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "input": "Clone github.com/expressjs/express and summarize how routing works." }'
+```
+
+No account and no key are needed first: the turn runs on the managed default model, `agent37/default`. Set `"stream": true` to receive the turn as Server-Sent Events instead of one JSON body, and reuse the returned `session_id` to continue the thread. See [Send a message](/agents-api/chat) and [Streaming](/agents-api/streaming).
+
+## Sessions
+
+Pi keeps its sessions in its own JSONL store, and every [session](/agents-api/sessions) read works against it. `GET /v1/sessions?agent=pi` lists them, `GET /v1/sessions/{id}` reads a thread's history, and `DELETE /v1/sessions/{id}` removes it. Sessions you start in the instance terminal appear in the list on their own, because the terminal and the API share one session store. Pi stores no editable session title, so `PATCH /v1/sessions/{id}` answers `405 rename_unsupported` here.
+
+Session ids are issued for you: omit `session_id` on a turn to start a thread, then reuse the id the response returns. A `session_id` Pi has not seen is rejected on the first turn with `400 validation_error` (`param: session_id`).
+
+## Models
+
+`GET /v1/models?agent=pi` on the instance lists every model Pi can run, each as a `provider/model` id: `agent37/default` (the managed model) plus every model of any provider whose credential resolves on the instance, for example `anthropic/claude-sonnet-5`. Pass one as `model` on a turn. Omit `model` and the turn runs on Pi's startup model, `agent37/default`. A model Pi cannot resolve, or has no credential for, is rejected with `model_error`. See [Models](/agents-api/models).
+
+Set `reasoning_effort` per turn. It maps onto Pi's thinking level, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`, and Pi clamps the level to what the target model supports.
+
+Usage on `agent37/default` is managed: it meters against your Agent37 wallet like Hermes, bounded by the instance's [budget](/agents-api/budgets). A turn on a model you [brought yourself](#bring-your-own-credential) bills the credential behind it instead.
+
+## Bring your own credential
+
+Pi is the one template with three ways in. Any of them sits alongside the managed model rather than replacing it, so a turn that omits `model` still runs managed.
+
+**A provider key on create.** Set that provider's API key as [instance env](/agents-api/instances#environment-variables) and Pi reads it natively at boot:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "agent37-pi",
+    "env": { "ANTHROPIC_API_KEY": "..." }
+  }'
+```
+
+The provider follows the key: `ANTHROPIC_API_KEY` registers Anthropic, `OPENAI_API_KEY` OpenAI, `GEMINI_API_KEY` Google, and `OPENROUTER_API_KEY` OpenRouter, among others Pi reads natively. Set as many as you like. Then pass the model you want on a turn, for example `"model": "anthropic/claude-sonnet-5"`. Model usage bills the key you set, not your Agent37 wallet.
+
+**A subscription login.** Open the instance terminal at `https://{instanceId}-7681.agent37.app`, run `pi`, and use `/login` to sign in with a Claude, ChatGPT or Copilot subscription. The credential lands in Pi's own store on the instance disk and survives restarts. Agent37 never reads it.
+
+## App integrations
+
+There are none on this template yet, and this is the one system template without them. Pi ships no MCP client, so the platform has no managed [Composio](/agents-api/composio) server to register with it (the client is an open upstream pull request, [earendil-works/pi#10040](https://github.com/earendil-works/pi/pull/10040)). If your agent needs Gmail, Slack, Notion and the rest today, [`agent37-hermes`](/agents-api/templates) and every other harness template carry the managed integrations; see [App integrations](/agents-api/integrations).
+
+## Custom image
+
+To add your own tools, build on the clean base image, which ships Pi and the gateway with no managed model, the same pattern as `hermes-base`:
+
+```dockerfile
+FROM ghcr.io/agent37-platform/pi-base:latest
+```
+
+See [Build a custom image](/agents-api/custom-image).
+
+## Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| A turn fails with `model_error` | The `model` was not a `provider/model` id Pi could resolve, or Pi has no credential for that provider. Send an id from `GET /v1/models?agent=pi`, or omit `model` to run on `agent37/default`. |
+| A model you set a key for is missing from `GET /v1/models?agent=pi` | Pi lists a provider's models only once that provider's credential resolves. Confirm the key is set as instance [env](/agents-api/instances#environment-variables) under the name Pi expects (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, ...); a key added after create needs the instance [restarted](/agents-api/instances) to take effect. |
+| A first turn on a `session_id` you chose is rejected with `400 validation_error` (`param: session_id`) | Session ids are issued for you: a client cannot bring one Pi has not seen. Omit `session_id` to start a thread, then reuse the id the response returns. Sessions you start in the terminal appear in `GET /v1/sessions?agent=pi` on their own. |
+| A turn returns `503 agent_unavailable` | The Pi binary is not present on this instance, so a turn that has to create or resolve a session cannot run. Recreate or [update](/agents-api/instances#update) the instance to a template revision that ships Pi. |
+| The model picker in the terminal shows your own provider, not the managed one | Pi's startup model is set to the managed model only when you have not chosen one yourself. A choice you made in the terminal is kept across restarts, on purpose. Pass `model` on the turn, or pick `agent37/default` again in Pi. |

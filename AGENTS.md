@@ -46,7 +46,7 @@ Use these exactly; consistent terms are what make `llms-full.txt` usable as a sp
 
 - **Agent37 Cloud** is the product. **Workspace** is the account/billing unit; it owns API keys and one **wallet**.
 - **Instance** is an agent's always-on computer at `https://{instanceId}.agent37.app`. **Session** is one conversation on an instance. **Response** is one agentic turn within a session.
-- **Agent** vs **model**: the agent is the software running on the instance (Hermes, OpenClaw, Claude Code, and Codex today); the model is the LLM chosen per turn (`model` + `provider`).
+- **Agent** vs **model**: the agent is the software running on the instance (Hermes, OpenClaw, Claude Code, Codex, Grok, OpenCode, and Pi today); the model is the LLM chosen per turn (`model` + `provider`).
 - **Template** names the image an instance runs and can set its `default_port`; every other port URL is derivable and needs no declaration. **Gateway** serves the Agent API inside the instance.
 - **Instance URL** is an instance's base address, `https://{instanceId}.agent37.app` (the default port, where the agent's API lives). **Preview URL** is a non-default port's address, `https://{instanceId}-{port}.agent37.app`, where a service or UI on that port is reachable. **Signed URL** is a time-boxed, tokenized form of either, mintable via `POST /v1/instances/{id}/signed-url`, that a browser can open without a header.
 - Billing: **wallet** (workspace money), **budget** (per-instance managed-spend cap plus **top-up** headroom), **managed services** (LLM / search / Composio through built-in credentials), **micros** (USD × 1,000,000), **past due** (renewal failed; instance force-stopped until a funded start).
@@ -56,7 +56,7 @@ Use these exactly; consistent terms are what make `llms-full.txt` usable as a sp
 
 - Document **only the two public planes**. The dashboard, internal/admin APIs, and fleet/host architecture are out of scope.
 - The OpenClaw setup guides are **gone from this repo** and are not coming back. All 18 hidden pages (`openclaw/`, `channels/`, `models/`, `runtime/`, `networking/`, `tailscale/`) moved to the blog in July 2026: they were B2C dashboard how-tos making up 22% of `llms-full.txt`, diluting the B2B spec coding agents consume. They live at `www.agent37.com/blog/*` now, and the `website` repo's `vercel.json` redirects every old `/docs/*` URL there. Don't recreate them here, and don't add a redirect for them in `docs.json` (the website handles it).
-- The system template catalog has eight entries: `agent37-hermes`, `agent37-hermes-small`, `agent37-openclaw`, `agent37-claude-code`, `agent37-codex`, `agent37-grok`, `agent37-opencode`, and `agent37-n8n`. Claude Code, Codex, Grok, and OpenCode are all live and documented as available. `agent37-n8n` is a web app, not an agent harness: it has no chat API and is served on a default public URL, `https://n8n-{instanceId}.agent37.app`.
+- The system template catalog has nine entries: `agent37-hermes`, `agent37-hermes-small`, `agent37-openclaw`, `agent37-claude-code`, `agent37-codex`, `agent37-grok`, `agent37-opencode`, `agent37-pi`, and `agent37-n8n`. Claude Code, Codex, Grok, OpenCode, and Pi are all live and documented as available. `agent37-pi` is the one harness template with no managed Composio, because Pi ships no MCP client yet. `agent37-n8n` is a web app, not an agent harness: it has no chat API and is served on a default public URL, `https://n8n-{instanceId}.agent37.app`.
 - Drafts go in `drafts/` or `*.draft.mdx` (ignored via `.mintignore`).
 
 ## Style
