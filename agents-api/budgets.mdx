@@ -236,7 +236,7 @@ const budget = await (await fetch(
 </ResponseField>
 
 <ResponseField name="by_integration" type="object">
-  Per-service breakdown. `llm` carries `cost_micros`, `calls`, `input_tokens`, and `output_tokens`; `brave`, `composio`, and `monid` carry `cost_micros` and `calls`. `monid` is the managed data-tools spend of Agent37's personal-agent plans and stays zero on Hosting API instances.
+  Per-service breakdown. `llm` carries `cost_micros`, `calls`, `input_tokens`, and `output_tokens`; `brave`, `composio`, and `perflo` carry `cost_micros` and `calls`. `perflo` is [paid tools](/agents-api/managed-services#paid-tools).
 </ResponseField>
 
 <CodeGroup>
@@ -258,7 +258,7 @@ curl "https://api.agent37.com/v1/instances/ab12cd34ef/usage?month=2026-06" \
     },
     "brave": { "cost_micros": 20000, "calls": 4 },
     "composio": { "cost_micros": 798, "calls": 7 },
-    "monid": { "cost_micros": 0, "calls": 0 }
+    "perflo": { "cost_micros": 0, "calls": 0 }
   }
 }
 ```

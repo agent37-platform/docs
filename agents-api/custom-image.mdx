@@ -196,8 +196,9 @@ curl -X POST https://api.agent37.com/v1/instances/<id>/exec \
 
 `hermes-base` is clean: it boots with no LLM provider wired. That does not mean the instance has
 no model available. Every instance, including one running an image you built from scratch, gets
-a working OpenAI-compatible endpoint and a Composio MCP server in its environment, as
-`AGENT37_MANAGED_TOKEN`, `AGENT37_LLM_PROXY_URL`, and `AGENT37_COMPOSIO_MCP_URL`. Pointing your
+a working OpenAI-compatible endpoint, a Composio MCP server, and a pay-per-call paid-tools
+server in its environment, as `AGENT37_MANAGED_TOKEN`, `AGENT37_LLM_PROXY_URL`,
+`AGENT37_COMPOSIO_MCP_URL`, and `AGENT37_PERFLO_MCP_URL`. Pointing your
 agent at those is the
 shortest path to a running agent, costs no setup, and meters to the instance
 [budget](/agents-api/budgets). [Managed services in your image](/agents-api/managed-services) is
@@ -207,7 +208,8 @@ complete image that does it in two config files with no credentials in either.
 <Warning>
   **Moving an existing instance onto your image? Its config already holds a dead token.** An
   instance that previously ran a stock template (`agent37-hermes` and friends) has managed
-  entries, the Composio one included, written into its persistent `~/.hermes/config.yaml` with
+  entries, the Composio and paid-tools ones included, written into its persistent
+  `~/.hermes/config.yaml` with
   the token as a literal. `AGENT37_MANAGED_TOKEN` is [reissued on every
   restart](/agents-api/managed-services#wiring-an-agent-to-both), stock images rewrite the file
   each boot, and your image is now the one that has to: otherwise those entries start returning
@@ -218,13 +220,18 @@ complete image that does it in two config files with no credentials in either.
   import os, yaml
   path = os.path.expanduser("~/.hermes/config.yaml")
   token = os.environ.get("AGENT37_MANAGED_TOKEN")
-  url = os.environ.get("AGENT37_COMPOSIO_MCP_URL")
+  urls = {"composio": os.environ.get("AGENT37_COMPOSIO_MCP_URL"),
+          "perflo": os.environ.get("AGENT37_PERFLO_MCP_URL")}
   try:
       cfg = yaml.safe_load(open(path)) or {}
   except FileNotFoundError:
       cfg = {}
-  if token and url and "composio" in cfg.get("mcp_servers", {}):
-      cfg["mcp_servers"]["composio"] = {"url": url, "headers": {"Authorization": f"Bearer {token}"}}
+  servers = cfg.get("mcp_servers", {})
+  for name, url in urls.items():
+      if token and url and name in servers:
+          servers[name] = {"url": url, "headers": {"Authorization": f"Bearer {token}"}}
+  if servers:
+      cfg["mcp_servers"] = servers
       yaml.safe_dump(cfg, open(path, "w"))
   PY
   ```
