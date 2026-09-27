@@ -62,6 +62,7 @@ const cron = await (await fetch("https://api.agent37.com/v1/instances/ab12cd34ef
 {
   "id": "9903c325ee3c",
   "name": "Weekday briefing",
+  "agent": null,
   "prompt": "Check my inbox and send me a two-line summary of anything that needs an answer today.",
   "schedule": "0 9 * * 1-5",
   "timezone": "America/New_York",
@@ -80,6 +81,10 @@ const cron = await (await fetch("https://api.agent37.com/v1/instances/ab12cd34ef
 
 <ParamField body="schedule" type="string" required>
   A five-field cron expression: minute, hour, day of month, month, day of week. `0 9 * * 1-5` is 9am on weekdays; `*/15 * * * *` is every fifteen minutes; `* * * * *` is every minute. Ranges, lists, steps, and three-letter day and month names all work. There is no seconds field: a six-field expression is rejected.
+</ParamField>
+
+<ParamField body="agent" type="string">
+  Which harness runs the firing, for an image that ships more than one: `hermes`, `openclaw`, `claude-code`, `codex`, `opencode` or `grok`. Omit it and the firing goes to the template's own agent, which is what a single-harness image wants. Naming a harness the image does not ship fails the turn with [`agent_unavailable`](/agents-api/errors) exactly as it would on `POST /v1/responses`, so read the session to see it.
 </ParamField>
 
 <ParamField body="timezone" type="string" default="UTC">
@@ -121,7 +126,7 @@ PATCH  /v1/instances/{id}/crons/{cronId}
 DELETE /v1/instances/{id}/crons/{cronId}   # { "id": "...", "deleted": true }
 ```
 
-`PATCH` takes any of the create fields and changes only the keys you send. Changing `schedule`, `timezone` or `enabled` recomputes `next_run` from now, so a new schedule never replays a window that has already passed; editing only the `prompt` or the `name` leaves the next firing exactly where it was. Pausing is a `PATCH`:
+`PATCH` takes any of the create fields and changes only the keys you send, and `"agent": null` hands the firing back to the template's own agent. Changing `schedule`, `timezone` or `enabled` recomputes `next_run` from now, so a new schedule never replays a window that has already passed; editing only the `prompt` or the `name` leaves the next firing exactly where it was. Pausing is a `PATCH`:
 
 ```bash
 curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c \
