@@ -17,9 +17,9 @@ receive them from you, does not store them, and does not need to ask for them:
 That token opens all three endpoints. **This applies to any image**, including one you built
 yourself from scratch: the platform injects these at container create, not the image.
 
-Those five are the contract. A container's environment carries other `AGENT37_`-prefixed
-variables that are runtime internals; they change without notice, so build against the four
-above and nothing else.
+Those five are the contract, alongside the three switches in [Not using them](#not-using-them). A
+container's environment carries other `AGENT37_`-prefixed variables that are runtime internals;
+they change without notice, so build against the five above and nothing else.
 
 ```text title="Paste this into your coding agent" wrap
 Read https://www.agent37.com/docs/llms-full.txt.
@@ -125,9 +125,8 @@ as a task id instead, to collect with `get_task_result` when it finishes.
 
 The `agent37-hermes` and `agent37-openclaw` templates register this server themselves at boot from
 the environment, so their agents simply have the tools. To keep an instance's agent out of paid
-tools entirely, create it with the variable blanked, `"env": { "AGENT37_PERFLO_MCP_URL": "" }`, and
-those templates write no paid-tools server at all. A custom image registers it like any other MCP
-server:
+tools entirely, switch them off at create ([Not using them](#not-using-them)). A custom image
+registers the server like any other MCP server:
 
 ```json mcp.json
 {
@@ -236,8 +235,37 @@ creates at runtime under `/home/node` persist normally across restarts and image
 
 ## Not using them
 
-Nothing obliges your image to touch either endpoint. To run on your own model, ignore the proxy
+Nothing obliges your image to touch these endpoints. To run on your own model, ignore the proxy
 variables and point your agent at your own provider, as in
-[Build a custom image](/agents-api/custom-image#bring-your-own-model-instead). To skip
-integrations, leave the MCP server out of your agent's config. Unused endpoints are never
-billed, because billing is per call.
+[Build a custom image](/agents-api/custom-image#bring-your-own-model-instead). To skip integrations
+or paid tools, leave that MCP server out of your agent's config. Unused endpoints are never billed,
+because billing is per call.
+
+On a **stock template**, where we write the agent's config at every boot, the switch is an
+environment variable you set at create:
+
+| Variable | Turns off |
+| --- | --- |
+| `AGENT37_MANAGED_PLUGIN_BRAVE_ENABLED` | Managed web search (Brave) |
+| `AGENT37_MANAGED_PLUGIN_COMPOSIO_ENABLED` | Managed [app integrations](/agents-api/integrations) (Composio) |
+| `AGENT37_MANAGED_PLUGIN_PERFLO_ENABLED` | [Paid tools](#paid-tools) (Perflo) |
+
+```bash
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "agent37-hermes",
+    "env": { "AGENT37_MANAGED_PLUGIN_PERFLO_ENABLED": "false" }
+  }'
+```
+
+Set to `false`, the template writes no such server or plugin, so the agent never sees those tools
+and cannot call them. Everything else about the instance is unchanged, and the other managed
+services keep working.
+
+<Note>
+  `env` is fixed at create, so turning one back on means a new instance. Leaving all three on costs
+  nothing by itself: managed services are billed per call, and an agent that never calls one is
+  never charged for it.
+</Note>
