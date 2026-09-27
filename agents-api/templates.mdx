@@ -409,7 +409,7 @@ curl -s https://api.agent37.com/v1/instances \
     -H "Authorization: Bearer sk_live_..."
 ```
 
-The `head -n 3` is the canary: update a small slice first, verify the release on those instances, then rerun without it to finish the fleet. Rerunning is always safe, the filter only picks up instances still behind. A `sleeping` instance cannot be updated; wake it with [`start`](/agents-api/instances#start) first.
+The `head -n 3` is the canary: update a small slice first, verify the release on those instances, then rerun without it to finish the fleet. Rerunning is always safe, the filter only picks up instances still behind. A `sleeping` instance is woken by the update and comes back `running`. That is the only way it picks up the release: waking a sleeper on its own restores it on the image it fell asleep with.
 
 ## Delete a template
 
