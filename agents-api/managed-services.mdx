@@ -1,6 +1,6 @@
 ---
 title: "Managed services in your image"
-description: "Every instance gets a working LLM endpoint, a Composio MCP server, and a pay-per-call paid-tools server from its environment. No API keys, no OAuth wiring, and it works in a fully custom image."
+description: "Every instance gets a working LLM endpoint and a Composio MCP server from its environment. No API keys, no OAuth wiring, and it works in a fully custom image."
 ---
 
 Every Agent37 instance boots with credentials already in its environment. Your image does not
@@ -11,13 +11,12 @@ receive them from you, does not store them, and does not need to ask for them:
 | `AGENT37_MANAGED_TOKEN` | A per-instance token |
 | `AGENT37_LLM_PROXY_URL` | `https://api.agent37.com/llm/v1` |
 | `AGENT37_COMPOSIO_MCP_URL` | `https://api.agent37.com/mcp/composio` |
-| `AGENT37_PERFLO_MCP_URL` | `https://api.agent37.com/mcp/perflo` |
 | `AGENT37_INSTANCE_ID` | This instance's id |
 
-That token opens all three endpoints. **This applies to any image**, including one you built
+That token opens both endpoints. **This applies to any image**, including one you built
 yourself from scratch: the platform injects these at container create, not the image.
 
-Those five are the contract. A container's environment carries other `AGENT37_`-prefixed
+Those four are the contract. A container's environment carries other `AGENT37_`-prefixed
 variables that are runtime internals; they change without notice, so build against the four
 above and nothing else.
 
@@ -81,73 +80,6 @@ tools and managing connections bills per tool call, with a batch execute capped 
   `405` as "this server has no server-push stream" and carry on, but some probe the older SSE
   transport and report the server as failed. If your client offers an explicit transport
   setting, set it to streamable HTTP.
-</Warning>
-
-## Paid tools
-
-A pay-per-call MCP server at `$AGENT37_PERFLO_MCP_URL`, same bearer token, streamable HTTP. It
-fronts [Perflo](https://perflo.ai)'s catalog of roughly 490 vendors: web scrapes, people and
-company lookups, enrichment, generation, phone numbers and calls. The agent buys one call at a
-time, typically for a cent. There are no vendor accounts to create, no keys to hold, and no
-subscriptions.
-
-```bash
-curl -sS "$AGENT37_PERFLO_MCP_URL" \
-  -H "Authorization: Bearer $AGENT37_MANAGED_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
-```
-
-Four tools:
-
-| Tool | What it does |
-| --- | --- |
-| `list_services` | The catalog, with each vendor's slug and exact price. Free to call |
-| `spend` | Describe the job and let Perflo pick the vendor and pay. Priced after the fact |
-| `pay` | Buy from one vendor you named, with a `maxCharge` checked before any money moves |
-| `get_task_result` | Collect what a call bought |
-
-Discovery is free; `spend` and `pay` are the two that cost anything, and each is charged at the
-exact amount Perflo reports, with no markup. The spend draws on the instance
-[budget](/agents-api/budgets) and then the workspace wallet, like every managed service, and lands
-under `perflo` in `GET /v1/instances/{id}/usage` and `GET /v1/usage`.
-
-A `spend` answers once its charge is final, which is usually about ten seconds, so the agent sees
-one ordinary tool call rather than a job to poll. A call still running after 240 seconds comes back
-as a task id instead, to collect with `get_task_result` when it finishes.
-
-<Note>
-  Two categories are switched off on purpose, gift cards and one paid-social group, because an
-  agent moving that kind of money on your balance is not what this is for. With those gone the most
-  expensive single call in the catalog is about \$3.50, and a refused call costs nothing.
-</Note>
-
-The `agent37-hermes` and `agent37-openclaw` templates register this server themselves at boot from
-the environment, so their agents simply have the tools. To keep an instance's agent out of paid
-tools entirely, create it with the variable blanked, `"env": { "AGENT37_PERFLO_MCP_URL": "" }`, and
-those templates write no paid-tools server at all. A custom image registers it like any other MCP
-server:
-
-```json mcp.json
-{
-  "mcpServers": {
-    "perflo": {
-      "type": "streamable-http",
-      "url": "https://api.agent37.com/mcp/perflo",
-      "headers": { "Authorization": "Bearer ${AGENT37_MANAGED_TOKEN}" }
-    }
-  }
-}
-```
-
-<Warning>
-  **An instance older than 2026-09-27 needs one `POST /v1/instances/{id}/update` to get paid
-  tools.** Two things have to be in place, and update is what delivers both: the variable, which
-  arrives with a fresh container (a `restart` is enough for that alone), and an image whose boot
-  script knows to register the server, which only `update` pulls. A stock template with neither
-  simply has no paid tools, which is also how you keep them off an instance you do not want them
-  on. New instances have both already.
 </Warning>
 
 ## Wiring an agent to both
