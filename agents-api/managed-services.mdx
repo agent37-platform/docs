@@ -140,14 +140,8 @@ registers the server like any other MCP server:
 }
 ```
 
-<Warning>
-  **An instance older than 2026-09-27 needs one `POST /v1/instances/{id}/update` to get paid
-  tools.** Two things have to be in place, and update is what delivers both: the variable, which
-  arrives with a fresh container (a `restart` is enough for that alone), and an image whose boot
-  script knows to register the server, which only `update` pulls. A stock template with neither
-  simply has no paid tools, which is also how you keep them off an instance you do not want them
-  on. New instances have both already.
-</Warning>
+New instances have the tools already. An instance created before 2026-09-27 needs one
+`POST /v1/instances/{id}/update`, which pulls the current image, and then it does too.
 
 ## Wiring an agent to both
 
@@ -260,12 +254,6 @@ curl -X POST https://api.agent37.com/v1/instances \
   }'
 ```
 
-Set to `false`, the template writes no such server or plugin, so the agent never sees those tools
-and cannot call them. Everything else about the instance is unchanged, and the other managed
-services keep working.
-
-<Note>
-  `env` is fixed at create, so turning one back on means a new instance. Leaving all three on costs
-  nothing by itself: managed services are billed per call, and an agent that never calls one is
-  never charged for it.
-</Note>
+Set to `false`, the template leaves that server or plugin out, so the agent never sees those tools.
+The other services keep working, and `env` is fixed at create, so turning one back on means a new
+instance. Leaving all three on costs nothing until the agent calls one.
