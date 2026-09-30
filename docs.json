@@ -26,6 +26,15 @@
           "agents-api/examples",
           "agents-api/chat-app",
           "agents-api/site-builder",
+          {
+            "group": "Build your own",
+            "pages": [
+              "agents-api/dots",
+              "agents-api/instinct",
+              "agents-api/grok-bot",
+              "agents-api/muse"
+            ]
+          },
           "agents-api/white-label",
           "agents-api/messaging",
           "agents-api/byo-model",
@@ -42,7 +51,8 @@
           "agents-api/custom-image",
           "agents-api/migrate-from-docker",
           "agents-api/managed-services",
-          "agents-api/hermes-webhooks"
+          "agents-api/hermes-webhooks",
+          "agents-api/imessage"
         ]
       },
       {

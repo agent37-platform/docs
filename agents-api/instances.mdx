@@ -5,14 +5,14 @@ description: "Create, size, and manage the persistent computer that runs your ag
 
 An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance's computer is up and the agent inside finishes booting moments later. Poll `GET /v1/health` on the instance URL until it answers `"healthy": true` (`ok` alone only means the gateway is up; see [Health & version](/agents-api/health)), then message it at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance and preview URLs](/agents-api/urls)).
 
-Creating an instance requires one day of compute at its running rate in your workspace wallet, but debits nothing: the balance check is the create gate (below it, the create fails with `402 insufficient_balance` and nothing is provisioned), and the meter only starts when the instance first reaches `running`. How many instances you can run at once is set by your [instance limit](/agents-api/billing#instance-limits), which rises as you top up. See [Billing](/agents-api/billing).
+Creating an instance requires one day of compute at its running rate in your workspace wallet, but debits nothing: the balance check is the create gate (below it, the create fails with `402 insufficient_balance` and nothing is provisioned), and the meter only starts when the instance first reaches `running`. How many instances the workspace can hold, sleeping and stopped ones included, is set by your [instance limit](/agents-api/billing#instance-limits), which rises as you top up. See [Billing](/agents-api/billing).
 
 ## Create an instance
 
 `POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-hermes`) on the smallest shape, 2 vCPU / 4 GB.
 
 <ParamField body="template" type="string" default="agent37-hermes">
-  A template name. `agent37-hermes` (full Hermes, with browser and desktop) is the default; `agent37-hermes-small` (the same agent on a lean image, no browser or desktop), `agent37-openclaw` (OpenClaw, with a headless browser), `agent37-claude-code` ([Claude Code](/agents-api/claude-code), which needs your own Anthropic account connected before chat turns work), `agent37-codex` ([Codex](/agents-api/codex), which needs your own OpenAI account connected before chat turns work), `agent37-grok` ([Grok](/agents-api/grok), which needs your own xAI API key set before chat turns work), `agent37-opencode` ([OpenCode](/agents-api/opencode), which runs on the managed model out of the box), `agent37-pi` ([Pi](/agents-api/pi), the minimal harness, also on the managed model out of the box), and `agent37-n8n` ([n8n](/agents-api/n8n), a workflow automation web app with no chat API; its editor gets a public URL on create) are the other system templates. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Any name takes an optional `@<version>` to [pin a published release](/agents-api/templates#pin-a-template-version): a tag on system templates (`agent37-hermes@2026.07.02b`), a revision number on workspace templates (`my-agent@2`). Pin when your creates must be reproducible; the bare name follows the latest release. Unknown names and unpublished versions return `400 invalid_request`. Direct image references are rejected with `400`: register a template first, then pass its name.
+  A template name. `agent37-hermes` (full Hermes, with a headless browser) is the default; `agent37-hermes-small` (the same agent on a lean image, no browser or desktop), `agent37-openclaw` (OpenClaw, with a headless browser), `agent37-claude-code` ([Claude Code](/agents-api/claude-code), which needs your own Anthropic account connected before chat turns work), `agent37-codex` ([Codex](/agents-api/codex), which needs your own OpenAI account connected before chat turns work), `agent37-grok` ([Grok](/agents-api/grok), which needs your own xAI API key set before chat turns work), `agent37-opencode` ([OpenCode](/agents-api/opencode), which runs on the managed model out of the box), `agent37-pi` ([Pi](/agents-api/pi), the minimal harness, also on the managed model out of the box), and `agent37-n8n` ([n8n](/agents-api/n8n), a workflow automation web app with no chat API; its editor gets a public URL on create) are the other system templates. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Any name takes an optional `@<version>` to [pin a published release](/agents-api/templates#pin-a-template-version): a tag on system templates (`agent37-hermes@2026.07.02b`), a revision number on workspace templates (`my-agent@2`). Pin when your creates must be reproducible; the bare name follows the latest release. Unknown names and unpublished versions return `400 invalid_request`. Direct image references are rejected with `400`: register a template first, then pass its name.
 </ParamField>
 
 <ParamField body="resources" type="object">
@@ -126,7 +126,9 @@ const instance = await res.json();
   "resources": { "cpu": 2, "memory": 4, "disk": 6 },
   "url": "https://ab12cd34ef.agent37.app",
   "domain_urls": [],
-  "public_ports": [],
+  "public_ports": [
+    { "port": 8443, "url": "https://3f9a1c0b7d2e4f6a8b1c.agent37.app", "domain_urls": [], "prefix": null, "label": "telegram", "created": 1781222400 }
+  ],
   "user": "u_882",
   "name": null,
   "metadata": null,
@@ -209,7 +211,7 @@ Six names are set by the platform and rejected with `400 invalid_request` rather
 </ResponseField>
 
 <ResponseField name="public_ports" type="object[]">
-  The instance's [public ports](/agents-api/public-ports), each `{ port, url, domain_urls, prefix, created }`: permanent unauthenticated URLs, empty unless you created some.
+  The instance's [public ports](/agents-api/public-ports), each `{ port, url, domain_urls, prefix, label, created }`: permanent unauthenticated URLs. `agent37-hermes`, `agent37-hermes-small`, and `agent37-openclaw` instances start with one on `8443`, labelled `telegram`, for [Telegram webhooks](/agents-api/public-ports); otherwise the list is empty unless you created some.
 </ResponseField>
 
 <ResponseField name="user" type="string | null">
@@ -275,7 +277,7 @@ curl -X DELETE https://api.agent37.com/v1/instances/ab12cd34ef \
 ```
 
 <Warning>
-  Delete is destructive: the instance's files, memory, sessions, and backups are gone. A backup belongs to the instance, not to your workspace, and [restore](#restore) only ever writes back in place, so [download](/agents-api/files#download-a-folder) anything you want to keep first. To pause work while keeping everything, `stop` it instead. A stopped instance bills its disk alone; delete is what ends billing entirely.
+  Delete is destructive: the instance's files, memory, sessions, and backups are gone, and no API call brings them back. A backup belongs to the instance, not to your workspace, and [restore](#restore) only ever writes back in place, so [download](/agents-api/files#download-a-folder) anything you want to keep first. A copy of the instance's data stays in backup storage for seven days after the delete and is then purged, so allow for that window in any promise to erase your own users' data. To pause work while keeping everything, `stop` it instead. A stopped instance bills its disk alone; delete is what ends billing entirely.
 </Warning>
 
 ## Edit name, metadata, and auto-sleep
@@ -353,7 +355,9 @@ const instance = await res.json();
   "resources": { "cpu": 2, "memory": 4, "disk": 6 },
   "url": "https://ab12cd34ef.agent37.app",
   "domain_urls": [],
-  "public_ports": [],
+  "public_ports": [
+    { "port": 8443, "url": "https://3f9a1c0b7d2e4f6a8b1c.agent37.app", "domain_urls": [], "prefix": null, "label": "telegram", "created": 1781222400 }
+  ],
   "user": "u_882",
   "name": "Production agent",
   "metadata": { "plan": "pro" },
@@ -369,7 +373,7 @@ const instance = await res.json();
 
 Five calls control whether the instance's computer is running, which image it runs, and how big it is. Each is a `POST` to a subpath; `stop`, `start`, and `restart` take no body, `update` takes an optional `template` version, and `resize` takes the new size. They acknowledge the new state only, returning `{ id, status }` (`update` adds nullable `image_ref`, `image_digest`, and `template_revision`; `resize` adds `resources`); `GET` the instance for its full representation. `start` and `resize` answer `202` instead of `200` when they moved the instance to another host and the move is still finishing (`status` still `starting`/`updating`); poll `GET` until it reads `running`.
 
-The whole disk persists, like a VM. Files anywhere on the filesystem, installed packages, edited config, connected accounts: all of it survives `stop`, `start`, `restart`, and `resize`, and rides along if the platform ever moves the instance between hosts. The one exception is `update`, which resets the operating system layer to the fresh image while keeping your data (`/home/node` and `/home/linuxbrew`). Writes outside those two directories share a 10 GB operating-system layer separate from the instance's billed disk. In-memory state is lost whenever the container is recreated; anything that must outlive a restart belongs in a file.
+The whole disk persists, like a VM. Files anywhere on the filesystem, installed packages, edited config, connected accounts: all of it survives `stop`, `start`, `restart`, and `resize`, and rides along if the platform ever moves the instance between hosts. The one exception is `update`, which resets the operating system layer to the fresh image while keeping your data (`/home/node` and `/home/linuxbrew`); a [boot hook](#boot-hooks) can put back what it resets. Writes outside those two directories share a 10 GB operating-system layer separate from the instance's billed disk. In-memory state is lost whenever the container is recreated; anything that must outlive a restart belongs in a file.
 
 ### Stop
 
@@ -445,6 +449,31 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
   -H "Content-Type: application/json" \
   -d '{ "cpu": 4, "memory": 8 }'
 # -> { "id": "ab12cd34ef", "status": "running", "resources": { "cpu": 4, "memory": 8, "disk": 6 } }
+```
+
+### Boot hooks
+
+Two scripts in the instance's home run on their own as it boots, so you can put back what an `update` resets or a recreate loses. Every system template except `agent37-n8n` has them, and so does an image built on our [base images](/agents-api/templates#build-on-the-hermes-base-image) that keeps the base `ENTRYPOINT`. The first boot creates both, holding only comments, so they do nothing until you add commands.
+
+| Script | When it runs |
+| --- | --- |
+| `~/.agent37/hooks/post-image-update.sh` | On a boot whose image differs from the one the script last completed on: the first boot, and the boot after an `update` that changes the image or moves the instance onto another template. It gets up to 15 minutes; if it fails or times out, it runs again on the next boot. |
+| `~/.agent37/hooks/post-restart.sh` | On every boot, including after `start`, `restart`, `update`, `resize`, `restore`, and a wake that boots fresh. A wake that restores a sleep checkpoint is not a boot, so it does not run. It gets up to 5 minutes; a failure is logged and the boot carries on. |
+
+Both run as the image's default user (`node` on system templates), not root, with the instance's env vars; when both run, `post-image-update.sh` goes first. Their output lands in the instance's [logs](/agents-api/logs). The chat API is already up while they run, so a turn can arrive before a hook finishes. Saving a script does not run it: do the install once now over [exec](/agents-api/exec), and the hook repeats it after every image change. Anything that needs root, such as `apt-get`, cannot go in a hook; rerun it over exec as `root` after the update.
+
+An `update` of a running instance that keeps the same image still resets everything outside `/home/node` and `/home/linuxbrew`, but it is not an image change, so `post-image-update.sh` does not run. To keep something in place across every update, put a guarded line in `post-restart.sh` that checks on each boot and reinstalls only what is missing. For example, a Python package in Hermes's own environment:
+
+```bash curl
+cat > post-restart.sh <<'EOF'
+#!/usr/bin/env bash
+set -e
+"$HERMES_PYTHON" -c 'import some_package' 2>/dev/null || uv pip install --python "$HERMES_PYTHON" some-package
+EOF
+
+curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=~/.agent37/hooks/post-restart.sh" \
+  -H "X-Agent37-Key: sk_live_..." \
+  --data-binary @post-restart.sh
 ```
 
 ## Backups
@@ -540,7 +569,7 @@ Both fields are set at create and editable any time with `PATCH /v1/instances/{i
 | Error | When |
 | --- | --- |
 | `402 insufficient_balance` | Create when the wallet holds less than one day of the instance's running rate, or start of a past-due instance while the balance is negative. |
-| `409 instance_limit_reached` | Create when the workspace is at its instance cap: one instance on the free credit, 10 once topped up, 50 once top-ups total \$100, 200 once they total \$250 (email vishnu@agent37.com to raise it further). |
+| `409 instance_limit_reached` | Create when the workspace is at its instance cap, which counts every instance that is not deleted or `failed`, sleeping and stopped ones included: one instance on the free credit, 10 once topped up, 50 once top-ups total \$100, 200 once they total \$250 (email vishnu@agent37.com to raise it further). |
 | `403 tier_limit` | Create or resize asks for a shape larger than your plan includes. Free workspaces run any template on the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8 and 8/16 shapes. |
 | `503 no_capacity` | Create when no host has capacity for the requested shape right now. |
 | `409 capacity_unavailable` | Start or resize when no host in the fleet can fit the instance right now; the platform first tries to move it to a host with room. |

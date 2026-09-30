@@ -1,0 +1,461 @@
+---
+title: "Build your own Dots"
+sidebarTitle: "Dots"
+description: "Give each user a named agent with its own computer that owns ongoing responsibilities, keeps its own schedule, and messages them first."
+---
+
+OpenAI launched [Dots](https://openai.com/index/introducing-dots/) on September 29, 2026: an always-on agent in ChatGPT with its own cloud computer, the first one included with a Pro or Business Premium plan. You hand it a responsibility instead of a prompt, and it keeps working between conversations, decides when to check back, and messages you when something needs you. This guide builds the same loop on Agent37: one instance per user, a persona that tells the agent it may schedule itself, platform [crons](/agents-api/crons) that wake it, and a callback into your app for the messages it sends first.
+
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want a Dots-style personal agent: each user names an agent that owns ongoing responsibilities, keeps its own schedule, and messages them first.
+Create one instance per user with POST /v1/instances (budget.monthly_cap_micros, auto_sleep, a callback token in env and its SHA-256 in metadata), write ~/.hermes/SOUL.md read-merge-write so the agent schedules its own check-ins with the agent37 cron CLI and messages the user through a small script that calls my server, connect apps with /v1/instances/{id}/integrations, and show Scheduled and Completed from /v1/instances/{id}/crons.
+Done when the agent schedules a reminder by itself, the reminder fires, and my app shows the message it sent first.
+My key is in AGENT37_API_KEY.
+```
+
+<Card title="dots: this guide as a working app" icon="github" href="https://github.com/agent37-platform/examples/tree/main/dots" horizontal>
+  Everything on this page, runnable: name an agent and pick a mascot and color, connect apps, chat with a live status line, watch Scheduled and Completed fill up as it schedules itself, get its first messages as notifications, and, with the desktop template, watch its computer and take it over. Express plus vanilla JS, no build step. Clone it, add your key, `npm start`.
+</Card>
+
+## One computer per user, and it keeps its own schedule
+
+Each user's agent is one [instance](/agents-api/instances): a persistent computer running Hermes, with its own disk, memory, and connected apps. Three things turn it from a chat app into something that owns work:
+
+1. **It schedules itself.** Every Agent37 agent image ships the `agent37 cron` CLI, which creates ordinary platform crons with the credential the instance already holds. A cron fires whether the instance is awake or asleep, so the agent can sleep between check-ins and still show up on time.
+2. **Its persona says it may.** The gateway tells the agent it cannot follow up once a reply ends. That is true of a single reply, so the persona you write into `~/.hermes/SOUL.md` says how it does follow up: a scheduled check-in.
+3. **It can reach the user.** A check-in runs in a fresh session that nobody is watching. The agent calls your server with a token you planted at create, and your app shows the message.
+
+<Steps>
+  <Step title="Create the user's agent">
+    [`POST /v1/instances`](/agents-api/instances#create-an-instance) with four things beyond the usual: a monthly `budget` (the agent spends on its own schedule, so a cap that resets suits it better than one-time credit), `auto_sleep` so it bills disk alone between check-ins, a random callback token in `env`, and that token's SHA-256 in `metadata`.
+
+    <CodeGroup>
+    ```bash curl
+    curl https://api.agent37.com/v1/instances \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "user": "u_882",
+        "name": "dots-Pip",
+        "budget": { "monthly_cap_micros": 5000000 },
+        "auto_sleep": true,
+        "idle_timeout_seconds": 1800,
+        "env": { "DOTS_CALLBACK_TOKEN": "f3a9..." },
+        "metadata": { "dots_callback_token_sha256": "9c1e..." }
+      }'
+    ```
+
+    ```javascript node
+    const token = crypto.randomBytes(24).toString("hex");
+    const inst = await (await fetch("https://api.agent37.com/v1/instances", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user: "u_882",
+        name: "dots-Pip",
+        budget: { monthly_cap_micros: 5_000_000 },
+        auto_sleep: true,
+        idle_timeout_seconds: 1800,
+        env: { DOTS_CALLBACK_TOKEN: token },
+        metadata: {
+          dots_callback_token_sha256: crypto.createHash("sha256").update(token).digest("hex"),
+        },
+      }),
+    })).json();
+    await db.users.update("u_882", { instanceId: inst.id });
+    ```
+    </CodeGroup>
+
+    The call returns once the computer is up. Poll [`GET /v1/health`](/agents-api/health) on the instance URL until it answers `"healthy": true` before writing files or sending the first message. `env` is write-only and fixed at create, so the raw token lives only inside the instance; the hash in `metadata` is what your server reads back later. The idle timeout sits above the longest turn you expect, because a turn whose browser went away can be checkpointed mid-run once the instance goes idle.
+  </Step>
+
+  <Step title="Give it a name and a job description">
+    Hermes reads its persona from `~/.hermes/SOUL.md` on the instance's disk. A fresh instance already has one, so write it read-merge-write with the [Files API](/agents-api/files): read the file, replace a block you own (marked so you can find it again when the user renames the agent), and write the whole file back. `PUT` replaces the file with the body you send, so never `PUT` a fragment.
+
+    <CodeGroup>
+    ```bash curl
+    # read
+    curl -G https://ab12cd34ef.agent37.app/v1/files/content \
+      -H "X-Agent37-Key: sk_live_..." \
+      --data-urlencode "path=~/.hermes/SOUL.md" -o SOUL.md
+
+    # edit SOUL.md locally, then write the whole file back
+    curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=~/.hermes/SOUL.md" \
+      -H "X-Agent37-Key: sk_live_..." \
+      --data-binary @SOUL.md
+    ```
+
+    ```javascript node
+    const url = (path) =>
+      `https://${inst.id}.agent37.app/v1/files/content?path=${encodeURIComponent(path)}`;
+    const H = { "X-Agent37-Key": process.env.AGENT37_API_KEY };
+
+    const current = await (await fetch(url("~/.hermes/SOUL.md"), { headers: H })).text();
+    const start = current.indexOf("<!-- dots:persona -->");
+    const end = current.indexOf("<!-- /dots:persona -->");
+    const rest = start === -1 ? current
+      : current.slice(0, start) + current.slice(end + "<!-- /dots:persona -->".length);
+
+    await fetch(url("~/.hermes/SOUL.md"), {
+      method: "PUT",
+      headers: H,
+      body: `${personaBlock(user)}\n\n${rest.trim()}\n`,
+    });
+    ```
+    </CodeGroup>
+
+    The persona is where the product lives. The part that makes it own work:
+
+    ```text the persona block, abridged
+    <!-- dots:persona -->
+    # Pip
+    You are Pip, Sam's personal agent. You have your own computer, and it is always there.
+
+    ## You own ongoing responsibilities
+    1. Keep it on your list: one line per responsibility in ~/.dots/responsibilities.md,
+       "- Title :: what you are doing now". Delete the line when it is done.
+    2. Keep your own schedule: agent37 cron add --name "..." --schedule "0 9 * * *"
+       --timezone America/Los_Angeles --prompt "...". Sam's timezone is America/Los_Angeles:
+       pass it on every cron and work out times there (TZ=America/Los_Angeles date). Each
+       check-in wakes you in a fresh chat that holds only its prompt, so write the prompt to
+       stand on its own. For a one-time follow-up, pin the exact minute, hour, day and month;
+       the app deletes it once it has fired. Start a yearly one's --name with "Yearly".
+       The note that you cannot follow up after a reply ends is about that single reply;
+       a scheduled check-in is how you do.
+    3. Message first: when a check-in finds something Sam should know, run
+       sh ~/.dots/notify "your message". Stay quiet when there is nothing new.
+
+    ## Hand back what is not yours to do
+    Ask before spending money, sending anything to other people, or changing an account.
+    Never make purchases: find the options, then hand the checkout back to Sam.
+    <!-- /dots:persona -->
+    ```
+
+    Seed what you already know about the user into `~/.hermes/memories/USER.md` the same way (entries are separated by a line holding a single `§`). The app shows `~/.dots/responsibilities.md` as the agent's In progress list.
+  </Step>
+
+  <Step title="Connect their apps">
+    Onboarding offers the user's apps next, through [managed Composio](/agents-api/integrations) on their own instance: list the catalog, start a connection with a `callbackUrl` back into your app, and poll the connections list until the new account reads `ACTIVE`.
+
+    <CodeGroup>
+    ```bash curl
+    curl "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/toolkits?limit=24" \
+      -H "Authorization: Bearer sk_live_..."
+
+    curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connect \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{ "toolkit": "googlecalendar", "callbackUrl": "https://your-app.com/connected" }'
+
+    curl https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections \
+      -H "Authorization: Bearer sk_live_..."
+    ```
+
+    ```javascript node
+    const { redirectUrl, connectedAccountId } = await (await fetch(
+      `https://api.agent37.com/v1/instances/${inst.id}/integrations/connect`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ toolkit: "googlecalendar", callbackUrl: "https://your-app.com/connected" }),
+      }
+    )).json();
+    // Send the browser to redirectUrl, then poll GET .../integrations/connections
+    // until the entry with id === connectedAccountId has status "ACTIVE".
+    ```
+    </CodeGroup>
+
+    Open `redirectUrl` in a tab you opened during the click itself; a window opened after an `await` is blocked as a popup. The catalog includes no-auth entries (`isNoAuth: true`) that need no connect step, so filter those out of an onboarding grid.
+  </Step>
+
+  <Step title="Let it introduce itself">
+    Dots speaks first. Send the first turn yourself, with an app brief as the input, and hide it when you render history. The gateway has no system-prompt field on [`POST /v1/responses`](/agents-api/chat), so app context rides as a marked preamble:
+
+    ```text the hidden first turn
+    App context (from the Dots app, not your person; they do not see this part):
+    This is your very first conversation with Sam. They just created you and named you Pip.
+    Introduce yourself in two or three short sentences, in your own voice.
+    If any apps are connected, take a quick read-only look to learn what their days look like.
+    Then suggest three concrete things you could take off their plate, at least one of them
+    ongoing. Ask which they want.
+    End of app context.
+    ```
+
+    When you render a session, drop user messages that start with the marker, or show only the text after `End of app context.` when the user's own words follow it. Store the session id the first stream event returns; see the next step.
+  </Step>
+
+  <Step title="Stream chat with a live status line">
+    Send turns with `stream: true` through your server (the key never reaches the browser). The [stream's](/agents-api/streaming) tool events are what make the agent feel present: map `response.tool_call.started` to a status line under its name and to rows in an Activity panel, and give the running row a stop button that calls `POST /v1/responses/{id}/cancel`.
+
+    ```javascript node
+    switch (event) {
+      case "response.created":           // { id, session_id }: record the thread, arm the stop button
+        status("Thinking...");
+        break;
+      case "response.tool_call.started": // { tool, label }
+        if (/agent37 cron/.test(data.label)) status("Keeping its schedule...");
+        else if (/\.dots\/notify/.test(data.label)) status("Messaging you...");
+        else status(`${verbFor(data.tool)}: ${data.label ?? ""}`);
+        break;
+      case "response.output_text.delta":
+        status("Typing...");
+        break;
+    }
+    ```
+
+    When the agent schedules itself, its terminal tool call carries the `agent37 cron add ...` command as its `label`, so the status line can say so. Keep your own index of the sessions your app starts, recorded from `response.created`: [`GET /v1/sessions`](/agents-api/sessions) returns only the 100 most recent, and every cron firing opens one, so a busy schedule pushes chats out of that list.
+  </Step>
+
+  <Step title="Show what it has scheduled, and what already ran">
+    Everything the agent scheduled for itself is an ordinary cron, so the profile's Scheduled and Completed tabs are two reads. Your app can add tasks the same way, and tell the two apart by remembering the ids it created.
+
+    <CodeGroup>
+    ```bash curl
+    # Scheduled
+    curl https://api.agent37.com/v1/instances/ab12cd34ef/crons \
+      -H "Authorization: Bearer sk_live_..."
+
+    # Completed: each run's session_id is the chat the check-in ran in
+    curl https://api.agent37.com/v1/instances/ab12cd34ef/crons/3ff3e1104cea/runs \
+      -H "Authorization: Bearer sk_live_..."
+
+    # Run now
+    curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/crons/3ff3e1104cea/run \
+      -H "Authorization: Bearer sk_live_..."
+    ```
+
+    ```javascript node
+    const H = { Authorization: `Bearer ${process.env.AGENT37_API_KEY}` };
+    const base = `https://api.agent37.com/v1/instances/${inst.id}/crons`;
+
+    const { data: crons } = await (await fetch(base, { headers: H })).json();
+    const scheduled = crons.map((c) => ({ ...c, setBy: myCronIds.has(c.id) ? "you" : "agent" }));
+
+    const runs = (await Promise.all(crons.map(async (c) =>
+      (await (await fetch(`${base}/${c.id}/runs`, { headers: H })).json()).data
+        .map((run) => ({ ...run, name: c.name }))
+    ))).flat().sort((a, b) => b.ran_at - a.ran_at);
+    ```
+    </CodeGroup>
+
+    ```json a cron the agent created for itself
+    {
+      "id": "3ff3e1104cea",
+      "name": "Weekday Hacker News top story",
+      "agent": null,
+      "prompt": "Find the current top story on Hacker News ... Send Sam one concise line with the story title, a factual summary, and a link using: sh ~/.dots/notify \"...\". If the story cannot be verified, do not invent details; notify Sam briefly that the lookup failed.",
+      "schedule": "0 9 * * 1-5",
+      "timezone": "America/Los_Angeles",
+      "enabled": true,
+      "last_run": null,
+      "next_run": 1790784000,
+      "created": 1790735848
+    }
+    ```
+
+    Pause is a `PATCH` of every enabled cron to `{ "enabled": false }`, and Resume turns back on the ones Pause turned off. Chat still works while paused, so the agent can add a cron; the example turns those off too, each time it reads the schedule and after every turn. A task your app adds is sent to the agent verbatim when it fires, with nothing that says nobody is watching that chat, so put the delivery instruction in the prompt itself: "Sam is not watching this chat: send the result with `sh ~/.dots/notify`."
+  </Step>
+
+  <Step title="Let it message you first">
+    Setup writes a small script to the instance that posts to your server with the planted token. `AGENT37_INSTANCE_ID` is set by the platform in every container, so the agent never has to know which instance it is:
+
+    ```bash ~/.dots/notify
+    #!/bin/sh
+    body=$(node -e 'process.stdout.write(JSON.stringify({ instance_id: process.env.AGENT37_INSTANCE_ID, text: process.argv[1] || "" }))' "$1")
+    curl -sS -X POST https://your-app.com/api/notify \
+      -H "Authorization: Bearer $DOTS_CALLBACK_TOKEN" \
+      -H "Content-Type: application/json" -d "$body"
+    ```
+
+    Encoding the JSON in `node` keeps quotes and newlines in the agent's message from breaking the request. Your endpoint verifies the token against the instance's metadata before it stores anything:
+
+    ```javascript node
+    app.post("/api/notify", async (req, res) => {
+      const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      const { instance_id, text } = req.body;
+      if (!/^[a-z0-9]{10}$/.test(instance_id ?? "")) return res.status(400).json({ error: "bad_request" });
+
+      // Owner first: an id none of your users owns never reaches the Hosting API.
+      const user = await db.users.findByInstance(instance_id);
+      if (!user) return res.status(403).json({ error: "forbidden" });
+
+      const inst = await (await fetch(`https://api.agent37.com/v1/instances/${instance_id}`, {
+        headers: { Authorization: `Bearer ${process.env.AGENT37_API_KEY}` },
+      })).json();
+      const expected = Buffer.from(inst.metadata?.dots_callback_token_sha256 ?? "");
+      const presented = Buffer.from(crypto.createHash("sha256").update(token).digest("hex"));
+      if (expected.length !== presented.length || !crypto.timingSafeEqual(expected, presented)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
+
+      await db.notifications.create({ userId: user.id, text, at: Date.now() });
+      res.json({ ok: true });
+    });
+    ```
+
+    Show it as a new message with a badge and a toast. When the user replies, include the message in the reply's app context, since it came from a check-in session and the chat they are replying in has never seen it. This endpoint is also where Web Push, email, or a text would go when no tab is open.
+  </Step>
+
+  <Step title="Show and edit its memory">
+    Dots keeps its memory private; yours can show it. Hermes keeps notes about the user in `~/.hermes/memories/USER.md` and its own in `MEMORY.md`. List the folder for each file's `modified`, read the content, and save edits with `X-Expected-Mtime` so a note the agent wrote in the meantime is never silently overwritten:
+
+    <CodeGroup>
+    ```bash curl
+    curl -G https://ab12cd34ef.agent37.app/v1/files \
+      -H "X-Agent37-Key: sk_live_..." \
+      --data-urlencode "path=~/.hermes/memories"
+    # -> entries[].modified, e.g. 1790736851657.1233
+
+    curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=~/.hermes/memories/USER.md" \
+      -H "X-Agent37-Key: sk_live_..." \
+      -H "X-Expected-Mtime: 1790736851657.1233" \
+      --data-binary @USER.md
+    ```
+
+    ```javascript node
+    const res = await fetch(
+      `https://${inst.id}.agent37.app/v1/files/content?path=${encodeURIComponent("~/.hermes/memories/USER.md")}`,
+      {
+        method: "PUT",
+        headers: {
+          "X-Agent37-Key": process.env.AGENT37_API_KEY,
+          "X-Expected-Mtime": String(entry.modified),
+        },
+        body: entries.join("\n§\n"),
+      }
+    );
+    if (res.status === 412) {
+      // The agent wrote the file since you read it: reload and show its version.
+    }
+    ```
+    </CodeGroup>
+
+    Send `modified` back exactly as the listing returned it. It has a fractional part, and a rounded value never matches, so every write fails with `412 modified`.
+  </Step>
+</Steps>
+
+## Watch and take over its computer
+
+Dots puts its computer beside the chat: you watch it work, and when a site needs you (a sign-in, a code sent to your phone, a CAPTCHA), you take over the mouse and keyboard, then return control. The stock `agent37-hermes` browser is headless, so this needs an image with a screen. The example turns it on when `DESKTOP_TEMPLATE` is set in its `.env`, and runs exactly as above without it.
+
+<Steps>
+  <Step title="Build the desktop template">
+    The [hermes-vnc-desktop](https://github.com/agent37-platform/examples/tree/main/custom-images/hermes-vnc-desktop) recipe is the stock Hermes image plus a visible Chromium, which the agent's browser tool drives, and noVNC serving that screen on port `6901`. Build it into a [workspace template](/agents-api/templates#build-an-image-in-the-cloud) once; the build runs in the cloud, so you don't need Docker:
+
+    ```bash
+    git clone https://github.com/agent37-platform/examples
+    cd examples/custom-images/hermes-vnc-desktop
+    AGENT37_API_KEY=sk_live_... npx agent37 templates build . --name hermes-vnc-desktop --default-port 3737
+    ```
+
+    Then set `DESKTOP_TEMPLATE=hermes-vnc-desktop` in the example's `.env`. Each new user's agent is created with the call from **Create the user's agent** plus `"template": "hermes-vnc-desktop"`; everything else on this page works unchanged. Add a section to the persona so the agent knows the user can see its screen: browse in the visible browser, and when a site needs the user, ask them to take over instead of asking for a password in chat.
+  </Step>
+
+  <Step title="Mint a token for each connection">
+    Your server mints a [signed URL](/agents-api/urls#browser-access-with-signed-urls) for port `6901` of the user's own instance and hands the browser only a WebSocket URL built from it. The token rides in that URL's query string, so the connection needs no cookie and works from your own origin: the browser connects straight to the instance from your page.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/signed-url \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{ "port": 6901, "ttl_seconds": 60 }'
+    ```
+
+    ```javascript node
+    app.post("/api/computer", async (req, res) => {
+      const { instanceId } = await db.users.get(req.session.userId); // their own instance only
+      const r = await fetch(`https://api.agent37.com/v1/instances/${instanceId}/signed-url`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ port: 6901, ttl_seconds: 60 }),
+      });
+      if (!r.ok) return res.status(r.status).json(await r.json());
+      const signed = new URL((await r.json()).url);
+      res.json({ ws: `wss://${signed.host}/websockify?a37_token=${signed.searchParams.get("a37_token")}` });
+    });
+    ```
+
+    ```json response
+    {
+      "url": "https://ab12cd34ef-6901.agent37.app/?a37_token=6abc...e1f0",
+      "domain_urls": [],
+      "port": 6901,
+      "expires_at": 1790739708
+    }
+    ```
+    </CodeGroup>
+
+    The token grants full control, whatever your page does with it, and it cannot be revoked. Mint it only for the instance's owner, and keep it at `60` seconds, the minimum: it only has to be valid when the socket opens, an open socket keeps working after it expires, and every reconnect mints a fresh one.
+  </Step>
+
+  <Step title="Show the screen, take over, return control">
+    [noVNC](https://github.com/novnc/noVNC) draws the screen. It is plain ES modules, so the page imports a pinned release straight from a CDN, with nothing to install and no build step. Start in view-only mode. **Take over** cancels the turn in flight, so the two of you never fight over the mouse, and turns view-only off; **Return control** turns it back on:
+
+    ```html
+    <div id="screen" style="aspect-ratio: 16 / 10"></div>
+    <span id="who">Pip has control</span> <button id="control">Take over</button>
+
+    <script type="module">
+      import RFB from "https://cdn.jsdelivr.net/npm/@novnc/novnc@1.7.0/core/rfb.js";
+
+      let activeResponseId = null; // set from response.created while a chat turn streams
+
+      const { ws } = await (await fetch("/api/computer", { method: "POST" })).json();
+      const rfb = new RFB(document.getElementById("screen"), ws);
+      rfb.scaleViewport = true;
+      rfb.viewOnly = true;
+
+      document.getElementById("control").onclick = async (event) => {
+        if (rfb.viewOnly && activeResponseId) {
+          // your server forwards this to POST /v1/responses/{id}/cancel on the instance
+          await fetch(`/api/responses/${activeResponseId}/cancel`, { method: "POST" });
+        }
+        rfb.viewOnly = !rfb.viewOnly;
+        if (!rfb.viewOnly) rfb.focus();
+        event.target.textContent = rfb.viewOnly ? "Take over" : "Return control";
+        document.getElementById("who").textContent = rfb.viewOnly ? "Pip has control" : "You have control";
+      };
+      rfb.addEventListener("disconnect", () => {
+        // POST /api/computer again and connect a new RFB with the fresh URL
+      });
+    </script>
+    ```
+
+    You and the agent share one browser, so the page you leave open is the one it sees next. The example tells it so: the first message after a takeover carries a line of app context saying you used the computer and it should look at the browser before carrying on.
+
+    Connect the view only while it is on screen. It streams even when nothing on the screen changes, and that traffic counts as activity, so an open view keeps an [auto-sleep](/agents-api/instances#auto-sleep) instance awake. The example closes the socket when the tab is hidden or the pane is closed, and opening it again wakes the instance: from asleep, the screen was back in 4 to 18 seconds in testing.
+  </Step>
+</Steps>
+
+On a workspace template, a [cron](/agents-api/crons) that names no agent records its run's `session_id` only once the turn finishes. Name it, `"agent": "hermes"`, and the run links its chat from the moment it fires, so your app can open a check-in while it is still working. Add it to the tasks your app creates. `agent37 cron add` has no flag for it, so `PATCH` the crons the agent schedules for itself with `{ "agent": "hermes" }`; the example does that after every turn.
+
+Don't put the signed URL itself in an iframe on your site: it authenticates with a `SameSite=Lax` cookie, which a cross-site frame does not send. Connecting noVNC to the WebSocket, as above, needs no cookie.
+
+## Reset
+
+Reset is [`DELETE /v1/instances/{id}`](/agents-api/instances#list-get-delete) followed by a fresh create from onboarding. Delete is permanent: the computer, its files and memory, sessions, and crons go with it, and billing for it ends.
+
+## Worth knowing
+
+- **Cost per user.** The smallest shape is \$4.76 per month if it never sleeps. With [auto-sleep](/agents-api/instances#auto-sleep) it bills disk alone while asleep, and crons and your messages wake it, so an agent that works a few minutes at a time costs a fraction of that. Managed LLM, search, and app calls draw the wallet up to each instance's [budget](/agents-api/budgets).
+- **One user, one instance.** Your [instance limit](/agents-api/billing#instance-limits) is your user limit; it rises as you top up.
+- **There is no one-shot cron.** A follow-up is a cron pinned to one date and time (`40 21 29 9 *`). It fires again a year later and holds one of the instance's 50 cron slots until it is deleted, and asking the agent to delete it in the check-in is not reliable. The example deletes it itself: whenever it reads the schedule, a cron the agent pinned to one date whose `last_run` is set has fired, so it goes. `last_run` is set only by a scheduled firing, never by **Run now**. The persona has the agent start a yearly one's name with "Yearly" so it stays.
+- **A deleted cron takes its history with it.** Read `GET /v1/instances/{id}/crons/{cronId}/runs` and keep the runs before you delete a fired reminder, so **Completed** still shows it and opens its session.
+- **A cron keeps its own timezone.** Show a cron pinned to one date from its `next_run` in the user's timezone, and name the zone next to a recurring one that is not theirs. The persona asks for the user's timezone on every cron, and the agent works out times with `TZ=... date`.
+- **Crons are fire and forget.** A run's `status: "triggered"` means the turn started. What the agent did is in the session it names.
+- **Messages arrive only while a tab is open** unless your notify endpoint pushes them somewhere. Agent37 has no push channel of its own.
+- **Purchases are handed back.** The persona has the agent gather options and return the checkout to the user; it never pays for anything. On the desktop template, the same goes for sign-ins: it asks the user to take over.
+- **Texting it** is its own guide: [Text your agent on iMessage](/agents-api/imessage).
+
+Not affiliated with OpenAI. Dots is a product of OpenAI; this guide only borrows the idea.
