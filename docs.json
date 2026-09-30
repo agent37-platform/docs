@@ -32,6 +32,7 @@
           "agents-api/claude-code",
           "agents-api/claude-managed-agents",
           "agents-api/codex",
+          "agents-api/openai-agents",
           "agents-api/grok",
           "agents-api/opencode",
           "agents-api/pi",
