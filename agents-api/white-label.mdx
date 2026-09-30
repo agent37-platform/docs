@@ -4,11 +4,11 @@ sidebarTitle: "White-label dashboard"
 description: "A white-label, multi-tenant agent dashboard built on the Agent37 API. Fork it, point it at your key, rebrand it, and ship the fastest way to put Agent37 in front of your users."
 ---
 
-The **Agent37 White-Label Dashboard** is a complete agent app built entirely on the public Agent37 API. It is a multi-tenant dashboard for creating and managing agent [instances](/agents-api/instances), with a native chat, file browser, and app integrations for each agent. Fork it, point it at your `sk_live_` key, change the name and logo, and deploy: you get a branded product on top of Agent37 without building the control plane or the agent UIs yourself.
+The **Agent37 White-Label Dashboard** is a complete agent app built entirely on the public Agent37 API. It is a multi-tenant dashboard for creating and managing agent [instances](/agents-api/instances), with a native chat, file browser, app integrations, and messaging-app setup for each agent. Fork it, point it at your `sk_live_` key, change the name and logo, and deploy: you get a branded product on top of Agent37 without building the control plane or the agent UIs yourself.
 
 ```text title="Paste this into your coding agent" wrap
 Read https://www.agent37.com/docs/llms-full.txt.
-I want to ship a branded product: a multi-tenant dashboard with chat, files, app integrations, and one-click access to each agent's terminal.
+I want to ship a branded product: a multi-tenant dashboard with chat, files, app integrations, messaging apps like Telegram and WhatsApp, and one-click access to each agent's terminal.
 Clone https://github.com/agent37-platform/starter-kit and follow the guide's Get started steps (npm run setup asks for my sk_live_ key and a Supabase access token; ask me for the token), then set my product name and logo (ask me for them).
 Done when npm run dev serves the dashboard and I can sign up, create an agent, and watch a reply stream in its Chat tab.
 My key is in AGENT37_API_KEY.
@@ -18,7 +18,7 @@ My key is in AGENT37_API_KEY.
   The dashboard, ready to fork. Next.js and Supabase, deploys to Vercel. Clone it, add your keys, run `npm run setup`, and rebrand. (Formerly the `whitelabel` repo; the URL still redirects.)
 </Card>
 
-<Frame caption="One app: a multi-tenant fleet dashboard, plus each agent's own Chat, Files, Integrations, and Settings tabs.">
+<Frame caption="One app: a multi-tenant fleet dashboard, plus each agent's own Chat, Files, Messaging, Integrations, and Settings tabs.">
   ![The Agent37 white-label dashboard and per-agent workspace](/images/starter-kit-demo.gif)
 </Frame>
 
@@ -26,8 +26,9 @@ My key is in AGENT37_API_KEY.
 
 - **Multi-tenant from the start.** Email-and-password sign-in through Supabase (open signup, no verification), with workspaces, team members, and invitations. Each agent is scoped to a workspace, and one user can belong to several.
 - **Full instance management.** Create, start, stop, restart, resize, roll to a new image, and delete instances: every [instance](/agents-api/instances) action wrapped in a UI, with per-agent [budgets](/agents-api/budgets) and usage.
-- **A native workspace per agent.** Click an agent to open a tabbed workspace built right into the dashboard: **Chat**, **Files**, **Integrations**, and **Settings**. Chat streams responses through the [Agent API](/agents-api/chat), and the file browser lists, reads, and writes the agent's files through the [Files API](/agents-api/files).
+- **A native workspace per agent.** Click an agent to open a tabbed workspace built right into the dashboard: **Chat**, **Files**, **Messaging**, **Integrations**, and **Settings**. Chat streams responses through the [Agent API](/agents-api/chat), and the file browser lists, reads, and writes the agent's files through the [Files API](/agents-api/files).
 - **One-click access to each agent's own UIs.** Alongside the native tabs, the dashboard mints [signed URLs](/agents-api/urls#browser-access-with-signed-urls) to open an instance's built-in terminal, file browser, and dashboard in a new tab, so both styles of access ship out of the box.
+- **Messaging apps per agent.** Your users connect their agent to **Telegram** (paste a BotFather token, the dashboard checks it and learns who owns the bot) and **WhatsApp** (scan a QR), then to **Slack**, **Discord**, and two dozen more from one generic credentials form. The channel list, the fields, and the live connection state all come from the agent itself, so a channel a later image adds shows up with no code change. See [Messaging channels](/agents-api/messaging) for the pattern.
 - **App integrations per agent.** Connect Gmail, Slack, Notion, and more to each instance through the [App integrations](/agents-api/integrations) endpoints, so your users authorize their own accounts from your branded UI.
 - **Your choice of agent.** The create screen offers a curated catalog (Hermes and OpenClaw on Agent37's stock images) or [your own image](/agents-api/custom-image), built from the included scaffold.
 - **Your key stays server-side.** Every Agent37 call goes through the app's own backend (a BFF); the `sk_live_` key is never exposed to the browser.

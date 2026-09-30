@@ -27,6 +27,7 @@
           "agents-api/chat-app",
           "agents-api/site-builder",
           "agents-api/white-label",
+          "agents-api/messaging",
           "agents-api/byo-model",
           "agents-api/composio",
           "agents-api/claude-code",
