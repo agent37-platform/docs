@@ -7,9 +7,9 @@ Billing is prepaid. You top up one workspace wallet in the dashboard, and everyt
 
 ## How the balance works
 
-- **\$1 free to start.** Add a card from the billing page (nothing is charged) and your workspace gets a one-time \$1 credit, enough to run your first instance for days, or a mostly-idle [auto-sleep](/agents-api/instances#auto-sleep) instance for a month or more. The credit is granted once per account and once per card. Until your first real top-up, the workspace runs one instance of any template on the 2 vCPU / 4 GB shape; a larger shape returns `403 tier_limit`. Your first top-up unlocks the 4/8 and 8/16 shapes, and up to 10 instances; once your top-ups total \$100 the cap rises to 50, and at \$250 to 200. See [Instance limits](#instance-limits).
-- **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are \$5 to \$1000 each, paid through Stripe.
-- **Automatic top-up is on by default.** Your first top-up saves its card and turns on a refill rule (below \$10, buy \$25) so the wallet refills itself; adjust or turn it off any time. See [Automatic top-up](#automatic-top-up).
+- **\$5 free to start.** Add a card from the billing page (nothing is charged) and your workspace gets a one-time \$5 credit, enough to run your first instance around the clock for about a month, or a mostly-idle [auto-sleep](/agents-api/instances#auto-sleep) instance for many months. The credit is granted once per account and once per card, and only to a workspace that has not topped up yet. Until your first real top-up, the workspace runs one instance of any template on the 2 vCPU / 4 GB shape; a larger shape returns `403 tier_limit`. Your first top-up unlocks the 4/8 and 8/16 shapes, and up to 10 instances; once your top-ups total \$100 the cap rises to 50, and at \$250 to 200. See [Instance limits](#instance-limits).
+- **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are \$5 to \$10,000 each, paid through Stripe.
+- **Automatic top-up is on by default.** A top-up saves its card and turns on a refill rule (buy the same amount again once the balance drops below half of it) so the wallet refills itself; switch it off as you pay, or adjust it any time. See [Automatic top-up](#automatic-top-up).
 - **Instances draw it down.** Compute is metered per minute: time an instance spends running bills its full rate, time spent stopped or sleeping bills its disk alone. See [Per-minute metering](#per-minute-metering).
 - **Managed usage draws it down.** Managed LLM, Brave search, and Composio calls are metered at cost against the same wallet, gated by each instance's [budget](/agents-api/budgets).
 - **Delete to stop billing.** Deleting an instance settles its final minutes and ends billing. Nothing is ever prepaid, so there is nothing to refund.
@@ -20,7 +20,7 @@ Billing is prepaid. You top up one workspace wallet in the dashboard, and everyt
 
 ## Instance limits
 
-How many instances a workspace can run at once depends only on how much it has topped up:
+How many instances a workspace can hold depends only on how much it has topped up:
 
 | Workspace | Instances |
 | --- | --- |
@@ -31,7 +31,9 @@ How many instances a workspace can run at once depends only on how much it has t
 
 The cap rises on its own: your first top-up lifts the workspace to 10 instances, \$100 in total top-ups makes it 50, and \$250 makes it 200, with nothing to request or configure. Need more than 200? Email [vishnu@agent37.com](mailto:vishnu@agent37.com) or use the chat bubble in the dashboard.
 
-These are caps on how many instances you can run at once, not a balance requirement: each instance simply [meters its own compute](#per-minute-metering) from the wallet, with no extra reserve for holding several.
+The cap counts every instance that is not deleted or `failed`, sleeping and stopped ones included, so with one instance per end user the 200 tier holds 200 users, however few are awake. Delete an instance to free its slot.
+
+These are caps on how many instances you can hold, not a balance requirement: each instance simply [meters its own compute](#per-minute-metering) from the wallet, with no extra reserve for holding several.
 
 ## Compute pricing
 
@@ -84,7 +86,7 @@ The monthly price is the rate; the wallet is metered per minute (the monthly pri
 }
 ```
 
-**Each instance meters on its own.** Every instance draws its own metered debits from the wallet; there is no extra balance reserve for running several at once. How many you can run at once is set by your [instance limit](#instance-limits), not by your balance.
+**Each instance meters on its own.** Every instance draws its own metered debits from the wallet; there is no extra balance reserve for running several at once. How many you can hold is set by your [instance limit](#instance-limits), not by your balance.
 
 **Sleep and stop cut the rate; delete ends it.** An instance bills for as long as it exists, but only for what it holds. Stopping (or [auto-sleep](/agents-api/instances#auto-sleep)) releases CPU and RAM and keeps the disk, so parked time bills disk alone. An auto-sleep instance that spends most of its life asleep costs mostly its disk, about \$0.36 per month at the default 4 GB. Deleting an instance settles the final window and billing stops.
 
@@ -92,10 +94,10 @@ The monthly price is the rate; the wallet is metered per minute (the monthly pri
 
 ## Automatic top-up
 
-Automatic top-up keeps instances from being suspended when the balance runs low: when it falls below your threshold, your card is charged for a fixed amount. The rule is checked every hour, and once more right before any instance would be suspended, so instances stay up as long as the card charges.
+Automatic top-up keeps instances from being suspended when the balance runs low: when it falls below your threshold, your card is charged for a fixed amount. The rule is checked whenever managed usage leaves the balance below the threshold, on an hourly sweep, and once more right before any instance would be suspended, so instances stay up as long as the card charges.
 
-- It turns on by default at your first top-up (below \$10, buy \$25), charging the most recently saved card. Adjust both amounts or turn it off at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing).
-- The threshold can be \$1 to \$1000. The purchase amount follows the usual \$5 to \$1000 top-up range.
+- It is on by default when you top up: the **Add funds** dialog sets the purchase amount to what you are adding and the threshold to half of that, at least \$3 (a \$25 top-up buys \$25 again below \$12.50). Switch it off in the same dialog, or adjust both amounts or turn it off later at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). It charges your default card, or the most recently saved one when none is set.
+- The threshold can be \$3 to \$10,000. The purchase amount follows the usual \$5 to \$10,000 top-up range.
 - If a charge fails, automatic top-up turns itself off and emails the workspace owner. Add funds manually, which saves a new card, then re-enable it.
 
 ## Past due and suspension

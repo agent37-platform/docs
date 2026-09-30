@@ -1,0 +1,473 @@
+---
+title: "Build your own Grok Bot"
+description: "Give every user a team of named Bots that share one always-on computer: parallel conversations, per-Bot routines, a team chat with @mentions, and messages the Bots send first."
+sidebarTitle: "Grok Bot"
+---
+
+[Grok Bot](https://x.ai/bot) is xAI's messenger for AI teammates, launched August 11, 2026. You create several named Bots (a Chief of staff, a Research lead, an Inbox manager), each with a job and its own conversation, and they all work on one persistent cloud computer that is yours. This guide builds that product on Agent37: one instance per user as the shared computer, one set of sessions per Bot, platform crons for each Bot's routines, and a small callback so a Bot can reach the user first.
+
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want a Grok Bot-style messenger: each user creates a team of named Bots (name, title, description, color) that share one always-on computer, with a sidebar of Bots, a team chat with @mentions, and routines per Bot.
+Create one instance per user with POST /v1/instances (budget.credit_micros, auto_sleep, and a notify token in env), write ~/.hermes/SOUL.md telling the agent it serves several Bots, can schedule itself with agent37 cron, and can message the user through my server. Keep Bots in my database; give each Bot its own session ids on POST /v1/responses with its brief prepended, a notes file at ~/bots/<handle>/notes.md, and routines on /v1/instances/{id}/crons named "<handle>: ..." with agent: "hermes".
+Done when two Bots answer at the same time, a routine's test run notifies the user, and a Bot hands a question to another Bot in the team chat.
+My key is in AGENT37_API_KEY.
+```
+
+<Card title="grok-bot: this guide as a working app" icon="github" href="https://github.com/agent37-platform/examples/tree/main/grok-bot" horizontal>
+  Everything on this page, runnable: a three-pane messenger with a sidebar of Bots, streaming chat per Bot, a team chat with @mentions and handoffs, routines with an Active toggle, test runs and run history, notifications, persona and memory editors, app connections, and an optional live screen you can take over. Express plus vanilla JS, no build step. Clone it, add your key, `npm start`.
+</Card>
+
+## One computer, many Bots
+
+In Grok Bot, every Bot on your account uses the same computer: the same files, browser, terminal, and signed-in apps. Only the conversations, the job, and the Bot's own context differ. That maps onto Agent37 directly:
+
+| Grok Bot | Agent37 |
+| --- | --- |
+| Your cloud computer | One [instance](/agents-api/instances) per user, running `agent37-hermes` |
+| A Bot | A record in your app (name, title, description, avatar) plus a notes file on the instance |
+| A Bot's conversation | [Sessions](/agents-api/sessions) on that instance, tagged to the Bot in your database |
+| Routines | [Crons](/agents-api/crons) on the instance, named after the Bot |
+| Connected apps | [App integrations](/agents-api/integrations) on the instance, shared by every Bot |
+| Watching and taking over the computer | A desktop [template](/agents-api/templates) and a [signed URL](/agents-api/urls#browser-access-with-signed-urls) for its screen |
+
+A Bot is cheap because it is only words: your server keeps a brief per Bot and prepends it to that Bot's turns, since [`POST /v1/responses`](/agents-api/chat) has no system-prompt field. Different Bots are different sessions, so they work at the same time. Like in Grok Bot, Bots are not a security boundary: they share one disk and one set of connected apps, so separate people need separate instances.
+
+<Steps>
+  <Step title="Create the shared computer">
+    One [instance](/agents-api/instances#create-an-instance) per user, created when they start their computer. The sample asks for the roomier 4 vCPU / 8 GB shape, which a workspace unlocks with its first top-up (before that it answers `403 tier_limit`; leave `resources` out for 2 vCPU / 4 GB). Three fields matter: a `budget` so the managed LLM answers from the first message, `auto_sleep` so a computer nobody is using bills disk alone, and a random token in `env` that the agent later presents when it messages the user.
+
+    <CodeGroup>
+    ```bash curl
+    curl https://api.agent37.com/v1/instances \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "template": "agent37-hermes",
+        "user": "u_882",
+        "name": "grok-bot u_882",
+        "resources": { "cpu": 4, "memory": 8 },
+        "budget": { "credit_micros": 2000000 },
+        "auto_sleep": true,
+        "idle_timeout_seconds": 1800,
+        "env": { "GROKBOT_NOTIFY_TOKEN": "f3a9..." }
+      }'
+    ```
+
+    ```javascript node
+    const token = crypto.randomBytes(24).toString("hex");
+
+    const inst = await (await fetch("https://api.agent37.com/v1/instances", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        template: "agent37-hermes",
+        user: "u_882",
+        name: "grok-bot u_882",
+        resources: { cpu: 4, memory: 8 },
+        budget: { credit_micros: 2000000 },
+        auto_sleep: true,
+        idle_timeout_seconds: 1800,
+        env: { GROKBOT_NOTIFY_TOKEN: token },
+      }),
+    })).json();
+
+    await db.users.update("u_882", {
+      instanceId: inst.id,
+      notifyTokenHash: crypto.createHash("sha256").update(token).digest("hex"),
+    });
+    ```
+    </CodeGroup>
+
+    Every Bot shares this computer's CPU and memory, so the 4 vCPU / 8 GB shape (\$9.34 per month while awake) is the better fit once several Bots work at once; the smallest shape, 2 vCPU / 4 GB, works for trying it out (see [Shapes and pricing](/agents-api/instances#shapes-and-pricing)). `credit_micros: 2000000` is \$2 of managed-spend headroom shared by all the user's Bots (see [Budgets](/agents-api/budgets)). `env` is write-only and fixed at create, so keep only the token's hash on your side. The 30-minute idle window keeps the computer awake through a long routine; see [long requests](/agents-api/urls#long-requests) for why it should outlast your slowest turn.
+
+    The call returns `201` with `status: "running"` once the computer is up. Poll `GET /v1/health` on the instance URL until it answers `"healthy": true` before the first message (see [Health & version](/agents-api/health)).
+  </Step>
+
+  <Step title="Tell the computer it serves a team">
+    `~/.hermes/SOUL.md` is the persona every turn loads. On a fresh computer it holds Hermes' stock voice, so write your own with the [Files API](/agents-api/files). A `PUT` replaces the whole file with the request body.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=~/.hermes/SOUL.md&overwrite=true" \
+      -H "X-Agent37-Key: sk_live_..." \
+      --data-binary @SOUL.md
+    ```
+
+    ```javascript node
+    await fetch(
+      `https://${user.instanceId}.agent37.app/v1/files/content?` +
+        new URLSearchParams({ path: "~/.hermes/SOUL.md", overwrite: "true" }),
+      {
+        method: "PUT",
+        headers: { "X-Agent37-Key": process.env.AGENT37_API_KEY },
+        body: soul,
+      }
+    );
+    ```
+    </CodeGroup>
+
+    The persona explains the team, and it carries two rules the rest of this guide depends on:
+
+    ```text SOUL.md (abridged)
+    # Team computer
+    You are the shared computer behind Alex's team of Bots. Every conversation belongs
+    to one Bot: the app opens it with an "App context" block naming the Bot, its job and
+    its notes file. Stay in that Bot's role for the whole conversation.
+
+    - Each Bot keeps its own notes in ~/bots/<handle>/notes.md. Read them at the start of
+      a conversation and update them as you work.
+    - You can follow up later. Schedule your own future turns with the agent37 CLI:
+      agent37 cron add --name "<handle>: <short name>" --schedule "<5-field cron>"
+        --timezone "America/Los_Angeles" --prompt "<what to do, starting with which Bot you are>"
+      Never say you cannot follow up.
+    - You can message Alex first: node ~/.grokbot/notify.mjs <handle> "<one or two sentences>"
+    - Never buy anything or enter payment details. Hand purchases back to Alex.
+    ```
+
+    The follow-up rule is not decoration: the gateway's built-in instructions tell the agent it cannot follow up once a response ends, so the persona has to say plainly that it can. The notify script is step 6.
+  </Step>
+
+  <Step title="Add a Bot">
+    A Bot is a row in your database: a name, a title, a description, a color, and a `handle` derived from the name that never changes. On create, give it a notes file on the computer, its own memory that survives across conversations. `overwrite=false` leaves an existing file alone and answers `409 file_exists`.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=~/bots/scout/notes.md&overwrite=false" \
+      -H "X-Agent37-Key: sk_live_..." \
+      --data-binary $'# Scout\'s notes\n'
+    ```
+
+    ```javascript node
+    const bot = { id: crypto.randomUUID(), handle: "scout", name: "Scout", title: "Research lead",
+      description: "Digs into any topic on the web and writes tight memos with links.", sessions: [] };
+
+    await fetch(
+      `https://${user.instanceId}.agent37.app/v1/files/content?` +
+        new URLSearchParams({ path: `~/bots/${bot.handle}/notes.md`, overwrite: "false" }),
+      {
+        method: "PUT",
+        headers: { "X-Agent37-Key": process.env.AGENT37_API_KEY },
+        body: `# ${bot.name}'s notes\n`,
+      }
+    );
+    await db.bots.create({ userId: "u_882", ...bot });
+    ```
+    </CodeGroup>
+
+    The brief is what makes the Bot. Your server prepends it to the first turn of each of the Bot's conversations, and a one-line reminder to every later turn:
+
+    ```text the brief, prepended server-side
+    App context (from the Bots app, not the user):
+    You are Scout, Alex's Research lead. Stay in this role for the whole conversation.
+    Your brief: Digs into any topic on the web and writes tight memos with links.
+    Your notes file is ~/bots/scout/notes.md. Read it before you start, and add to it
+    whenever you learn something you should remember next time.
+    Other Bots on this computer: @chief (Chief, Chief of staff).
+    To schedule a routine for yourself: agent37 cron add --name "scout: <short name>" ...
+    To message Alex first: node ~/.grokbot/notify.mjs scout "<one or two sentences>"
+    End of app context. The user message follows.
+    ```
+
+    The fixed first and last lines let your UI strip the brief back out when it renders history from [`GET /v1/sessions/{id}`](/agents-api/sessions#retrieve-a-session-with-history). The agent's own memory (`~/.hermes/memories/`) is shared by every Bot on the computer; the notes file is what keeps each Bot's context its own.
+  </Step>
+
+  <Step title="Chat with Bots in parallel">
+    Each Bot owns its sessions. On Hermes, a session id the harness has not seen simply starts a new thread under that id, so your server can mint the id, record it on the Bot, and only then send the first turn. Stream every reply with `stream: true`.
+
+    <CodeGroup>
+    ```bash curl
+    curl -N https://ab12cd34ef.agent37.app/v1/responses \
+      -H "X-Agent37-Key: sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "session_id": "4a72605ad10c6c3579f935c1b468b028",
+        "input": "App context (from the Bots app, not the user):\n...\nEnd of app context. The user message follows.\n\nResearch the three most popular open-source note-taking apps.",
+        "stream": true
+      }'
+    ```
+
+    ```javascript node
+    const session = bot.sessions.find((s) => s.id === req.body.session_id);
+    const firstTurn = !session;
+    const sessionId = session?.id ?? crypto.randomBytes(16).toString("hex");
+    if (firstTurn) await db.bots.addSession(bot.id, sessionId);
+
+    const upstream = await fetch(`https://${user.instanceId}.agent37.app/v1/responses`, {
+      method: "POST",
+      headers: {
+        "X-Agent37-Key": process.env.AGENT37_API_KEY,
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        input: brief(bot, firstTurn) + req.body.input,
+        stream: true,
+      }),
+    });
+    // pipe upstream.body to the browser as Server-Sent Events
+    ```
+    </CodeGroup>
+
+    Two Bots are two sessions, and two sessions on one instance run independently: Scout can research while Chief plans your week. One session runs one turn at a time, so a second message to a Bot that is still working answers `409 session_busy` with the running reply's id in `error.response_id`. Follow that reply with [`GET /v1/responses/{id}/stream`](/agents-api/streaming#reconnect-after-a-drop), which replays it from the start and then stays live; the same call reattaches a reply that was running when the page reloaded, found through `active_response_id` on `GET /v1/sessions/{id}`.
+
+    `GET /v1/sessions` lists at most the 100 most recent Hermes sessions, and every routine run opens a new one, so keep your own record of which session belongs to which Bot rather than rebuilding it from that list.
+  </Step>
+
+  <Step title="Give each Bot routines">
+    A routine is a platform [cron](/agents-api/crons): it wakes a sleeping computer, sends the prompt on a fresh session, and lets the computer sleep again. Put the Bot's handle at the start of `name`, which is how your app files each cron under its Bot, and the Bot's brief at the top of `prompt`, so the run stays in character.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/crons \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "scout: Joplin release check",
+        "prompt": "App context (from the Bots app, not the user):\nThis is a scheduled routine for Scout, Alex'\''s Research lead. Read ~/bots/scout/notes.md first. When the routine is done, message Alex with: node ~/.grokbot/notify.mjs scout \"<a short summary>\"\nEnd of app context. The routine instruction follows.\n\nLook up the latest Joplin desktop release and tell me its version and date in one line.",
+        "schedule": "0 9 * * *",
+        "timezone": "America/Los_Angeles",
+        "agent": "hermes"
+      }'
+    ```
+
+    ```javascript node
+    const cron = await (await fetch(
+      `https://api.agent37.com/v1/instances/${user.instanceId}/crons`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: `${bot.handle}: ${name}`,
+          prompt: routineBrief(bot) + instruction,
+          schedule: "0 9 * * *",
+          timezone: user.timezone,
+          agent: "hermes",
+        }),
+      }
+    )).json();
+    ```
+    </CodeGroup>
+
+    The routine editor's controls are one call each:
+
+    | Control | Call |
+    | --- | --- |
+    | **Active** toggle | `PATCH /v1/instances/{id}/crons/{cronId}` with `{ "enabled": false }` or `true`. A paused cron reads `next_run: null`. |
+    | **Test run** | `POST /v1/instances/{id}/crons/{cronId}/run`, which fires it now without touching the schedule |
+    | **Run history** | `GET /v1/instances/{id}/crons/{cronId}/runs`, newest first. Each triggered run carries the `session_id` it opened; read what the Bot did with `GET /v1/sessions/{session_id}` |
+
+    `agent: "hermes"` names the harness that runs each firing, and every triggered run records the `session_id` it opened. Bots also schedule themselves: ask Chief to "remind me every weekday at 8:30 to review open pull requests" and it runs `agent37 cron add --name "chief: ..."` inside the computer, following the brief. That cron lands in the same list, under Chief, and its runs record their sessions too. An instance holds at most 50 crons, shared by all its Bots.
+  </Step>
+
+  <Step title="Let Bots message you first">
+    Grok Bot's Bots come back with finished work. Here that is a callback: a small script on the computer posts to your server, which checks the token and shows the user a notification. Write the script once the computer is healthy; it holds your server's URL, so rewrite it whenever that URL changes.
+
+    ```javascript ~/.grokbot/notify.mjs, written by your server
+    const [bot, ...words] = process.argv.slice(2);
+    const res = await fetch("https://your-app.com/api/notify", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.GROKBOT_NOTIFY_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ instance_id: process.env.AGENT37_INSTANCE_ID, bot, text: words.join(" ") }),
+    });
+    console.log(res.status, await res.text());
+    ```
+
+    `GROKBOT_NOTIFY_TOKEN` is the token you planted at create, and `AGENT37_INSTANCE_ID` is set by the platform in every container. Your endpoint finds the user by instance id and compares hashes before it trusts anything:
+
+    ```javascript node
+    app.post("/api/notify", async (req, res) => {
+      const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      const user = await db.users.findByInstanceId(req.body.instance_id);
+      const hash = crypto.createHash("sha256").update(token).digest("hex");
+      if (!user || user.notifyTokenHash !== hash) return res.status(403).json({ error: "forbidden" });
+
+      await db.notifications.create({ userId: user.id, bot: req.body.bot, text: req.body.text });
+      res.json({ ok: true });
+    });
+    ```
+
+    The routine brief in step 5 ends with this command, so a routine's test run arrives as a notification from its Bot a minute later. Deliver it however your product reaches people: an in-app list (what the example does), Web Push, email, or a text.
+  </Step>
+
+  <Step title="Add a team chat with @mentions">
+    Grok Bot's group chats hold several Bots; you @mention one to hand it work, and Bots hand work to each other. On Agent37 your server is the orchestrator. Give each Bot one extra session for the team chat, forward each mention to it, and post the answer back to the group:
+
+    ```javascript node
+    async function askInGroup(user, bot, text, hops) {
+      const r = await (await fetch(`https://${user.instanceId}.agent37.app/v1/responses`, {
+        method: "POST",
+        headers: {
+          "X-Agent37-Key": process.env.AGENT37_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ session_id: bot.groupSessionId, input: groupBrief(bot) + text }),
+      })).json();
+      await db.group.post(user.id, { bot: bot.id, text: r.output_text });
+
+      if (hops >= 2) return;
+      for (const next of mentionedBots(user, r.output_text, bot)) {
+        await db.group.post(user.id, { status: `${bot.name} is asking ${next.name}` });
+        askInGroup(user, next, `${bot.name} says: ${r.output_text}`, hops + 1);
+      }
+    }
+    ```
+
+    Mentions to different Bots run at once, one session each. Queue mentions to the same Bot, since its group session also runs one turn at a time. A hop limit of two lets Chief ask Scout and Scout answer Chief without a loop, and skipping Bots the user already mentioned keeps a Bot from forwarding the user's own request. Tell each Bot in its group brief to @mention another Bot only when it needs it to do something.
+  </Step>
+
+  <Step title="Show memory and connect apps">
+    Memory is files too. Hermes keeps what it learns in `~/.hermes/memories/USER.md` (about the user) and `~/.hermes/memories/MEMORY.md` (everything else), each a list of entries separated by a line holding `§`. Read them with `GET /v1/files/content`, and write the whole list back with `PUT` after the user edits or deletes an entry; new conversations see the change. Each Bot's `~/bots/<handle>/notes.md` gets a plain editor of its own.
+
+    Connected apps belong to the computer, so every Bot can use them. List the catalog, start a connection, and send the user to the returned link:
+
+    <CodeGroup>
+    ```bash curl
+    curl "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/toolkits?search=gmail&limit=12" \
+      -H "Authorization: Bearer sk_live_..."
+
+    curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connect \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{ "toolkit": "gmail", "callbackUrl": "https://your-app.com/connected.html" }'
+    ```
+
+    ```javascript node
+    const { redirectUrl } = await (await fetch(
+      `https://api.agent37.com/v1/instances/${user.instanceId}/integrations/connect`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ toolkit: "gmail", callbackUrl: "https://your-app.com/connected.html" }),
+      }
+    )).json();
+    // open redirectUrl for the user; poll GET .../integrations/connections until the account is ACTIVE
+    ```
+    </CodeGroup>
+
+    Sign-in happens on the app's own page and the OAuth tokens stay with the managed integration, so no Bot ever sees a password. Open the link in a new tab and point `callbackUrl` at a plain "you're connected" page that needs no sign-in, so the return works whichever address the user opened your app on (in local dev, `localhost` and the tunnel are different sites with different cookies). The tab that opened the link polls the connections list until the account reads `ACTIVE`. See [App integrations](/agents-api/integrations) for listing and disconnecting accounts.
+  </Step>
+</Steps>
+
+## Watch and take over its computer
+
+In Grok Bot you can watch a Bot work on its computer, and take control when a site needs you: a password, a 2FA code, a CAPTCHA. On Agent37 that is a desktop image with a screen you can stream, plus a short-lived [signed URL](/agents-api/urls#browser-access-with-signed-urls) for it. The example turns it on when `DESKTOP_TEMPLATE` is set in its `.env`, and runs exactly as above without it.
+
+<Steps>
+  <Step title="Build the desktop template">
+    The [hermes-vnc-desktop](https://github.com/agent37-platform/examples/tree/main/custom-images/hermes-vnc-desktop) recipe is the stock Hermes image plus a visible Chromium, which the agent's browser tool drives, and a noVNC server for that screen on port `6901`. Build it into a [workspace template](/agents-api/templates#build-an-image-in-the-cloud) once. The build runs in the cloud, so you don't need Docker:
+
+    ```bash
+    git clone https://github.com/agent37-platform/examples
+    cd examples/custom-images/hermes-vnc-desktop
+    AGENT37_API_KEY=sk_live_... npx agent37 templates build . --name hermes-vnc-desktop --default-port 3737
+    ```
+
+    Create each user's computer from it with the same call as in **Create the shared computer**, changing only `"template": "hermes-vnc-desktop"`. Everything else on this page works unchanged, because the image is the stock one plus the screen. Add a line to SOUL.md so the Bots use it: the user can watch this computer's screen and take it over, so when a site needs a login, a 2FA code, or a CAPTCHA, leave the page open, ask the user to take over, and carry on when they are done.
+  </Step>
+
+  <Step title="Mint a token for each connection">
+    Your server mints a signed URL for port `6901` and hands the browser only a WebSocket URL built from it. The token rides in that URL's query string, so the connection needs no cookie and works from your own origin: the browser connects straight to the instance from your page, with no proxy.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/signed-url \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{ "port": 6901, "ttl_seconds": 60 }'
+    ```
+
+    ```javascript node
+    app.post("/api/computer", async (req, res) => {
+      const user = await db.users.get(req.session.userId); // the signed-in user's own computer
+      const r = await fetch(`https://api.agent37.com/v1/instances/${user.instanceId}/signed-url`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ port: 6901, ttl_seconds: 60 }),
+      });
+      if (!r.ok) return res.status(r.status).json(await r.json());
+      const signed = new URL((await r.json()).url);
+      res.json({ ws: `wss://${signed.host}/websockify?a37_token=${signed.searchParams.get("a37_token")}` });
+    });
+    ```
+
+    ```json response
+    {
+      "url": "https://ab12cd34ef-6901.agent37.app/?a37_token=6a2b...e1f0",
+      "domain_urls": [],
+      "port": 6901,
+      "expires_at": 1790740000
+    }
+    ```
+    </CodeGroup>
+
+    Treat the token as the keys to the computer:
+
+    - **It grants full control.** Watching versus controlling is a setting in your page, not a permission: anyone holding the token can connect a VNC client that clicks and types. Mint it only for the computer's owner.
+    - **It cannot be revoked**, so keep it short. `60` seconds, the minimum, is enough: the token only has to be valid while the socket opens, an open view keeps working after it expires, and every reconnect mints a fresh one.
+  </Step>
+
+  <Step title="Show the screen, then take over">
+    In the browser, [noVNC](https://github.com/novnc/noVNC) draws the screen. noVNC is plain ES modules, so the page can import a pinned release straight from a CDN, with no install and no build step. Start in view-only mode; **Take over** turns view-only off and **Give back** turns it on again:
+
+    ```html
+    <div id="screen" style="aspect-ratio: 16 / 10"></div>
+    <button id="take-over">Take over</button>
+
+    <script type="module">
+      import RFB from "https://cdn.jsdelivr.net/npm/@novnc/novnc@1.7.0/core/rfb.js";
+
+      const { ws } = await (await fetch("/api/computer", { method: "POST" })).json();
+      const rfb = new RFB(document.getElementById("screen"), ws);
+      rfb.scaleViewport = true;
+      rfb.viewOnly = true;
+
+      const button = document.getElementById("take-over");
+      button.onclick = () => {
+        rfb.viewOnly = !rfb.viewOnly;
+        button.textContent = rfb.viewOnly ? "Take over" : "Give back";
+        if (!rfb.viewOnly) rfb.focus();
+      };
+      rfb.addEventListener("disconnect", () => {
+        // fetch /api/computer again and connect a new RFB with the fresh URL
+      });
+    </script>
+    ```
+
+    The user and the Bots share one browser, so a Bot picks up where the user left off: the page open after a takeover is the one it sees on its next turn.
+
+    Connect the view only while it is on screen. It streams continuously, close to 1 MB a minute even when nothing on the screen changes, and that traffic counts as activity, so an open view keeps an [auto-sleep](/agents-api/instances#auto-sleep) computer awake. The example closes it when the tab is hidden or the pane is closed, and opens it again when the user comes back; opening the socket wakes a sleeping computer.
+  </Step>
+</Steps>
+
+On a workspace template, a [cron](/agents-api/crons) that names no agent records its run's `session_id` only once the turn finishes. Name it, `"agent": "hermes"`, and the run links its session from the moment it fires, so you can open a routine while it is still working. The calls in **Give each Bot routines** already set it, but `agent37 cron add` has no flag for it, so `PATCH` the crons a Bot schedules for itself with `{ "agent": "hermes" }`. The example does that when it lists routines.
+
+Don't put the signed URL itself in an iframe on your site: its auth rides a `SameSite=Lax` cookie, which a cross-site frame does not send. Connecting noVNC to the WebSocket, as above, avoids the cookie altogether.
+
+## Worth knowing
+
+- **Bots share everything on the computer.** Files, the browser, the terminal, connected apps, and Hermes' own memory are common to all of a user's Bots, exactly as in Grok Bot. The per-Bot parts are the sessions, the brief, and the notes file.
+- **Cost follows use.** With `auto_sleep`, a computer nobody is using bills its disk alone, and chats and crons wake it. Awake, the 2 vCPU / 4 GB shape is \$4.76 per month and 4 vCPU / 8 GB is \$9.34 per month, metered per minute (see [Billing](/agents-api/billing)).
+- **Purchases go back to the user.** The persona tells every Bot to stop and hand over anything that needs a payment.
+- **Routines count per computer.** The 50-cron limit is shared by every Bot on the instance.
+- **Texting a Bot** is its own guide: [Text your agent on iMessage](/agents-api/imessage).
+- **Left out of this guide:** approvals before an action, masked secret requests, teach-by-demonstration, voice, Slack event triggers and Team Bots, and sharing Bots.
+- Chat, streaming, and sessions are the standard [chat app](/agents-api/chat-app) wiring, and the token-checked callback is the same pattern as the [website builder](/agents-api/site-builder)'s publish endpoint.
+
+Not affiliated with xAI.

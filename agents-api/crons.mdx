@@ -84,7 +84,7 @@ const cron = await (await fetch("https://api.agent37.com/v1/instances/ab12cd34ef
 </ParamField>
 
 <ParamField body="agent" type="string">
-  Which harness runs the firing, for an image that ships more than one: `hermes`, `openclaw`, `claude-code`, `codex`, `opencode`, `grok` or `pi`. Omit it and the firing goes to the template's own agent, which is what a single-harness image wants. Naming a harness the image does not ship fails the turn with [`agent_unavailable`](/agents-api/errors) exactly as it would on `POST /v1/responses`, so read the session to see it.
+  Which harness runs the firing, for an image that ships more than one: `hermes`, `openclaw`, `claude-code`, `codex`, `opencode`, `grok` or `pi`. Omit it and the firing goes to the template's own agent, which is what a single-harness image wants. Naming a harness the image does not ship means the turn never starts: the run is recorded as `skipped` with `wake_failed`.
 </ParamField>
 
 <ParamField body="timezone" type="string" default="UTC">
@@ -106,7 +106,7 @@ const cron = await (await fetch("https://api.agent37.com/v1/instances/ab12cd34ef
 </ResponseField>
 
 <ResponseField name="last_run" type="number | null">
-  When it last fired, epoch seconds. `null` until it has.
+  When it last fired on its schedule, epoch seconds. `null` until it has. [Running it now](#run-one-now) does not change it.
 </ResponseField>
 
 <ResponseField name="next_run" type="number | null">
@@ -139,7 +139,7 @@ Delete acts once: a repeat is `404`. An instance holds at most 50 crons.
 
 ## Run one now
 
-`POST /v1/instances/{id}/crons/{cronId}/run` fires the cron immediately, whether or not it is enabled, without touching its schedule. It answers `202` with the run record as soon as the turn is sent.
+`POST /v1/instances/{id}/crons/{cronId}/run` fires the cron immediately, whether or not it is enabled, without touching its schedule. It answers `202` with the run record as soon as the run is recorded, before the turn is sent, so a run that reads `triggered` here can still end up `skipped` with `wake_failed`.
 
 ```bash
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c/run \
@@ -176,7 +176,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c/
 </ResponseField>
 
 <ResponseField name="session_id" type="string | null">
-  The session the firing opened. Read what the agent actually did with [`GET /v1/sessions/{session_id}`](/agents-api/sessions#retrieve-a-session-with-history) on the instance URL. `null` on a skip, and on `agent37-codex`, `agent37-grok`, `agent37-opencode` and `agent37-pi`, whose harnesses issue their own session ids.
+  The session the firing ran on. Read what the agent actually did with [`GET /v1/sessions/{session_id}`](/agents-api/sessions#retrieve-a-session-with-history) on the instance URL. When the firing goes to `hermes`, `openclaw` or `claude-code` (the cron's `agent`, or else the template's own), it is set when the run is recorded, so the `202` from [running it now](#run-one-now) already carries it. For `codex`, `grok`, `opencode` and `pi`, whose harnesses issue their own session ids, and on a workspace template when the cron sets no `agent`, it is `null` at first and filled in once the turn finishes. It stays `null` on a turn still running about 13 minutes after the firing (the turn itself carries on). On a skip it is `null`, except a `wake_failed` run that was already given an id: that session never started.
 </ResponseField>
 
 <ResponseField name="reason" type="string | null">

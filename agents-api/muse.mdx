@@ -1,0 +1,386 @@
+---
+title: "Build your own Muse"
+description: "Give every user a Muse-style personal agent: its own computer, a persona and memory, daily ideas, goals it checks in on, and messages it sends first."
+sidebarTitle: "Muse"
+---
+
+[Muse](https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/) is Meta's personal agent, launched September 8, 2026. You text it like a person, it works on its own computer, and it comes back to you: ideas for what it could take off your plate, goals it keeps track of, and a message when something needs you. This guide builds that product on Agent37: one instance per user, a persona and memory in files, platform crons for the background work, and a small callback so the agent can reach the user first.
+
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want a Muse-style personal agent app: a chat with side chats, plus Ideas, Goals and Library tabs, one agent per user.
+Create one instance per user with POST /v1/instances (budget.monthly_cap_micros, auto_sleep, and a notify token in env), write the persona into ~/.hermes/SOUL.md read-merge-write, have a daily platform cron write ~/muse/ideas.json, let the agent keep ~/muse/goals.json and schedule its own check-ins with agent37 cron, list ~/muse/library with GET /v1/files, and give the agent a script that calls my server so it can message the user first.
+Done when a cron the agent created itself fires and the user sees its message in the app.
+My key is in AGENT37_API_KEY.
+```
+
+<Card title="muse: this guide as a working app" icon="github" href="https://github.com/agent37-platform/examples/tree/main/muse" horizontal>
+  Everything on this page, runnable: onboarding with a name, look and tone, streaming chat with side chats and a send queue, Ideas, Goals, Library, a memory editor, reminders, connectors, and in-app notifications. Express plus vanilla JS, no build step. Clone it, add your key, `npm start`.
+</Card>
+
+## Your agent already has Muse's shape
+
+Muse keeps who you are and who it is in plain files, the layout OpenClaw made popular. Hermes, the agent on the default `agent37-hermes` template, uses the same idea:
+
+| File | What it holds |
+| --- | --- |
+| `~/.hermes/SOUL.md` | The persona. The agent loads it when a session starts, scheduled runs included. |
+| `~/.hermes/memories/USER.md` | What the agent knows about the user, as entries separated by a line holding `§`. |
+| `~/.hermes/memories/MEMORY.md` | The agent's own notes, in the same format. |
+
+The rest of the product is files too. The agent writes `~/muse/ideas.json`, `~/muse/goals.json`, and whatever it makes under `~/muse/library/`, because its persona tells it to; your app reads them with the [Files API](/agents-api/files) and renders the tabs. The background work runs on [crons](/agents-api/crons), which wake a sleeping instance, so each user's agent can sleep between tasks and bill disk alone.
+
+<Steps>
+  <Step title="Create the user's agent">
+    One [instance](/agents-api/instances#create-an-instance) per user, created when they finish onboarding. Three fields make it a Muse: a monthly `budget` (the managed LLM, search, and app calls are refused until you grant one), `auto_sleep` so an idle agent bills disk alone, and a random token in `env` that the agent later presents when it messages the user.
+
+    <CodeGroup>
+    ```bash curl
+    curl https://api.agent37.com/v1/instances \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "user": "u_882",
+        "name": "muse Pip",
+        "budget": { "monthly_cap_micros": 2000000 },
+        "auto_sleep": true,
+        "idle_timeout_seconds": 1800,
+        "env": { "MUSE_NOTIFY_TOKEN": "f3a9..." }
+      }'
+    ```
+
+    ```javascript node
+    const token = crypto.randomBytes(24).toString("hex");
+
+    const inst = await (await fetch("https://api.agent37.com/v1/instances", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user: "u_882",
+        name: "muse Pip",
+        budget: { monthly_cap_micros: 2000000 },
+        auto_sleep: true,
+        idle_timeout_seconds: 1800,
+        env: { MUSE_NOTIFY_TOKEN: token },
+      }),
+    })).json();
+
+    await db.users.update("u_882", {
+      instanceId: inst.id,
+      notifyTokenHash: crypto.createHash("sha256").update(token).digest("hex"),
+    });
+    ```
+    </CodeGroup>
+
+    `monthly_cap_micros: 2000000` is a \$2 monthly allowance per user, the counterpart of Muse's weekly allowance; it resets each UTC month (see [Budgets](/agents-api/budgets)). `env` is write-only and fixed at create, so keep only the token's hash on your side. The idle window of 30 minutes keeps the agent awake through a conversation and a long task; see [long requests](/agents-api/urls#long-requests) for why the timeout should outlast your slowest turn.
+
+    The call returns `201` with `status: "running"` once the computer is up. Poll `GET /v1/health` on the instance URL until it answers `"healthy": true` before the first message (see [Health & version](/agents-api/health)).
+  </Step>
+
+  <Step title="Give it a name and a personality">
+    Write the persona into `~/.hermes/SOUL.md`. The file already has content, and the agent can edit it too, so your app owns one marked block and writes read-merge-write: read the file, replace what sits between the markers (or prepend the block the first time), and `PUT` the whole file back. A `PUT` replaces the entire file with the request body, so never send a fragment.
+
+    <CodeGroup>
+    ```bash curl
+    curl -G https://ab12cd34ef.agent37.app/v1/files/content \
+      -H "X-Agent37-Key: sk_live_..." \
+      --data-urlencode "path=~/.hermes/SOUL.md" -o SOUL.md
+    # replace the block between the markers in SOUL.md, then write the whole file back
+    curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=~/.hermes/SOUL.md" \
+      -H "X-Agent37-Key: sk_live_..." \
+      --data-binary @SOUL.md
+    ```
+
+    ```javascript node
+    const BEGIN = "<!-- muse:begin -->";
+    const END = "<!-- muse:end -->";
+    const url = `https://${user.instanceId}.agent37.app/v1/files/content?` +
+      new URLSearchParams({ path: "~/.hermes/SOUL.md" });
+    const headers = { "X-Agent37-Key": process.env.AGENT37_API_KEY };
+
+    const read = await fetch(url, { headers });
+    if (!read.ok && read.status !== 404) throw new Error(`Reading SOUL.md failed (HTTP ${read.status})`);
+    const current = read.status === 404 ? "" : await read.text();
+    const start = current.indexOf(BEGIN);
+    const end = current.indexOf(END);
+    const next = start !== -1 && end > start
+      ? current.slice(0, start) + block + current.slice(end + END.length)
+      : `${block}\n\n${current}`;
+    await fetch(url, { method: "PUT", headers, body: next });
+    ```
+    </CodeGroup>
+
+    The block carries the name, tone, and timezone, the app's files, and two rules the rest of this guide depends on:
+
+    ```text the persona block (abridged)
+    <!-- muse:begin -->
+    # Who you are
+    Your name is Pip. You are Alex's personal agent. Talk the way a friend texts: warm and
+    encouraging. Alex's timezone is America/Los_Angeles. Where anything else in this file gives
+    you another name or tone, this block wins.
+
+    # The Muse app
+    - ~/muse/ideas.json holds your ideas: {"updated": ..., "ideas": [{"emoji", "title": "I can ...", "detail", "prompt"}]}
+    - ~/muse/goals.json holds what you track: {"goals": [{"id", "kind": "tracking|goal", "title",
+      "detail", "progress", "next_check_in", "cron_id"}]}
+    - ~/muse/library/ is where everything you make for Alex goes.
+
+    # Following up later
+    You can follow up after a response ends: schedule it yourself with agent37 cron add --name "<label>"
+    --schedule "<five-field cron expression>" --timezone America/Los_Angeles --prompt "<self-contained
+    instructions for your future self>". When you promise to check back, schedule it.
+
+    # Messaging Alex first
+    Nobody reads your replies in scheduled runs. To reach Alex, run:
+    node ~/muse/notify.mjs "<short title>" "<one or two sentences>"
+    <!-- muse:end -->
+    ```
+
+    The follow-up rule matters: by default the agent is told it cannot follow up once a response ends, which is true of a plain chat turn but not of an agent that can [schedule itself](/agents-api/crons#your-agent-can-schedule-itself). The last sentence of the first paragraph is there because the stock file introduces the agent as Hermes Agent, and your block sits above that text.
+
+    Hermes builds a session's system prompt, SOUL.md included, on the session's first turn and reuses it for every later turn of that session. A new name or tone therefore reaches new sessions (a new side chat, the next scheduled run) and not a conversation already under way. To make the change show up where the user is looking, save the persona, then move the main chat to a fresh session id and list the old one as an earlier chat. The avatar is your app's own art; nothing on the instance needs it.
+  </Step>
+
+  <Step title="Chat, side chats, and sending while it works">
+    Muse has one main chat plus side chats for tangents. Each is a [session](/agents-api/sessions) on the user's instance, and all of them share one memory. Mint the session ids in your app (32 hex characters) and store them: on `agent37-hermes` an id the harness has not seen starts a new session under that id, and your own list stays complete, whereas `GET /v1/sessions` returns the 100 most recent sessions and every cron firing opens one.
+
+    <CodeGroup>
+    ```bash curl
+    curl -N https://ab12cd34ef.agent37.app/v1/responses \
+      -H "X-Agent37-Key: sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "input": "What could you take off my plate this week?",
+        "session_id": "5b0217b44979d0213e9e995ee6120b42",
+        "stream": true
+      }'
+    ```
+
+    ```javascript node
+    const sideChat = { id: crypto.randomBytes(16).toString("hex"), created: Date.now() };
+    await db.threads.create({ userId: "u_882", ...sideChat });
+
+    const res = await fetch(`https://${user.instanceId}.agent37.app/v1/responses`, {
+      method: "POST",
+      headers: {
+        "X-Agent37-Key": process.env.AGENT37_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ input, session_id: sideChat.id, stream: true }),
+    });
+    ```
+    </CodeGroup>
+
+    Muse is not turn by turn: the user keeps typing while it works. A session runs one turn at a time, so hold messages typed during a turn in a client-side queue and send them together when the reply completes. When something else holds the session (a second tab, a page reloaded mid-turn), the post fails before the stream starts:
+
+    ```json 409 session_busy
+    {
+      "error": {
+        "code": "session_busy",
+        "message": "A response is already running on this session.",
+        "hint": "Reattach with GET /v1/responses/{response_id}/stream, cancel it, or start another session.",
+        "response_id": "366e1513a95b483f98467eaa50935d9c"
+      }
+    }
+    ```
+
+    Queue the message, follow the running turn with `GET /v1/responses/{response_id}/stream`, and send the queue when it ends.
+
+    The mascot's status line and Muse's Browser card come from the same [stream](/agents-api/streaming). Map `response.reasoning.delta` to "Thinking...", `response.tool_call.started` to a line per tool, and show a Browser card whenever the tool starts with `browser_`. On `browser_navigate` the `label` is the URL:
+
+    ```text stream
+    event: response.tool_call.started
+    data: {"tool":"browser_navigate","label":"https://example.com","arguments":{"url":"https://example.com"}}
+    ```
+
+    The card's Stop button is [`POST /v1/responses/{id}/cancel`](/agents-api/chat#follow-up-on-a-response). The stock image's browser is headless, so the card reports status; there is no live view to open.
+  </Step>
+
+  <Step title="Ideas from a daily cron">
+    Muse's Ideas tab is a list of first-person proposals ("I can follow up on your airline refund"). Here a daily cron asks the agent to rewrite `~/muse/ideas.json` from what it knows, and the app renders the file. Create the cron when the user finishes onboarding, and run it once right away so the tab is not empty on day one:
+
+    <CodeGroup>
+    ```bash curl
+    curl https://api.agent37.com/v1/instances/ab12cd34ef/crons \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "Daily ideas",
+        "schedule": "0 8 * * *",
+        "timezone": "America/Los_Angeles",
+        "prompt": "Daily ideas run. Think about what you know about the user: your memory, recent conversations, their goals in ~/muse/goals.json, and any connected apps. Then replace ~/muse/ideas.json with 4 fresh, specific ideas in this format: {\"updated\":\"<ISO time>\",\"ideas\":[{\"emoji\":\"<one emoji>\",\"title\":\"I can ...\",\"detail\":\"<why, citing what you know>\",\"prompt\":\"<the message that starts it, written as the user>\"}]}. Do not notify the user about this run."
+      }'
+
+    # run it now; answers 202 as soon as the turn is sent
+    curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/crons/430cb8eaac74/run \
+      -H "Authorization: Bearer sk_live_..."
+    ```
+
+    ```javascript node
+    const H = {
+      Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+      "Content-Type": "application/json",
+    };
+    const cron = await (await fetch(
+      `https://api.agent37.com/v1/instances/${user.instanceId}/crons`,
+      {
+        method: "POST",
+        headers: H,
+        body: JSON.stringify({
+          name: "Daily ideas",
+          schedule: "0 8 * * *",
+          timezone: user.timezone,
+          prompt: IDEAS_PROMPT,
+        }),
+      },
+    )).json();
+    await fetch(
+      `https://api.agent37.com/v1/instances/${user.instanceId}/crons/${cron.id}/run`,
+      { method: "POST", headers: H },
+    );
+    ```
+    </CodeGroup>
+
+    The Ideas tab reads the file with `GET /v1/files/content?path=~/muse/ideas.json`, and shows "Updated" from the file's `modified` in a `GET /v1/files?path=~/muse` listing rather than from the `updated` field the agent wrote: a model's idea of the current time is not something to render. Tapping an idea sends its `prompt` as the next message in the main chat. A refresh button is the same `run` call, then a poll until `modified` changes; in testing a run landed in about 30 seconds. The daily cron is an ordinary cron that the user (from your Upcoming view) or the agent can delete, so when `run` answers `404`, create it again. Once the user has talked to it for a while, the ideas stop being generic and start citing their memory and goals.
+  </Step>
+
+  <Step title="Goals the agent checks in on">
+    You do not build the goal tracker; the agent keeps it. When the user sets a goal ("run a 10K by December") or asks it to watch something, the persona tells the agent to add an entry to `~/muse/goals.json` and schedule its own check-in with `agent37 cron add`, recording the cron id in the entry. The file after one such chat turn:
+
+    ```json ~/muse/goals.json
+    {
+      "goals": [
+        {
+          "id": "run-10k-december",
+          "kind": "goal",
+          "title": "Run a 10K by December 2026",
+          "detail": "Plan: build gradually with 3 easy run/walk sessions weekly, 2 rest days.",
+          "progress": 0,
+          "next_check_in": "2026-10-05T09:00:00-07:00",
+          "cron_id": "0e422a8c228b"
+        }
+      ]
+    }
+    ```
+
+    A cron the agent created is an ordinary cron, so the app lists it next to its own and joins each goal to its cron for the real next check-in:
+
+    <CodeGroup>
+    ```bash curl
+    curl https://api.agent37.com/v1/instances/ab12cd34ef/crons \
+      -H "Authorization: Bearer sk_live_..."
+    # -> { "data": [ { "id": "0e422a8c228b", "name": "Weekly 10K training check-in",
+    #      "schedule": "0 9 * * 1", "timezone": "America/Los_Angeles", "next_run": 1791216000, ... } ] }
+    ```
+
+    ```javascript node
+    const base = `https://${user.instanceId}.agent37.app/v1/files/content?`;
+    const [goalsDoc, crons] = await Promise.all([
+      fetch(base + new URLSearchParams({ path: "~/muse/goals.json" }), {
+        headers: { "X-Agent37-Key": process.env.AGENT37_API_KEY },
+      }).then((r) => r.json()),
+      fetch(`https://api.agent37.com/v1/instances/${user.instanceId}/crons`, {
+        headers: { Authorization: `Bearer ${process.env.AGENT37_API_KEY}` },
+      }).then((r) => r.json()),
+    ]);
+    const nextRun = new Map(crons.data.map((cron) => [cron.id, cron.next_run]));
+    const goals = goalsDoc.goals.map((goal) => ({ ...goal, next_run: nextRun.get(goal.cron_id) ?? null }));
+    ```
+    </CodeGroup>
+
+    Split them into Muse's two sections by `kind`: "Tracking" for things in the world (a price, a reservation) and "Goals" for things the user works toward. A "Check in now" button is `POST /v1/instances/{id}/crons/{cron_id}/run`. The same list, with pause (`PATCH` with `enabled: false`), run now, and delete, is Muse's Upcoming view, and a reminder the user sets in your app is one more cron whose prompt tells the agent to message them.
+  </Step>
+
+  <Step title="Let it message the user first">
+    A scheduled run opens its own session and nobody is watching it, so its reply goes unread. The agent reaches the user by calling your server, with the token you planted in its `env` at create. Your server writes a small script onto the instance once (and again whenever your public URL changes):
+
+    ```javascript ~/muse/notify.mjs, written by your server with PUT /v1/files/content
+    const [title = "", body = ""] = process.argv.slice(2);
+    const res = await fetch("https://your-app.com/api/notify", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.MUSE_NOTIFY_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ instance_id: process.env.AGENT37_INSTANCE_ID, title, body }),
+    });
+    console.log(res.status, await res.text());
+    ```
+
+    `AGENT37_INSTANCE_ID` is set by the platform in every container, so the agent always knows which instance it is. Your endpoint checks the token against the hash you stored and records the message:
+
+    ```javascript node
+    app.post("/api/notify", async (req, res) => {
+      const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      const user = await db.users.findByInstance(req.body.instance_id);
+      const hash = crypto.createHash("sha256").update(token).digest("hex");
+      if (!user || user.notifyTokenHash !== hash) return res.status(403).json({ error: "forbidden" });
+
+      await db.notifications.create({ userId: user.id, title: req.body.title, body: req.body.body });
+      res.json({ ok: true });
+    });
+    ```
+
+    With the persona's rule in place, the whole loop runs without your app in it: the user says "remind me every weekday at 5pm to stretch", the agent creates the cron itself, and at 5pm the cron wakes the instance, the agent runs `notify.mjs`, and the message is waiting in the app. Show it as a banner and in the main chat in time order, the way Muse delivers reminders into the conversation. A production app sends Web Push, email, or a text from this endpoint; the agent's side does not change.
+  </Step>
+
+  <Step title="Memory and Library through the Files API">
+    **Memory.** Muse lets the user read and edit what it remembers. Show the entries of `USER.md` and `MEMORY.md`, and make every edit a read-merge-write guarded by the file's mtime, because the agent writes the same files mid-conversation. List `~/.hermes/memories` for each file's `modified`, read it, apply the one change to the current entries, and write back with `X-Expected-Mtime`:
+
+    <CodeGroup>
+    ```bash curl
+    curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=~/.hermes/memories/USER.md" \
+      -H "X-Agent37-Key: sk_live_..." \
+      -H "X-Expected-Mtime: 1790736409114.3372" \
+      --data-binary $'Name: Alex.\n§\nAlex is vegetarian and prefers morning workouts.\n§\nFavorite cuisine: Thai'
+    # 412 { "error": { "code": "modified", ... } } means the agent wrote in between: re-read and re-apply
+    ```
+
+    ```javascript node
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { entries, modified } = await readMemory(user.instanceId, "USER.md");
+      const next = applyEdit(entries, edit);
+      const res = await fetch(
+        `https://${user.instanceId}.agent37.app/v1/files/content?` +
+          new URLSearchParams({ path: "~/.hermes/memories/USER.md", ...(modified ? {} : { overwrite: "false" }) }),
+        {
+          method: "PUT",
+          headers: {
+            "X-Agent37-Key": process.env.AGENT37_API_KEY,
+            ...(modified ? { "X-Expected-Mtime": String(modified) } : {}),
+          },
+          body: next.join("\n§\n"),
+        },
+      );
+      if (res.status !== 412 && res.status !== 409) break;
+    }
+    ```
+    </CodeGroup>
+
+    Send `modified` back exactly as the listing returned it, fractional part included. When the file does not exist yet, `overwrite=false` makes a create fail with `409 file_exists` instead of clobbering one the agent just wrote. Keep entries under Hermes' caps, by default 1,375 characters for `USER.md` and 2,200 for `MEMORY.md`, or the agent cannot add more until it consolidates. Like the persona, memory is read when a session starts, so an edit reaches the next session (a new side chat or the next scheduled run) and not a conversation already under way.
+
+    For Muse's "download your data", export the two memory files and nothing else. Do not hand a user an archive of `~/.hermes`: `config.yaml` there holds the instance's managed-services token.
+
+    **Library.** `GET /v1/files?path=~/muse/library` lists what the agent made, with `size` and `modified` for each entry; group by extension into Documents, Web artifacts, Images, and Audio. Preview a web artifact by fetching its text through your server and rendering it in `<iframe sandbox="allow-scripts" srcdoc="...">`: without `allow-same-origin` the page runs in an opaque origin and cannot touch your app. Let the browser ask for names under the library folder only, never raw paths, since your key can read every file on the instance.
+  </Step>
+
+  <Step title="Connect apps">
+    Muse's Connectors screen maps onto [app integrations](/agents-api/integrations), one Composio entity per instance: `GET /v1/instances/{id}/integrations/toolkits?search=gmail` for the list, `POST .../integrations/connect` with a `toolkit` for an OAuth link, and `GET .../integrations/connections` until the new account reads `ACTIVE`. Open the link in a new tab from the click handler itself so popup blockers allow it, and pass an `https://` `callbackUrl` to land the user on a "you can close this tab" page of your own. The agent can use a connected app from its next message, and the daily ideas get better with every app it can read.
+  </Step>
+</Steps>
+
+## Message it from WhatsApp
+
+Muse is also reachable in WhatsApp. [Messaging channels](/agents-api/messaging) connects a user's agent to WhatsApp or Telegram from your own app, and [Text your agent on iMessage](/agents-api/imessage) gives it an iMessage line.
+
+## Worth knowing
+
+- **Allowances are dollars per month.** `monthly_cap_micros` resets each UTC month; Muse's weekly token allowance has no direct equivalent. `GET /v1/instances/{id}/budget` returns `monthly_consumed_micros` for a usage meter.
+- **What it costs per user.** Asleep, a default instance bills its disk alone, about \$0.36 per month; awake minutes bill the \$4.76 monthly rate pro rata. Daily ideas, reminders, and check-ins each cost one agent turn plus the minutes it keeps the instance awake. How many users you can serve is capped by your [instance limit](/agents-api/billing#instance-limits).
+- **Background work and sleep.** A turn keeps running after the user closes the app, but with `auto_sleep` idle is measured in bytes through the instance's URLs, so keep `idle_timeout_seconds` above your longest task.
+- **Status, not a live view.** The Browser card narrates tool events. Watching or taking over the browser needs a desktop image.
+- **Purchases hand back.** The agent can research and fill a cart; the user checks out.
+- **Meta's own connectors** (Instagram, Facebook, Messenger) have no equivalent; the catalog is Composio's.
+- **Reset is delete.** Muse's Reset maps to `DELETE /v1/instances/{id}` and a fresh create. Delete is destructive: files, memory, and sessions go with the instance.
+
+Not affiliated with Meta.

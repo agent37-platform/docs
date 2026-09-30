@@ -5,7 +5,7 @@ description: "Browse, read, write, move, delete, and download whole folders on t
 
 Files live on the instance's disk. A file's absolute `path` is its identity: there are no file ids, so the path you list is the path you read, write, move, or delete. You write a file with one call, attach the returned `path` to [a message](/agents-api/chat), and download anything the agent produces by path.
 
-The base URL is your instance URL, `https://{instanceId}.agent37.app`, with the same `sk_live_` key as every other call, sent as the `X-Agent37-Key` header. This page uses `https://ab12cd34ef.agent37.app`. The agent's workspace, where it reads and writes by default, is `/home/user/.agent37-gateway/workspace`, and that is the default directory for a list with no `path`.
+The base URL is your instance URL, `https://{instanceId}.agent37.app`, with the same `sk_live_` key as every other call, sent as the `X-Agent37-Key` header. This page uses `https://ab12cd34ef.agent37.app`. The agent's workspace, where it reads and writes by default, is its home directory, `/home/node`, and that is the default directory for a list with no `path`.
 
 These calls are not jailed to the workspace. The `sk_live_` key is the instance root: any path the key can reach on the instance's filesystem is fair game, with `~` expanding to the agent's home. Treat the key accordingly.
 
@@ -41,14 +41,14 @@ List responses and every write return the same `FileEntry` shape, so the `path` 
 `GET /v1/files` lists one directory level. Omit `path` to list the agent's workspace; pass an absolute path or a `~/` path to list anywhere the key can reach. Entries are sorted directories first, then by name case-insensitively.
 
 <ParamField query="path" type="string">
-  The directory to list. Optional; defaults to the agent's workspace, `/home/user/.agent37-gateway/workspace`. Accepts absolute and `~/` paths. A path that exists but is not a directory returns `400 not_a_directory`.
+  The directory to list. Optional; defaults to the agent's workspace, `/home/node`. Accepts absolute and `~/` paths. A path that exists but is not a directory returns `400 not_a_directory`.
 </ParamField>
 
 <CodeGroup>
 ```bash curl
 curl -G https://ab12cd34ef.agent37.app/v1/files \
   -H "X-Agent37-Key: sk_live_..." \
-  --data-urlencode "path=~/.agent37-gateway/workspace"
+  --data-urlencode "path=~/"
 ```
 
 ```python python
@@ -57,26 +57,34 @@ import requests
 listing = requests.get(
     "https://ab12cd34ef.agent37.app/v1/files",
     headers={"X-Agent37-Key": "sk_live_..."},
-    params={"path": "~/.agent37-gateway/workspace"},
+    params={"path": "~/"},
 ).json()
 ```
 
 ```javascript node
 const listing = await (await fetch(
   "https://ab12cd34ef.agent37.app/v1/files?" +
-    new URLSearchParams({ path: "~/.agent37-gateway/workspace" }),
+    new URLSearchParams({ path: "~/" }),
   { headers: { "X-Agent37-Key": "sk_live_..." } },
 )).json();
 ```
 
 ```json response
 {
-  "path": "/home/user/.agent37-gateway/workspace",
-  "parentPath": "/home/user/.agent37-gateway",
+  "path": "/home/node",
+  "parentPath": "/home",
   "entries": [
     {
+      "name": ".hermes",
+      "path": "/home/node/.hermes",
+      "type": "directory",
+      "size": null,
+      "modified": 1781049500000,
+      "hidden": true
+    },
+    {
       "name": "reports",
-      "path": "/home/user/.agent37-gateway/workspace/reports",
+      "path": "/home/node/reports",
       "type": "directory",
       "size": null,
       "modified": 1781049600000,
@@ -84,7 +92,7 @@ const listing = await (await fetch(
     },
     {
       "name": "leads.csv",
-      "path": "/home/user/.agent37-gateway/workspace/leads.csv",
+      "path": "/home/node/leads.csv",
       "type": "file",
       "size": 18244,
       "modified": 1781049642000,
@@ -125,7 +133,7 @@ const listing = await (await fetch(
 ```bash curl
 curl -G https://ab12cd34ef.agent37.app/v1/files/content \
   -H "X-Agent37-Key: sk_live_..." \
-  --data-urlencode "path=~/.agent37-gateway/workspace/reports/ev-makers-memo.md" \
+  --data-urlencode "path=~/reports/ev-makers-memo.md" \
   -o ev-makers-memo.md
 ```
 
@@ -135,7 +143,7 @@ import requests
 r = requests.get(
     "https://ab12cd34ef.agent37.app/v1/files/content",
     headers={"X-Agent37-Key": "sk_live_..."},
-    params={"path": "~/.agent37-gateway/workspace/reports/ev-makers-memo.md"},
+    params={"path": "~/reports/ev-makers-memo.md"},
 )
 open("ev-makers-memo.md", "wb").write(r.content)
 ```
@@ -146,7 +154,7 @@ import fs from "node:fs";
 const res = await fetch(
   "https://ab12cd34ef.agent37.app/v1/files/content?" +
     new URLSearchParams({
-      path: "~/.agent37-gateway/workspace/reports/ev-makers-memo.md",
+      path: "~/reports/ev-makers-memo.md",
     }),
   { headers: { "X-Agent37-Key": "sk_live_..." } },
 );
@@ -166,7 +174,7 @@ await fs.promises.writeFile(
 `GET /v1/files/archive?path=…` streams a whole directory as a gzipped tar (`.tar.gz`), the one call to pull a tree instead of walking it file by file. The archive is built on the fly and streamed, so any size works and the 512 KB [exec](/agents-api/exec) output cap does not apply. It unpacks to a single top-level folder named after the directory you packed.
 
 <ParamField query="path" type="string">
-  The directory to archive. Optional; defaults to the agent's workspace, `/home/user/.agent37-gateway/workspace`. Accepts absolute and `~/` paths. No directory at the path returns `404 file_not_found`; a path that exists but is not a directory returns `400 not_a_directory`.
+  The directory to archive. Optional; defaults to the agent's workspace, `/home/node`. Accepts absolute and `~/` paths. No directory at the path returns `404 file_not_found`; a path that exists but is not a directory returns `400 not_a_directory`.
 </ParamField>
 
 The response is `Content-Type: application/gzip` and a `Content-Disposition: attachment` whose download filename is the packed directory's name plus `.tar.gz` (characters outside `A–Z a–z 0–9 . _ -` and space are stripped, and an empty result falls back to `archive`). Symlinks are stored as links, not followed, so the archive never inlines a link target's bytes.
@@ -175,7 +183,7 @@ The response is `Content-Type: application/gzip` and a `Content-Disposition: att
 ```bash curl
 curl -G https://ab12cd34ef.agent37.app/v1/files/archive \
   -H "X-Agent37-Key: sk_live_..." \
-  --data-urlencode "path=/home/user/.agent37-gateway/workspace/reports" \
+  --data-urlencode "path=/home/node/reports" \
   -o reports.tar.gz
 ```
 
@@ -185,7 +193,7 @@ import requests
 r = requests.get(
     "https://ab12cd34ef.agent37.app/v1/files/archive",
     headers={"X-Agent37-Key": "sk_live_..."},
-    params={"path": "/home/user/.agent37-gateway/workspace/reports"},
+    params={"path": "/home/node/reports"},
 )
 open("reports.tar.gz", "wb").write(r.content)
 ```
@@ -196,7 +204,7 @@ import fs from "node:fs";
 const res = await fetch(
   "https://ab12cd34ef.agent37.app/v1/files/archive?" +
     new URLSearchParams({
-      path: "/home/user/.agent37-gateway/workspace/reports",
+      path: "/home/node/reports",
     }),
   { headers: { "X-Agent37-Key": "sk_live_..." } },
 );
@@ -218,13 +226,13 @@ Expand it with `tar -xzf reports.tar.gz`. There is no folder-upload counterpart:
   `true` replaces an existing file. `false` makes the write fail with `409 file_exists` if a file is already at `path`.
 </ParamField>
 
-<ParamField header="X-Expected-Mtime" type="integer">
-  Optional optimistic-concurrency guard, epoch milliseconds. When the file exists and its `modified` differs from this value, the write fails with `412 modified`, meaning someone changed it since you read it. Ignored when the file does not exist (the write is treated as a create).
+<ParamField header="X-Expected-Mtime" type="number">
+  Optional optimistic-concurrency guard, epoch milliseconds. Send the `modified` you read back exactly as returned, fractional part included: a rounded value never matches. When the file exists and its `modified` differs from this value, the write fails with `412 modified`, meaning someone changed it since you read it. Ignored when the file does not exist (the write is treated as a create).
 </ParamField>
 
 <CodeGroup>
 ```bash curl
-curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=/home/user/.agent37-gateway/workspace/leads.csv" \
+curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=/home/node/leads.csv" \
   -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: text/csv" \
   --data-binary @leads.csv
@@ -236,7 +244,7 @@ import requests
 entry = requests.put(
     "https://ab12cd34ef.agent37.app/v1/files/content",
     headers={"X-Agent37-Key": "sk_live_..."},
-    params={"path": "/home/user/.agent37-gateway/workspace/leads.csv"},
+    params={"path": "/home/node/leads.csv"},
     data=open("leads.csv", "rb"),
 ).json()
 ```
@@ -247,7 +255,7 @@ import fs from "node:fs";
 const entry = await (await fetch(
   "https://ab12cd34ef.agent37.app/v1/files/content?" +
     new URLSearchParams({
-      path: "/home/user/.agent37-gateway/workspace/leads.csv",
+      path: "/home/node/leads.csv",
     }),
   {
     method: "PUT",
@@ -260,7 +268,7 @@ const entry = await (await fetch(
 ```json response
 {
   "name": "leads.csv",
-  "path": "/home/user/.agent37-gateway/workspace/leads.csv",
+  "path": "/home/node/leads.csv",
   "type": "file",
   "size": 18244,
   "modified": 1781049642000,
@@ -278,7 +286,7 @@ const entry = await (await fetch(
     -H "Content-Type: application/json" \
     -d '{
       "input": "Summarize the attached spreadsheet.",
-      "files": ["/home/user/.agent37-gateway/workspace/leads.csv"]
+      "files": ["/home/node/leads.csv"]
     }'
   ```
 
@@ -297,7 +305,7 @@ const entry = await (await fetch(
 ```bash curl
 curl -X DELETE -G https://ab12cd34ef.agent37.app/v1/files \
   -H "X-Agent37-Key: sk_live_..." \
-  --data-urlencode "path=/home/user/.agent37-gateway/workspace/reports"
+  --data-urlencode "path=/home/node/reports"
 ```
 
 ```python python
@@ -306,7 +314,7 @@ import requests
 requests.delete(
     "https://ab12cd34ef.agent37.app/v1/files",
     headers={"X-Agent37-Key": "sk_live_..."},
-    params={"path": "/home/user/.agent37-gateway/workspace/reports"},
+    params={"path": "/home/node/reports"},
 )
 ```
 
@@ -314,7 +322,7 @@ requests.delete(
 await fetch(
   "https://ab12cd34ef.agent37.app/v1/files?" +
     new URLSearchParams({
-      path: "/home/user/.agent37-gateway/workspace/reports",
+      path: "/home/node/reports",
     }),
   { method: "DELETE", headers: { "X-Agent37-Key": "sk_live_..." } },
 );
@@ -347,8 +355,8 @@ curl -X PATCH https://ab12cd34ef.agent37.app/v1/files \
   -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "from": "/home/user/.agent37-gateway/workspace/leads.csv",
-    "to": "/home/user/.agent37-gateway/workspace/archive/leads.csv"
+    "from": "/home/node/leads.csv",
+    "to": "/home/node/archive/leads.csv"
   }'
 ```
 
@@ -359,8 +367,8 @@ entry = requests.patch(
     "https://ab12cd34ef.agent37.app/v1/files",
     headers={"X-Agent37-Key": "sk_live_..."},
     json={
-        "from": "/home/user/.agent37-gateway/workspace/leads.csv",
-        "to": "/home/user/.agent37-gateway/workspace/archive/leads.csv",
+        "from": "/home/node/leads.csv",
+        "to": "/home/node/archive/leads.csv",
     },
 ).json()
 ```
@@ -373,8 +381,8 @@ const entry = await (await fetch("https://ab12cd34ef.agent37.app/v1/files", {
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    from: "/home/user/.agent37-gateway/workspace/leads.csv",
-    to: "/home/user/.agent37-gateway/workspace/archive/leads.csv",
+    from: "/home/node/leads.csv",
+    to: "/home/node/archive/leads.csv",
   }),
 })).json();
 ```
@@ -382,7 +390,7 @@ const entry = await (await fetch("https://ab12cd34ef.agent37.app/v1/files", {
 ```json response
 {
   "name": "leads.csv",
-  "path": "/home/user/.agent37-gateway/workspace/archive/leads.csv",
+  "path": "/home/node/archive/leads.csv",
   "type": "file",
   "size": 18244,
   "modified": 1781049642000,
@@ -403,7 +411,7 @@ const entry = await (await fetch("https://ab12cd34ef.agent37.app/v1/files", {
 ```bash curl
 curl -X POST -G https://ab12cd34ef.agent37.app/v1/files/dir \
   -H "X-Agent37-Key: sk_live_..." \
-  --data-urlencode "path=/home/user/.agent37-gateway/workspace/archive"
+  --data-urlencode "path=/home/node/archive"
 ```
 
 ```python python
@@ -412,7 +420,7 @@ import requests
 entry = requests.post(
     "https://ab12cd34ef.agent37.app/v1/files/dir",
     headers={"X-Agent37-Key": "sk_live_..."},
-    params={"path": "/home/user/.agent37-gateway/workspace/archive"},
+    params={"path": "/home/node/archive"},
 ).json()
 ```
 
@@ -420,7 +428,7 @@ entry = requests.post(
 const entry = await (await fetch(
   "https://ab12cd34ef.agent37.app/v1/files/dir?" +
     new URLSearchParams({
-      path: "/home/user/.agent37-gateway/workspace/archive",
+      path: "/home/node/archive",
     }),
   { method: "POST", headers: { "X-Agent37-Key": "sk_live_..." } },
 )).json();
@@ -429,7 +437,7 @@ const entry = await (await fetch(
 ```json response
 {
   "name": "archive",
-  "path": "/home/user/.agent37-gateway/workspace/archive",
+  "path": "/home/node/archive",
   "type": "directory",
   "size": null,
   "modified": 1781049600000,

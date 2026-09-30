@@ -1,0 +1,274 @@
+---
+title: "Text your agent on iMessage"
+description: "Give each user's agent its own iMessage line, email address, and phone calls through Inkbox, with signed webhooks that wake a sleeping instance."
+sidebarTitle: "iMessage"
+---
+
+Your users text their agent in Messages, the way they text a friend: blue bubbles, typing indicators, a contact card with its name and photo. This page wires that up end to end with [Inkbox](https://inkbox.ai), which gives each agent an identity with an iMessage line, an email inbox, and calls, and ships a Hermes plugin that turns all three into conversations. [Photon](https://photon.codes) is the alternative, covered [below](#photon-instead).
+
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt and https://inkbox.ai/docs/llms.txt.
+I want each of my users to text their own agent on iMessage.
+Per user: create an agent37-hermes instance with POST /v1/instances (public_ports [{port: 8765}], auto_sleep true, budget.credit_micros), create an Inkbox identity with imessage_enabled true, whitelist the user's number and email address, mint an Inkbox key scoped to that identity, then over POST /v1/instances/{id}/exec install the Inkbox SDK into the Hermes venv, run hermes plugins install inkbox-ai/hermes-agent-plugin --enable, write INKBOX_PUBLIC_URL (the 8765 public-port URL) to ~/.hermes/.env, run hermes inkbox bootstrap with the scoped key on stdin, and restart the instance. Show the user the QR code and sms: link from Inkbox's GET /imessage/triage-number.
+Done when a text from my phone gets a reply from the agent.
+My keys are in AGENT37_API_KEY and INKBOX_ADMIN_KEY.
+```
+
+<Card title="instinct: a full texting assistant built on this page" icon="github" href="https://github.com/agent37-platform/examples/tree/main/instinct" horizontal>
+  Signup that provisions the instance and the Inkbox line, a "Start texting" screen with the QR code, reminders that text you, and a web workspace. Express plus vanilla JS. The guide is [Build your own Instinct](/agents-api/instinct).
+</Card>
+
+## Webhooks wake a sleeping agent, open connections do not
+
+An instance with [auto-sleep](/agents-api/instances#auto-sleep) sleeps when nothing moves through its URLs, and any request to one of its URLs wakes it. A messaging channel therefore has to arrive as a request to the instance, not over a connection the instance holds open: an outbound connection neither counts as activity nor survives the sleep.
+
+The Inkbox plugin supports both. Left alone, it dials out to an Inkbox tunnel, which only works while the instance is awake. With `INKBOX_PUBLIC_URL` set, Inkbox instead POSTs every inbound email, text, and call event to `{INKBOX_PUBLIC_URL}/webhook`, signed with the identity's own key. Point that at a [public port](/agents-api/public-ports) on `8765`, where the plugin listens, and a text to a sleeping agent wakes it. The public URL is only reachability: the plugin checks each delivery's signature and ignores anything unsigned.
+
+<Steps>
+  <Step title="Get an Inkbox admin key">
+    Sign up at [inkbox.ai](https://inkbox.ai) and create an **admin-scoped** API key in the Console; Inkbox mints admin keys only there. It stays on your server. Every call below sends it as `X-API-Key`, and each agent gets a narrower key of its own in step 4.
+  </Step>
+
+  <Step title="Create the instance with a public port on 8765">
+    Declare the port at create, turn on auto-sleep, and give the instance a [budget](/agents-api/budgets) so the managed model answers:
+
+    <CodeGroup>
+    ```bash curl
+    curl https://api.agent37.com/v1/instances \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "user": "u_882",
+        "budget": { "credit_micros": 2000000 },
+        "auto_sleep": true,
+        "public_ports": [{ "port": 8765, "label": "inkbox" }]
+      }'
+    ```
+
+    ```javascript node
+    const inst = await (await fetch("https://api.agent37.com/v1/instances", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user: "u_882",
+        budget: { credit_micros: 2000000 },
+        auto_sleep: true,
+        public_ports: [{ port: 8765, label: "inkbox" }],
+      }),
+    })).json();
+    const webhookUrl = inst.public_ports.find((p) => p.port === 8765).url;
+    ```
+    </CodeGroup>
+
+    The response lists the new URL in `public_ports`, beside the `8443` port every Hermes instance gets for Telegram. Poll `GET /v1/health` on the instance URL until `healthy` is `true` before the next step.
+  </Step>
+
+  <Step title="Create the identity and lock it to the user">
+    One identity per user: its handle is what they text to connect, its display name and avatar ride on the contact card they save.
+
+    <CodeGroup>
+    ```bash curl
+    curl https://inkbox.ai/api/v1/identities \
+      -H "X-API-Key: $INKBOX_ADMIN_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{ "agent_handle": "juniper-1a2b3c", "display_name": "Juniper", "imessage_enabled": true }'
+
+    curl -X PUT https://inkbox.ai/api/v1/identities/juniper-1a2b3c/avatar \
+      -H "X-API-Key: $INKBOX_ADMIN_KEY" \
+      -F file=@avatar.png
+    ```
+
+    ```javascript node
+    const inkbox = (path, init = {}) =>
+      fetch(`https://inkbox.ai/api/v1${path}`, {
+        ...init,
+        headers: { "X-API-Key": process.env.INKBOX_ADMIN_KEY, "Content-Type": "application/json", ...init.headers },
+      }).then((r) => r.json());
+
+    const identity = await inkbox("/identities", {
+      method: "POST",
+      body: JSON.stringify({ agent_handle: "juniper-1a2b3c", display_name: "Juniper", imessage_enabled: true }),
+    });
+    // identity.id, identity.email_address ("juniper-1a2b3c@inkboxmail.com")
+    ```
+    </CodeGroup>
+
+    Handles are globally unique across Inkbox and stay reserved forever, even after a delete, so generate them (a name plus a few random characters). A new identity accepts anyone who knows the handle or the email address, and every message that gets through is a full agent turn with the user's memory, connected apps, and terminal. Lock it to your user's number and email address: whitelist mode, then one allow rule each. Rules need the admin key, which is why your server does this and the instance never can:
+
+    <CodeGroup>
+    ```bash curl
+    curl -X PATCH https://inkbox.ai/api/v1/identities/juniper-1a2b3c \
+      -H "X-API-Key: $INKBOX_ADMIN_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{ "phone_filter_mode": "whitelist", "mail_inbound_filter_mode": "whitelist" }'
+
+    curl https://inkbox.ai/api/v1/imessage/identities/juniper-1a2b3c/contact-rules \
+      -H "X-API-Key: $INKBOX_ADMIN_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{ "action": "allow", "match_target": "+14155550100" }'
+
+    curl https://inkbox.ai/api/v1/identities/juniper-1a2b3c/mail-contact-rules \
+      -H "X-API-Key: $INKBOX_ADMIN_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{ "action": "allow", "match_type": "exact_email", "match_target": "sam@example.com" }'
+    ```
+
+    ```javascript node
+    await inkbox("/identities/juniper-1a2b3c", {
+      method: "PATCH",
+      body: JSON.stringify({ phone_filter_mode: "whitelist", mail_inbound_filter_mode: "whitelist" }),
+    });
+    const phoneRule = await inkbox("/imessage/identities/juniper-1a2b3c/contact-rules", {
+      method: "POST",
+      body: JSON.stringify({ action: "allow", match_target: "+14155550100" }),
+    });
+    const mailRule = await inkbox("/identities/juniper-1a2b3c/mail-contact-rules", {
+      method: "POST",
+      body: JSON.stringify({ action: "allow", match_type: "exact_email", match_target: "sam@example.com" }),
+    });
+    // Keep phoneRule.id and mailRule.id: changing the number or address means deleting the old rule.
+    ```
+    </CodeGroup>
+
+    The phone list covers iMessage, SMS, and calls, in both directions. Mail is whitelisted inbound only, so the agent can still email anyone, while mail from other senders is stored by Inkbox and never delivered: no webhook fires and the agent never sees it. Forwards and CCs from the user still arrive, since they come from the user's address. Posting a rule that already exists returns `409` with `detail.existing_rule_id`. To change the number or address, post the new rule, then `DELETE .../contact-rules/{id}` or `.../mail-contact-rules/{id}` for the old one.
+
+    The mail rule matches the From address, which can be forged, so treat email as the weaker of the two locks. Nothing here checks that the number or address belongs to your user; add a code check if that matters.
+  </Step>
+
+  <Step title="Mint a key scoped to that identity">
+    The instance gets a key that can act only as this one identity:
+
+    ```bash curl
+    curl https://inkbox.ai/api/v1/api-keys \
+      -H "X-API-Key: $INKBOX_ADMIN_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{ "label": "juniper-1a2b3c runtime", "scoped_identity_id": "<identity.id>" }'
+    # -> { "api_key": "ApiKey_...", "record": { ... } }
+    ```
+
+    `api_key` is returned once. Pass it straight to the next step rather than storing it.
+  </Step>
+
+  <Step title="Install the plugin over exec">
+    One [exec](/agents-api/exec) call, as the instance's default user (the Hermes venv belongs to it, so no `root` is needed):
+
+    ```bash the command
+    set -e
+    # The SDK goes into the Hermes venv, which an update resets: this hook line reinstalls it on any boot that finds it missing.
+    grep -qF 'import inkbox' ~/.agent37/hooks/post-restart.sh || cat >> ~/.agent37/hooks/post-restart.sh <<'HOOK'
+    /usr/local/lib/hermes/hermes-agent/venv/bin/python -c 'import inkbox' 2>/dev/null || uv pip install --python /usr/local/lib/hermes/hermes-agent/venv/bin/python 'inkbox>=0.7.6,<1.0.0' 'aiohttp>=3.9' 'segno>=1.5'
+    HOOK
+    /usr/local/lib/hermes/hermes-agent/venv/bin/python -c 'import inkbox' 2>/dev/null || uv pip install --python /usr/local/lib/hermes/hermes-agent/venv/bin/python 'inkbox>=0.7.6,<1.0.0' 'aiohttp>=3.9' 'segno>=1.5'
+    [ -d ~/.hermes/plugins/inkbox ] || hermes plugins install inkbox-ai/hermes-agent-plugin --enable </dev/null >/dev/null
+    touch ~/.hermes/.env && sed -i '/^INKBOX_PUBLIC_URL=/d' ~/.hermes/.env
+    echo 'INKBOX_PUBLIC_URL=https://a1b2c3d4e5f6a7b8c9d0.agent37.app' >> ~/.hermes/.env
+    hermes config set display.platforms.inkbox.show_reasoning false >/dev/null
+    printf '%s' 'ApiKey_...' | hermes inkbox bootstrap --identity 'juniper-1a2b3c' --api-key-stdin --voice-ai --rotate-signing-key
+    ```
+
+    Every line is safe to rerun, so a failed setup can simply run the script again with a freshly minted key. Save it as `install.sh` with your values filled in:
+
+    <CodeGroup>
+    ```bash curl
+    SCRIPT=$(cat install.sh)
+    curl https://api.agent37.com/v1/instances/ab12cd34ef/exec \
+      -H "Authorization: Bearer sk_live_..." \
+      -H "Content-Type: application/json" \
+      -d "$(jq -n --arg command "$SCRIPT" '{command: $command}')"
+    ```
+
+    ```javascript node
+    const script = fs.readFileSync("install.sh", "utf8");
+    const result = await (await fetch(`https://api.agent37.com/v1/instances/${inst.id}/exec`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.AGENT37_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ command: script }),
+    })).json();
+    const start = result.stdout.indexOf("{");
+    if (start < 0) throw new Error(result.stderr || "bootstrap printed no JSON");
+    const outcome = JSON.parse(result.stdout.slice(start));
+    if (outcome.status !== "configured") throw new Error(outcome.error || "bootstrap needs attention");
+    ```
+    </CodeGroup>
+
+    `hermes inkbox bootstrap` is the plugin's non-interactive setup. It saves the key, the handle, and a fresh signing key to `~/.hermes/.env`, and with `--voice-ai` sets the identity's incoming calls to Inkbox Voice AI. It prints one JSON object: `"status": "configured"` on success, `"error"` or `"requires_human"` otherwise, so check it rather than the exit code alone. The whole call takes a few seconds.
+  </Step>
+
+  <Step title="Restart and check it connected">
+    The Hermes gateway loads the plugin at boot, so restart the instance, then wait for health:
+
+    ```bash curl
+    curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
+      -H "Authorization: Bearer sk_live_..."
+    ```
+
+    On boot the plugin subscribes the identity's email, iMessage, and call events to `{INKBOX_PUBLIC_URL}/webhook` and logs `[Inkbox] Connected` to `~/.hermes/logs/gateway.log`. Its tools (`inkbox_send_imessage`, `inkbox_send_email`, `inkbox_place_call`, and the rest) are also available on ordinary [`POST /v1/responses`](/agents-api/chat) turns, so a web chat or a [cron](/agents-api/crons) can text the user.
+  </Step>
+
+  <Step title="Show the connect screen">
+    On a shared line, the user texts first. Inkbox hands you everything for that screen in one call:
+
+    ```bash curl
+    curl "https://inkbox.ai/api/v1/imessage/triage-number?agent_identity_id=<identity.id>" \
+      -H "X-API-Key: $INKBOX_ADMIN_KEY"
+    ```
+
+    ```json response
+    {
+      "number": "+16504849720",
+      "connect_command": "connect @juniper-1a2b3c",
+      "sms_link": "sms:+16504849720?&body=connect%20%40juniper-1a2b3c",
+      "connect_qr_png_data_url": "data:image/png;base64,iVBORw0KGgo..."
+    }
+    ```
+
+    Render `connect_qr_png_data_url` as an `<img>` on desktop and `sms_link` as a button on a phone. Either opens Messages with `connect @juniper-1a2b3c` drafted to the Inkbox router; the router replies with the agent's contact card, and from then on the thread is the agent's. Read `number` at runtime: Inkbox says it can change.
+  </Step>
+
+  <Step title="Let the agent text first">
+    Once the user has connected, the agent can message them at any time with `inkbox_send_imessage`. Two lines in `~/.hermes/SOUL.md` make that a habit: how to reach the owner, and that it can schedule its own follow-ups with the `agent37 cron` CLI baked into the image. A [cron](/agents-api/crons) wakes a sleeping instance, and the firing turn texts the result:
+
+    ```markdown SOUL.md (excerpt)
+    - To text Sam first, call inkbox_send_imessage with "to" set to +14155550100.
+    - You can follow up later. When Sam asks for a reminder, schedule it with
+      agent37 cron add --schedule "0 9 * * 1-5" --timezone America/Los_Angeles --prompt "Text Sam: ..."
+    ```
+  </Step>
+</Steps>
+
+## Calls and email
+
+The same identity has a mailbox, `juniper-1a2b3c@inkboxmail.com`, live as soon as the identity exists. Mail to it arrives as a webhook like a text, and the agent replies from that address. Users can forward it a thread or CC it.
+
+Calls ride the iMessage line. After `--voice-ai`, the identity's incoming-call action (`GET https://inkbox.ai/api/v1/phone/incoming-call-action?agent_identity_id=...`) reads `hosted_agent`: Inkbox Voice AI, a hosted voice agent with its own instructions, answers the call. It does not read `SOUL.md` or the memory files, so it is not the same assistant with a voice. Per the plugin's docs, it sends your agent the transcript as a signed `call.ended` webhook when the call ends, so no audio stream has to reach the instance. The plugin's other voice stacks (OpenAI Realtime, Inkbox speech-to-text) stream call audio into the instance over a WebSocket instead. Only people already connected over iMessage can call or be called on the shared line, and the phone whitelist applies to calls too.
+
+## Photon instead
+
+[Photon](https://photon.codes) also runs managed iMessage lines, and costs less than Inkbox from 10 users up (see the table below). This section summarizes Photon's public docs; it is not a recipe tested on Agent37. Photon delivers every inbound message for a project to one webhook, and sends replies through its `spectrum-ts` SDK rather than a plain HTTP endpoint. That points to one always-on router of your own that maps each sender's number to that user's instance and calls [`POST /v1/responses`](/agents-api/chat) on it, which wakes a sleeping instance, so the Photon project secret stays on your server. Photon's shared plans carry messages only: no email inbox and no calls.
+
+## Choosing
+
+| Users | Inkbox | Photon |
+| --- | --- | --- |
+| 3 | Free | Free |
+| 10 | Developer, \$30/mo | Free |
+| 100 | Startup, \$200/mo | Pro, \$25/mo |
+| 1,000 | Enterprise, custom price | Business, \$250 per dedicated line per month |
+
+Add the Agent37 side to either: about \$0.36 a month per user for an instance that is mostly asleep (disk only), up to \$4.76 for one awake around the clock, plus model spend. Prices are the vendors' published plans as of September 2026; check [inkbox.ai/pricing](https://inkbox.ai/pricing) and [photon.codes/pricing](https://photon.codes/pricing).
+
+**Who can text first.** On both vendors' shared lines the user starts the conversation, and after that the agent can message them any time. Starting a conversation cold needs a dedicated line: one comes with Inkbox's Startup plan, and Photon's Business lines allow up to 50 new contacts per line per day.
+
+**Beyond iMessage.** Inkbox gives each identity an email inbox and calls on every plan, including Free. Photon's shared plans are messaging only; calls come with a Business line.
+
+## Worth knowing
+
+- **You hold the vendor account.** Agent37 never provisions an Inkbox or Photon account for you. Both vendors' terms limit making their service available to third parties (Inkbox: unless it authorizes it in writing), so before you launch, ask your vendor to confirm that one identity per end user fits your plan.
+- **Limits on the shared line.** A person can be connected to at most 3 Inkbox agents at a time, and each message carries at most one attachment of up to 10 MiB. Inkbox's Free plan allows 3 recipients at a time and 2,000 iMessages a month.
+- **Wake latency.** A text to a sleeping instance waits for the wake before the agent sees it: seconds from a checkpoint, about two minutes when the instance has to be rebuilt. In testing, an email to an instance that had been asleep for over a minute was accepted in under a second and answered in about ten. Inkbox delivers at least once, keeps a 7-day delivery log (`GET /api/v1/webhooks/deliveries`, with each attempt's status and duration), and can replay a missed delivery.
+- **Updates.** `POST /v1/instances/{id}/update` resets everything outside `/home/node`, including the Hermes venv. The plugin itself lives in `~/.hermes/plugins` and survives; the `post-restart.sh` line from step 5 puts the SDK back on the next boot. `post-image-update.sh` alone is not enough here: it runs only when the update changes the image.
+- **Pin the plugin** with `hermes plugins install ... --ref <commit sha>` if you need reproducible installs; without it you get the vendor's latest.
+- Not affiliated with Apple, Inkbox, or Photon.
