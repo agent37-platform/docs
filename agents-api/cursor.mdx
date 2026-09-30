@@ -1,0 +1,189 @@
+---
+title: "Cursor Self-Hosted Machines on Agent37"
+sidebarTitle: "Cursor Cloud Agents"
+description: "Run the tool calls of Cursor Cloud Agents on an always-on Agent37 instance: Cursor runs the agent, your instance runs every command and keeps the checkout."
+---
+
+[Cursor Cloud Agents](https://cursor.com/docs/cloud-agent) can run their tool calls on [Self-Hosted Machines](https://cursor.com/docs/cloud-agent/self-hosted). Cursor keeps the agent loop, the model, and the Cloud Agent experience; a worker you run executes the file edits and terminal commands. An Agent37 instance makes a good one: an always-on Linux computer that keeps your checkout, dependencies, and build cache on its own disk between sessions, and bills by the minute, from \$4.76 a month.
+
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/agents-api/cursor and follow the setup.
+Build the worker image, create an Agent37 instance with my Cursor API key, clone my repository into /home/node/repo, and start the Cursor worker on it.
+My keys are in AGENT37_API_KEY and CURSOR_API_KEY, and the repository is in REPO_URL.
+Done when a Cursor agent started on the machine named agent37 writes hello.txt in the repository and Agent37 exec reads it back.
+```
+
+## How it works
+
+- **Cursor** runs the agent loop and the model. You start agents from [cursor.com/agents](https://cursor.com/agents), the desktop app, Slack, GitHub, Linear, or the [Cloud Agents API](https://cursor.com/docs/cloud-agent/api/endpoints).
+- **Your Agent37 instance** runs `agent worker`, the worker from Cursor's CLI. It executes each tool call in your checkout and sends the results back.
+- The worker only makes outbound HTTPS connections to Cursor (`api2.cursor.sh`, `api2direct.cursor.sh`, and an artifact bucket). The instance needs no public URL or open port.
+
+## Before you begin
+
+- An Agent37 API key in `AGENT37_API_KEY` and a funded [workspace wallet](/agents-api/billing). Create a key in the [dashboard](https://www.agent37.com/dashboard/cloud).
+- A Cursor user API key from [Cursor Dashboard > API Keys](https://cursor.com/dashboard/api), exported as `CURSOR_API_KEY`. It connects the instance as one of your [My Machines](https://cursor.com/docs/cloud-agent/self-hosted/my-machines), which needs no Enterprise plan. For a team fleet, see [Team Pools](#team-pools).
+- The repository the agent works on, exported as `REPO_URL` (for example `https://github.com/your-org/your-repo`).
+- Node.js, `curl`, and `jq` on your computer. The cloud build needs no local Docker.
+
+## 1. Build the worker image
+
+Put this `Dockerfile` in an empty folder:
+
+```dockerfile Dockerfile
+FROM node:22-bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl git python3 ripgrep tini \
+ && rm -rf /var/lib/apt/lists/*
+RUN curl https://cursor.com/install -fsS | HOME=/opt/cursor-cli bash \
+ && ln -s /opt/cursor-cli/.local/bin/agent /usr/local/bin/agent
+
+USER node
+WORKDIR /home/node
+ENTRYPOINT ["tini", "--"]
+CMD ["sleep", "infinity"]
+```
+
+The image installs Cursor's CLI under `/opt` and puts `agent` on the `PATH`, since `/home/node` is the instance's persistent home and is mounted over the image at runtime. Add the toolchain your repository needs in the same way, outside `/home/node`. The main process keeps the instance available; you start the worker after cloning.
+
+Build it as a [workspace template](/agents-api/templates):
+
+```bash
+npx agent37 templates build . --name cursor-worker
+```
+
+Omit `--default-port`: the worker needs no listening port.
+
+## 2. Create the instance
+
+```bash
+jq -n '{
+  template: "cursor-worker",
+  auto_sleep: false,
+  env: { CURSOR_API_KEY: env.CURSOR_API_KEY }
+}' | curl --fail-with-body -sS https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data-binary @- > instance.json
+
+export INSTANCE_ID=$(jq -er '.id' instance.json)
+```
+
+Leave [auto-sleep](/agents-api/instances#auto-sleep) off: the worker's outbound connection does not keep an instance awake. The worker reads `CURSOR_API_KEY` from its environment, where commands the agent runs can read it too, so use a key dedicated to this instance.
+
+## 3. Clone the repository
+
+```bash
+jq -n --arg url "$REPO_URL" '{ command: "git clone \($url) /home/node/repo" }' \
+  | curl --fail-with-body -sS "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
+    -H "Authorization: Bearer $AGENT37_API_KEY" \
+    -H "Content-Type: application/json" \
+    --data-binary @-
+```
+
+Check `exit_code` is `0`. For a private repository, use a URL that carries a token with read access, or [SSH](/agents-api/ssh) into the instance and clone it with your own credentials. The checkout's `origin` remote tells Cursor which repository this machine serves.
+
+## 4. Start the worker
+
+```bash
+curl --fail-with-body -sS \
+  "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "command": "nohup agent worker --worker-dir /home/node/repo --name agent37 start > /tmp/cursor-worker.log 2>&1 < /dev/null &"
+  }'
+```
+
+A successful exec response only means the launch command ran. Read the worker's log after a few seconds:
+
+```bash
+curl --fail-with-body -sS \
+  "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "cat /tmp/cursor-worker.log" }'
+```
+
+`stdout` contains `Worker is now running` with the name `agent37`. If it does not, run `agent worker --worker-dir /home/node/repo debug` through exec: it checks the key, the repository, and whether Cursor can see the worker.
+
+## 5. Run an agent and read its file
+
+Open [cursor.com/agents](https://cursor.com/agents), pick **agent37** in the environment menu, and send a task. Or start one through the [Cloud Agents API](https://cursor.com/docs/cloud-agent/api/endpoints#create-an-agent):
+
+```bash
+jq -n --arg url "$REPO_URL" '{
+  prompt: { text: "Run hostname and save its output to hello.txt in the repository root. Do not commit or push." },
+  env: { type: "machine", name: "agent37" },
+  repos: [{ url: $url }]
+}' | curl --fail-with-body -sS https://api.cursor.com/v1/agents \
+  -u "$CURSOR_API_KEY:" \
+  -H "Content-Type: application/json" \
+  --data-binary @- > agent.json
+
+export CURSOR_AGENT_ID=$(jq -er '.agent.id' agent.json)
+export CURSOR_RUN_ID=$(jq -er '.run.id' agent.json)
+```
+
+Check the run until its `status` is `FINISHED`:
+
+```bash
+curl --fail-with-body -sS \
+  "https://api.cursor.com/v1/agents/$CURSOR_AGENT_ID/runs/$CURSOR_RUN_ID" \
+  -u "$CURSOR_API_KEY:"
+```
+
+Then read the file directly from your instance:
+
+```bash
+curl --fail-with-body -sS \
+  "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "cat /home/node/repo/hello.txt" }'
+```
+
+`stdout` is the instance id, which is its hostname. That verifies the Cursor agent ran its command on your Agent37 instance.
+
+## Team Pools
+
+On a Cursor Enterprise plan, the same image serves a [Team Pool](https://cursor.com/docs/cloud-agent/self-hosted/pool). Create the instance with a [service account API key](https://cursor.com/docs/account/enterprise/service-accounts) as `CURSOR_API_KEY`, then start the worker with a pool name:
+
+```bash
+curl --fail-with-body -sS \
+  "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "command": "nohup agent worker --pool agent37 --idle-release-timeout 0 --worker-dir /home/node/repo start > /tmp/cursor-worker.log 2>&1 < /dev/null &"
+  }'
+```
+
+Each Cloud Agent session claims one pool worker at a time, so create one instance per worker you want in the pool. `--idle-release-timeout 0` keeps an always-on worker connected; by default a pool worker exits after an hour idle. Start pool agents with `env: { type: "pool", name: "agent37" }`, or pick the pool on [cursor.com/agents](https://cursor.com/agents).
+
+## Lifecycle and cleanup
+
+The worker stops with its instance. If you stop, restart, or update the instance, start the worker again with step 4. The checkout in `/home/node/repo`, with its dependencies and build output, survives all of those.
+
+When you no longer need the machine, delete the instance and revoke its Cursor key in the [Cursor dashboard](https://cursor.com/dashboard/api):
+
+```bash
+curl --fail-with-body -sS -X DELETE \
+  "https://api.agent37.com/v1/instances/$INSTANCE_ID" \
+  -H "Authorization: Bearer $AGENT37_API_KEY"
+```
+
+Agent37 bills compute and storage through your [wallet](/agents-api/billing); Cursor bills model usage through your Cursor plan.
+
+## Provider listing
+
+Cursor lists infrastructure partners on its [Self-Hosted Machines integrations](https://cursor.com/docs/cloud-agent/self-hosted/integrations) page, each linking to the partner's own guide. Everything needed to add Agent37 is below.
+
+```text title="Provider description" wrap
+Agent37 Cloud runs Cursor Self-Hosted Machines workers on always-on Linux instances. Build the worker image once, keep the checkout, dependencies, and build cache on the instance's disk between sessions, and create and manage workers through the Agent37 Hosting API.
+```
+
+```markdown title="Partner guide entry"
+- **Agent37.** [Cursor Self-Hosted Machines on Agent37](https://www.agent37.com/docs/agents-api/cursor)
+```
