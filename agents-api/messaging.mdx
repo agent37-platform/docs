@@ -1,0 +1,233 @@
+---
+title: "Messaging channels"
+sidebarTitle: "Messaging channels"
+description: "Connect an instance to Telegram, WhatsApp, Slack, Discord and two dozen more chat apps from your own backend, so your users message their agent from their phone."
+---
+
+An instance's agent can answer in the chat apps your users already have open. Telegram, WhatsApp, Slack, and Discord are the four most people ask for; Hermes carries about thirty in total, Matrix, Signal, Microsoft Teams, Google Chat, LINE, IRC and email among them.
+
+There is no `/v1` endpoint for this, and there does not need to be one. The agent already owns its channels: it knows which ones it supports, what each one needs, and whether each is connected right now. Your backend reaches that with [`POST /v1/instances/{id}/exec`](/agents-api/exec) and relays it to your own UI.
+
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want my users to connect their agent to Telegram and WhatsApp from my own app.
+Use POST /v1/instances/{id}/exec to reach the agent's messaging API on 127.0.0.1:9119: GET /api/messaging/platforms for the channel list and live state, PUT /api/messaging/platforms/{id} to write credentials, POST /api/gateway/restart when the answer says hot_served is false, and the WhatsApp onboarding start/poll/apply calls for the QR pairing.
+Validate a pasted Telegram bot token against Telegram's getMe before writing it, because the gateway refuses to start on a bad token.
+Done when I can paste a BotFather token in my app and message the agent from Telegram, and scan a QR in my app and message it from WhatsApp.
+My key is in AGENT37_API_KEY.
+```
+
+<Card title="agent37-platform/starter-kit" icon="github" href="https://github.com/agent37-platform/starter-kit" horizontal>
+  A working implementation of everything on this page: the Messaging tab of the [white-label dashboard](/agents-api/white-label), with the Telegram flow, the WhatsApp QR, and a generic credentials form for every other channel.
+</Card>
+
+## How it works
+
+The agent serves a messaging API on port `9119` inside the instance, on the loopback interface only. Nothing on the public internet can reach it, which is the point: credentials go in over your own authenticated backend, never over a URL a user could find.
+
+Every call has the same shape. Fetch the agent's session token out of its own UI, then call the API with it:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "command": "token=$(curl -sS http://127.0.0.1:9119/ | grep -o '\''__HERMES_SESSION_TOKEN__=\"[^\"]*\"'\'' | head -1 | cut -d'\''\"'\'' -f2); curl -sS -H \"X-Hermes-Session-Token: $token\" http://127.0.0.1:9119/api/messaging/platforms"
+  }'
+```
+
+The command's output comes back in `stdout`. A `sleeping` instance is woken by the exec, so the first call after a sleep takes about ten seconds longer.
+
+## The channel catalog
+
+`GET /api/messaging/platforms` returns every channel the agent supports, its live state, and the credentials it wants. Build your UI from this rather than from a list you maintain: a channel the agent gains in a later image appears on its own.
+
+```json response
+{
+  "env_path": "/home/node/.hermes/.env",
+  "platforms": [
+    {
+      "id": "slack",
+      "name": "Slack",
+      "description": "Use Hermes from Slack via Socket Mode.",
+      "docs_url": "https://api.slack.com/apps",
+      "enabled": false,
+      "configured": false,
+      "gateway_running": true,
+      "state": "disabled",
+      "error_code": null,
+      "error_message": null,
+      "env_vars": [
+        {
+          "key": "SLACK_BOT_TOKEN",
+          "required": true,
+          "is_set": false,
+          "redacted_value": null,
+          "prompt": "Slack Bot Token (xoxb-...)",
+          "help": "In your Slack app, add the required bot scopes, install the app to the workspace, then copy OAuth & Permissions > Bot User OAuth Token.",
+          "url": "https://api.slack.com/apps",
+          "is_password": true,
+          "advanced": false
+        }
+      ]
+    }
+  ]
+}
+```
+
+<ResponseField name="state" type="string">
+  The live state of the channel: `disabled` until you switch it on, then `connected` once the gateway has it running. A channel that failed to start reports `startup_failed` and puts the reason in `error_message`.
+</ResponseField>
+<ResponseField name="configured" type="boolean">
+  Whether the channel's required credentials are already stored on the instance. Secrets are never returned, only `is_set` and a `redacted_value`.
+</ResponseField>
+<ResponseField name="error_message" type="string">
+  Plain-language failure, safe to show a user. The agent keeps the last one even after the channel is switched off, so read it only while `enabled` is `true`.
+</ResponseField>
+<ResponseField name="env_vars" type="array">
+  The credentials this channel wants: `prompt` is the label, `help` and `url` say where to get the value, `is_password` marks a secret, and `advanced` marks a field to hide behind a disclosure. Fields with `required: false` can be left empty.
+</ResponseField>
+
+A few entries (`relay`, `whatsapp_cloud`, and other in-agent setups) report no `env_vars` at all. They cannot be connected from a form, so leave them off your list.
+
+## Connect a channel
+
+`PUT /api/messaging/platforms/{id}` writes credentials and switches a channel on.
+
+```json request
+{
+  "enabled": true,
+  "env": {
+    "SLACK_BOT_TOKEN": "xoxb-...",
+    "SLACK_APP_TOKEN": "xapp-..."
+  }
+}
+```
+
+```json response
+{ "ok": true, "platform": "slack", "hot_served": false }
+```
+
+<ResponseField name="hot_served" type="boolean">
+  `true` when the running gateway picked the change up live. `false` means it did not, and the channel connects only after `POST /api/gateway/restart`. Restarting the messaging gateway does not touch the [Agent API](/agents-api/chat) on the instance's default port, so chat keeps working throughout.
+</ResponseField>
+
+Send only the fields your user actually typed. A secret that is already set arrives back as `is_set: true` with no value, so omitting it leaves what the instance already holds.
+
+To disconnect, switch the channel off and forget its credentials in the same call:
+
+```json request
+{ "enabled": false, "clear_env": ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"] }
+```
+
+<Warning>
+  Every channel is a door into the agent. Most of them take an allowlist field (`SLACK_ALLOWED_USERS`, `DISCORD_ALLOWED_USERS`, `TELEGRAM_ALLOWED_USERS`), and an empty allowlist means anyone who finds the bot can talk to the agent, its files, and its connected accounts. Fill it.
+</Warning>
+
+## Telegram
+
+Telegram is the one channel worth building a real flow around, because it reaches the agent through a webhook. Agent37 wires that for you: creating an instance on a Hermes or OpenClaw template mints a [public port](/agents-api/public-ports) for it and hands the container `TELEGRAM_WEBHOOK_URL` and `TELEGRAM_WEBHOOK_SECRET`. Telegram delivers straight to the instance and wakes it if it is asleep, so a Telegram agent answers without your app doing anything.
+
+Three steps, and the middle one is the one people skip.
+
+<Steps>
+  <Step title="Take a bot token">
+    Your user opens [@BotFather](https://t.me/BotFather), sends `/newbot`, picks a name, and pastes the token back into your app.
+  </Step>
+
+  <Step title="Check it before you write it">
+    Call Telegram's `getMe` from your backend first. The agent's messaging gateway refuses to start on a rejected token, and a token written unchecked takes every other channel on that agent down with it.
+
+    ```bash curl
+    curl -s https://api.telegram.org/bot<token>/getMe
+    ```
+
+    The `result.username` it returns is the bot's `@handle`. Show it: your user needs it in the next step.
+  </Step>
+
+  <Step title="Learn who owns the bot">
+    Ask the user to send any message to their new bot, then read it back with `getUpdates`. The `message.from.id` in the first update is the person to allow, and they never have to look up a numeric user id.
+
+    ```bash curl
+    curl -s "https://api.telegram.org/bot<token>/getUpdates?limit=10&timeout=0"
+    ```
+
+    A fresh bot has no webhook, so long polling works here. Once the agent connects, Telegram switches the bot to the webhook and `getUpdates` starts answering `409`, which is how you can tell a bot is already wired to something.
+  </Step>
+
+  <Step title="Write it">
+    ```json request
+    {
+      "enabled": true,
+      "env": {
+        "TELEGRAM_BOT_TOKEN": "123456789:AA...",
+        "TELEGRAM_ALLOWED_USERS": "8675309"
+      }
+    }
+    ```
+
+    Then `POST /api/gateway/restart`. Poll the catalog until Telegram reports `state: "connected"`, and send your user to `https://t.me/<username>`.
+  </Step>
+</Steps>
+
+## WhatsApp
+
+WhatsApp links a phone instead of taking a token, so the agent runs the pairing and your app relays it. The linked number becomes the whole allowlist and the conversation is the user's own "Message yourself" thread, which is the one setup that needs no second phone.
+
+<Steps>
+  <Step title="Start a pairing">
+    ```bash curl
+    curl -sS -X POST -H "X-Hermes-Session-Token: $token" \
+      -H "content-type: application/json" -d '{"mode":"self-chat"}' \
+      http://127.0.0.1:9119/api/messaging/whatsapp/onboarding/start
+    ```
+
+    ```json response
+    {
+      "pairing_id": "d8tZ-Y-dqCDdJPWCJo1X5Q",
+      "status": "installing",
+      "qr_payload": null,
+      "expires_at": "2026-09-30T02:12:48.059099Z",
+      "account_phone": null,
+      "error": null
+    }
+    ```
+
+    The first pairing on an instance installs the WhatsApp bridge, so the first code takes about a minute. Start exactly one: a second pairing cancels the first, and the screen is then showing a code that has already died.
+  </Step>
+
+  <Step title="Poll for the code">
+    ```bash curl
+    curl -sS -H "X-Hermes-Session-Token: $token" \
+      http://127.0.0.1:9119/api/messaging/whatsapp/onboarding/{pairing_id}
+    ```
+
+    `status` walks `installing` to `starting` to `waiting`. At `waiting`, `qr_payload` holds the string to render as a QR code for the user to scan from **Settings, Linked devices, Link a device**. WhatsApp rotates it every few seconds, so keep polling and keep redrawing. `expired` means start over.
+  </Step>
+
+  <Step title="Save the link">
+    A landed scan reports `status: "connected"` with the linked `account_phone`. Saving it restarts the gateway, about a minute, so tell the user the scan worked before you call this rather than after:
+
+    ```bash curl
+    curl -sS -X POST -H "X-Hermes-Session-Token: $token" \
+      -H "content-type: application/json" -d '{}' \
+      http://127.0.0.1:9119/api/messaging/whatsapp/onboarding/{pairing_id}/apply
+    ```
+
+    It answers `{ "ok": true }` once the number is saved as the allowlist.
+  </Step>
+</Steps>
+
+<Note>
+  WhatsApp holds an open connection from the agent, so an instance that sleeps takes WhatsApp offline with it. Turn [auto-sleep](/agents-api/instances#auto-sleep) off on instances that use it. Telegram has no such problem: its webhook wakes a sleeper.
+</Note>
+
+## Slack, Discord, and the rest
+
+Every other channel is a credentials form, and the agent already told you what to put on it. Render `env_vars`, `PUT` the values, restart if `hot_served` is false, and show `state` and `error_message` back. One form connects all of them, including channels shipped in an image you build yourself.
+
+The `docs_url` on each channel points at whoever issues its credentials (Slack's app console, Discord's developer portal), and each field's `url` points at the exact page for that value. Link them rather than writing your own setup guide: they stay current and you do not.
+
+<Note>
+  Doing this on an instance running an agent other than Hermes? The messaging API on `9119` is Hermes's. OpenClaw carries its own channels and its own CLI for them; anything else is whatever your image ships. The pattern is the same either way: your backend drives the agent's own configuration through [exec](/agents-api/exec).
+</Note>
