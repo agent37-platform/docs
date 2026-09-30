@@ -1,0 +1,217 @@
+---
+title: "OpenAI Agents API on Agent37"
+sidebarTitle: "OpenAI Agents API"
+description: "Connect an Agent37 instance as a self-hosted sandbox for the OpenAI Agents API, with a custom image and persistent files."
+---
+
+Use Agent37 Cloud as the sandbox for an [OpenAI Agents API](https://developers.openai.com/api/docs/guides/agents-api/overview) session. OpenAI runs the agent; your Agent37 instance runs its shell commands and file operations through `codex exec-server`. You choose the image and keep the workspace on the instance's disk.
+
+This guide follows OpenAI's [self-hosted sandbox setup](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted). To run the whole Codex agent on Agent37 and call the Agent37 chat API, use [Host Codex](/agents-api/codex).
+
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/agents-api/openai-agents and follow the setup.
+Build the executor image, create an OpenAI self-hosted session, and connect a dedicated Agent37 instance to it.
+Keep OPENAI_API_KEY and AGENT37_API_KEY outside the instance. Pass only the restricted OPENAI_EXECUTOR_API_KEY into the instance as CODEX_API_KEY.
+Done when the OpenAI agent writes /home/node/workspace/hello.txt and Agent37 exec reads it back.
+```
+
+## Before you begin
+
+- An Agent37 API key in `AGENT37_API_KEY` and a funded [workspace wallet](/agents-api/billing). Create a key in the [dashboard](https://www.agent37.com/dashboard/cloud).
+- An OpenAI application key in `OPENAI_API_KEY`, with Agents API access and the `api.agents.read`, `api.agents.write`, and `api.responses.write` permissions.
+- A separate **environment key**, created on the OpenAI Platform [Agents tab](https://platform.openai.com/agents?environment_view=keys&tab=environments), exported as `OPENAI_EXECUTOR_API_KEY`. Use the same organization, project, and user or service account as the application key, with other permissions set to **None**.
+- Node.js, `curl`, and `jq` on your computer. The cloud build needs no local Docker.
+
+Run the commands below from your computer. Keep both platform API keys there. Only the restricted environment key goes into the sandbox, where agent-generated code can read it.
+
+## 1. Build the sandbox image
+
+Put this `Dockerfile` in an empty folder:
+
+```dockerfile Dockerfile
+FROM node:22-bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl git python3 ripgrep tini \
+ && rm -rf /var/lib/apt/lists/*
+RUN npm install -g @openai/codex@alpha
+
+USER node
+WORKDIR /home/node
+ENTRYPOINT ["tini", "--"]
+CMD ["sleep", "infinity"]
+```
+
+The image includes OpenAI's executor and common command-line tools. Add dependencies your workload needs here, outside `/home/node`: that directory is the instance's persistent home, mounted over the image at runtime. The main process keeps the instance available; you start the executor separately after creating a session.
+
+Build it as a [workspace template](/agents-api/templates):
+
+```bash
+npx agent37 templates build . --name openai-agents-sandbox
+```
+
+Omit `--default-port`: the executor only makes outbound connections to `api.openai.com` and `codex-cloud-environments.chatgpt.com`, so this sandbox needs no listening port or public URL.
+
+## 2. Create the OpenAI session
+
+```bash
+curl --fail-with-body -sS https://api.openai.com/v1/agents/sessions \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "OpenAI-Beta: agents=v1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent": {
+      "model": "gpt-6-astra",
+      "instructions": "Run commands to complete the task and check the files you produce."
+    },
+    "environment": {
+      "type": "self_hosted",
+      "workspace_directory": "/home/node/workspace"
+    }
+  }' > session.json
+
+export OPENAI_SESSION_ID=$(jq -er '.id' session.json)
+export CODEX_ENVIRONMENT_ID=$(jq -er '.environment.id' session.json)
+export CODEX_REMOTE_URL=$(jq -er '.environment.remote_url' session.json)
+```
+
+Keep the returned remote URL unchanged. Save the session id with your application's conversation state.
+
+## 3. Create the Agent37 instance
+
+```bash
+jq -n '{
+  template: "openai-agents-sandbox",
+  auto_sleep: false,
+  env: {
+    CODEX_API_KEY: env.OPENAI_EXECUTOR_API_KEY,
+    CODEX_ENVIRONMENT_ID: env.CODEX_ENVIRONMENT_ID,
+    CODEX_REMOTE_URL: env.CODEX_REMOTE_URL
+  }
+}' | curl --fail-with-body -sS https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data-binary @- > instance.json
+
+export INSTANCE_ID=$(jq -er '.id' instance.json)
+```
+
+Save the mapping from `OPENAI_SESSION_ID` to `INSTANCE_ID`. Each OpenAI session needs its own executor; use a dedicated instance per session to keep files and credentials separate. Leave [auto-sleep](/agents-api/instances#auto-sleep) off because the executor's outbound connection does not keep an instance awake.
+
+## 4. Connect the executor
+
+In a second terminal, export the same `OPENAI_API_KEY` and `OPENAI_SESSION_ID`, then keep the [OpenAI event stream](https://developers.openai.com/api/docs/guides/agents-api/sessions/events) open:
+
+```bash
+curl --fail-with-body -N \
+  "https://api.openai.com/v1/agents/sessions/$OPENAI_SESSION_ID/events?stream=true" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "OpenAI-Beta: agents=v1" \
+  -H "Accept: text/event-stream"
+```
+
+Back in the first terminal, start the executor through Agent37 [exec](/agents-api/exec):
+
+```bash
+curl --fail-with-body -sS \
+  "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "command": "mkdir -p /home/node/workspace; nohup codex exec-server --remote \"$CODEX_REMOTE_URL\" --environment-id \"$CODEX_ENVIRONMENT_ID\" > /tmp/openai-executor.log 2>&1 < /dev/null &"
+  }'
+```
+
+The command creates the agent's working directory in the persistent home, then starts the executor in the background. Wait for `agent.session.environment.connected` in the OpenAI stream. A successful exec response only means the launch command ran. If the connection fails, read `/tmp/openai-executor.log` with exec and check the environment key and session values.
+
+## 5. Run a task and read its file
+
+Send input through the [OpenAI session API](https://developers.openai.com/api/docs/guides/agents-api/sessions):
+
+```bash
+curl --fail-with-body -sS \
+  "https://api.openai.com/v1/agents/sessions/$OPENAI_SESSION_ID/events" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "OpenAI-Beta: agents=v1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "events": [{
+      "type": "agent.session.input.message",
+      "input": [{
+        "role": "user",
+        "content": [{
+          "type": "input_text",
+          "text": "Run hostname and save its output to /home/node/workspace/hello.txt."
+        }]
+      }]
+    }]
+  }'
+```
+
+Follow the stream until the root turn completes or fails. After a successful task, read the file directly from your instance:
+
+```bash
+curl --fail-with-body -sS \
+  "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "cat /home/node/workspace/hello.txt" }'
+```
+
+Check `exit_code` is `0` and `stdout` contains the hostname. That verifies the OpenAI agent wrote a file on your Agent37 instance. You can also use [SSH](/agents-api/ssh) to inspect the workspace or stage files before a task.
+
+## Lifecycle and cleanup
+
+Reuse the OpenAI session for follow-up messages while its executor stays connected. If you stop, restart, or update the instance, run the launch command from step 4 again before sending more work; the next turn waits for the executor to reconnect. Files in `/home/node/workspace` survive those operations.
+
+Your application owns both resources. Ending or deleting an OpenAI session does not delete the Agent37 instance. When you no longer need the sandbox, copy out any files you want and delete it:
+
+```bash
+curl --fail-with-body -sS -X DELETE \
+  "https://api.agent37.com/v1/instances/$INSTANCE_ID" \
+  -H "Authorization: Bearer $AGENT37_API_KEY"
+```
+
+Manage or delete the OpenAI session separately through OpenAI's [session management API](https://developers.openai.com/api/docs/guides/agents-api/sessions/manage). Agent37 bills compute and storage through your [wallet](/agents-api/billing); OpenAI bills model usage through your OpenAI account.
+
+## Provider listing
+
+OpenAI lists sandbox providers on its [self-hosted sandboxes](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted#sandbox-providers) page, each with a short setup page. Everything needed to add Agent37 is below.
+
+```text title="Provider description" wrap
+Agent37 Cloud provides persistent Linux sandboxes for the OpenAI Agents API. Run codex exec-server in your own image, keep the agent's files on the instance's disk across restarts, and create, run commands in, and delete sandboxes through the Agent37 Hosting API.
+```
+
+```markdown title="Provider table row"
+| Agent37 | [Agent37 setup](https://www.agent37.com/docs/agents-api/openai-agents) |
+```
+
+```markdown title="Provider setup page" wrap
+# Agent37
+
+See [OpenAI Agents API on Agent37](https://www.agent37.com/docs/agents-api/openai-agents) for a runnable walkthrough.
+
+See [Self-hosted sandboxes](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted) for executor setup and connection requirements.
+
+## Before you begin
+
+You need an OpenAI project API key, an Agent37 API key with a funded workspace, and the Codex CLI package.
+
+Set `AGENT37_API_KEY` and use `OPENAI_API_KEY` for application requests. Set `OPENAI_EXECUTOR_API_KEY` to an [environment key](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted#authentication), and pass only that key into the sandbox as `CODEX_API_KEY`.
+
+## 1. Set up the Agent37 environment
+
+Build an image with the Codex CLI as an Agent37 template. Create a [self-hosted session](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted#create-or-reuse-a-session) and save its environment ID. Use the Agent37 Hosting API to create an instance from the template, passing the environment key, environment ID, and remote URL as environment variables. Then [start the executor](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted#start-the-executor) through the instance's exec endpoint.
+
+Put the working directory under `/home/node`, the instance's persistent home, so the agent's files survive stop, start, restart, and image updates. The executor's connection to OpenAI is outbound and does not count as activity, so create the instance with `auto_sleep: false`.
+
+## 2. Run the session
+
+Use the HTTP examples in [Run and continue sessions](https://developers.openai.com/api/docs/guides/agents-api/sessions) to send input and stream the result after the Agent37 executor connects. When finished, [delete the session](https://developers.openai.com/api/docs/guides/agents-api/sessions/manage#delete-a-session) and delete the Agent37 instance separately.
+
+## References
+
+- Read [Agent37 documentation](https://www.agent37.com/docs)
+- Read [Agent37 instances reference](https://www.agent37.com/docs/agents-api/instances)
+- Read [Agent37 templates reference](https://www.agent37.com/docs/agents-api/templates)
+```
