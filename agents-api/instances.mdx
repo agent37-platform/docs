@@ -175,7 +175,7 @@ Six names are set by the platform and rejected with `400 invalid_request` rather
 </ResponseField>
 
 <ResponseField name="status_reason" type="object | null">
-  Why the most recent lifecycle operation failed, as `{ code, message, detail?, operation, at }`, or `null` when there is no failure reason. `detail`, when present, carries the raw failure output, including the tail of your container's console log when the container exited or never opened its port during a create; use it to see your own application's startup error. `at` is an epoch-second timestamp.
+  Why the most recent lifecycle operation failed, as `{ code, message, detail?, operation, at }`, or `null` when there is no failure reason. `detail`, when present, carries the raw failure output, including the tail of your container's console log when the container exited or never opened its port; use it to see your own application's startup error. The failing request's own `502` already carries the same `message` and `detail` (see [errors](/agents-api/errors)), so this field is for reading the reason later, not for discovering it. `at` is an epoch-second timestamp.
 </ResponseField>
 
 <ResponseField name="template" type="string">
