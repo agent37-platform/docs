@@ -50,7 +50,7 @@ The build runs on Agent37's infrastructure and streams its log to your terminal 
 | `-e KEY=value` | `"env": { "KEY": "value" }` on create |
 | `-p 3000:3000` (or a random host port) | The URL replaces the host port, the public IP, and the certificate: `https://{instanceId}.agent37.app` for the template's `default_port`, `https://{instanceId}-{port}.agent37.app` for any other |
 | `-v data:/data` | The instance's own disk, which persists across stop, start, and restart. Data under `/home/node` also survives an image update. |
-| `--memory 4g --cpus 2` | `"resources": { "cpu": 2, "memory": 4 }` (also 4/8 and 8/16) |
+| `--memory 4g --cpus 2` | `"resources": { "cpu": 2, "memory": 4 }` (also 4/8, 8/16, and 16/32) |
 | `--restart unless-stopped` | Built in. Once the instance has booted, a container that exits is started again. |
 | `docker exec web sh -c "..."` | [`POST /v1/instances/{id}/exec`](/agents-api/exec) |
 | `docker logs web` | [`GET /v1/instances/{id}/logs`](/agents-api/logs) |

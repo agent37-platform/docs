@@ -7,7 +7,7 @@ Billing is prepaid. You top up one workspace wallet in the dashboard, and everyt
 
 ## How the balance works
 
-- **\$5 free to start.** Add a card from the billing page (nothing is charged) and your workspace gets a one-time \$5 credit, enough to run your first instance around the clock for about a month, or a mostly-idle [auto-sleep](/agents-api/instances#auto-sleep) instance for many months. The credit is granted once per account and once per card, and only to a workspace that has not topped up yet. Until your first real top-up, the workspace runs one instance of any template on the 2 vCPU / 4 GB shape; a larger shape returns `403 tier_limit`. Your first top-up unlocks the 4/8 and 8/16 shapes, and up to 10 instances; once your top-ups total \$100 the cap rises to 50, and at \$250 to 200. See [Instance limits](#instance-limits).
+- **\$5 free to start.** Add a card from the billing page (nothing is charged) and your workspace gets a one-time \$5 credit, enough to run your first instance around the clock for about a month, or a mostly-idle [auto-sleep](/agents-api/instances#auto-sleep) instance for many months. The credit is granted once per account and once per card, and only to a workspace that has not topped up yet. Until your first real top-up, the workspace runs one instance of any template on the 2 vCPU / 4 GB shape; a larger shape returns `403 tier_limit`. Your first top-up unlocks the 4/8, 8/16, and 16/32 shapes, and up to 10 instances; once your top-ups total \$100 the cap rises to 50, and at \$250 to 200. See [Instance limits](#instance-limits).
 - **Top up in the dashboard.** Add funds at [dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). Top-ups are \$5 to \$10,000 each, paid through Stripe.
 - **Automatic top-up is on by default.** A top-up saves its card and turns on a refill rule (buy the same amount again once the balance drops below half of it) so the wallet refills itself; switch it off as you pay, or adjust it any time. See [Automatic top-up](#automatic-top-up).
 - **Instances draw it down.** Compute is metered per minute: time an instance spends running bills its full rate, time spent stopped or sleeping bills its disk alone. See [Per-minute metering](#per-minute-metering).
@@ -52,8 +52,9 @@ Applied to the shapes at their default disk:
 | 2 vCPU / 4 GB RAM / 2-12 GB disk (the default) | \$4.76 |
 | 4 vCPU / 8 GB RAM / 2-20 GB disk | \$9.34 |
 | 8 vCPU / 16 GB RAM / 2-40 GB disk | \$18.68 |
+| 16 vCPU / 32 GB RAM / 2-80 GB disk | \$37.36 |
 
-Every template offers the same three shapes, and 2 vCPU / 4 GB is the smallest. Disk is any whole number of GB within the shape's range and defaults to 4, 6, or 12 GB by shape; every GB bills at \$0.09 per month. See [Instances](/agents-api/instances) for how to pick a shape with `resources` on create.
+Every template offers the same four shapes, and 2 vCPU / 4 GB is the smallest. Disk is any whole number of GB within the shape's range and defaults to 4, 6, 12, or 24 GB by shape; every GB bills at \$0.09 per month. See [Instances](/agents-api/instances) for how to pick a shape with `resources` on create.
 
 ### Default and Performance instances
 
