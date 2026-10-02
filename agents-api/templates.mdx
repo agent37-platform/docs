@@ -44,6 +44,8 @@ On every system template but one, port `3737` is the gateway: the [chat API](/ag
 
 System templates track the newest platform image: their `image_ref` moves forward as new versions ship, and each create uses whatever the template points at in that moment. Existing instances are unaffected: an instance keeps the image it was created from until you [update it](/agents-api/instances#update).
 
+Every system template is built from a public Dockerfile in [agent37-platform/templates](https://github.com/agent37-platform/templates), so you, or your coding agent, can read exactly what an instance runs: what the image installs and how its entrypoint configures the agent at boot. Each published version is a git tag there named `<key>/<tag>`, for example `b2b-hermes/<tag>` for `agent37-hermes@<tag>`; the repo's README maps every template to its key. `main` can be ahead of what your instances run, so read the tag in your instance's image.
+
 ## Pin a template version
 
 If you need every instance you create to be identical (say a setup script runs after each create and depends on exact paths or versions), pin the version: append `@<tag>` (system templates) or `@<revision>` (workspace templates) to the template name on create.
@@ -353,7 +355,7 @@ Registration copies the image into private storage before it returns, so `POST` 
 
 ## Build on the Hermes base image
 
-[`ghcr.io/agent37-platform/hermes-base`](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base) is the published FROM target for custom templates. It ships Hermes with its browser stack (Chromium, Playwright), the gateway that serves the [chat API](/agents-api/chat), and a general toolchain: git, Python 3 with uv, Node.js, build tools. The image itself wires no model and no integrations; you add your layers on top. It does not need to carry credentials, because the platform puts a working LLM endpoint and a Composio MCP server in every instance's environment; see [Managed services in your image](/agents-api/managed-services). Point your agent at those, or bring your own model keys.
+[`ghcr.io/agent37-platform/hermes-base`](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base) is the published FROM target for custom templates. It ships Hermes with its browser stack (Chromium, Playwright), the gateway that serves the [chat API](/agents-api/chat), and a general toolchain: git, Python 3 with uv, Node.js, build tools. The image itself wires no model and no integrations; you add your layers on top. It does not need to carry credentials, because the platform puts a working LLM endpoint and a Composio MCP server in every instance's environment; see [Managed services in your image](/agents-api/managed-services). Point your agent at those, or bring your own model keys. Its source is [`images/b2b/hermes/Dockerfile`](https://github.com/agent37-platform/templates/blob/main/images/b2b/hermes/Dockerfile) (`--target base`).
 
 ```dockerfile
 FROM ghcr.io/agent37-platform/hermes-base:latest
