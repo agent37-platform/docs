@@ -113,6 +113,7 @@ Auth, instance lookup, and routing happen on the platform between you and the ga
 | `validation_error` | 400 | A request field is invalid (`param` names it), the body is not valid JSON, or `mode` is `"goal"` (reserved). |
 | `not_a_directory` | 400 | `GET /v1/files?path=` or `GET /v1/files/archive?path=` points at something that isn't a directory. |
 | `response_not_found` | 404 | No response with that id. |
+| `profile_not_found` | 404 | No Hermes profile with that name on the instance (`profile` on `POST /v1/responses`, `?profile=` on the session reads). |
 | `file_not_found` | 404 | No file or directory at that path (`GET /v1/files`, `GET /v1/files/archive`, `GET /v1/files/content`, `PATCH /v1/files`). |
 | `not_found` | 404 | Unknown route on the instance URL. |
 | `rename_unsupported` | 405 | `PATCH /v1/sessions/{id}` against a harness that cannot rename sessions (no native editable title). |

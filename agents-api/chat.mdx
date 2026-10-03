@@ -47,6 +47,10 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
   Which agent harness runs the turn, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, `opencode`, or `pi`. Omit it to use the instance's configured default (`hermes` on `agent37-hermes`, `openclaw` on `agent37-openclaw`, `claude-code` on `agent37-claude-code`, `codex` on `agent37-codex`, `grok` on `agent37-grok`, `opencode` on `agent37-opencode`, `pi` on `agent37-pi`). Routing is per request: the gateway keeps no session-to-agent binding, so if a session runs on a non-default harness, send `agent` on every turn of it. Targeting a harness the instance was not provisioned with does not reject the call: the turn settles with `status: "failed"` and `error.code` `agent_unavailable`.
 </ParamField>
 
+<ParamField body="profile" type="string">
+  Hermes only. Runs the turn in the [Hermes profile](https://hermes-agent.nousresearch.com/docs/user-guide/profiles) of that name, the directory `~/.hermes/profiles/<profile>` on the instance, with its own persona (`SOUL.md`), skills, memory, config, and sessions. Omit it, or send `default`, for the instance's own Hermes home. Like `agent`, it is per request: send it on every turn of the session, and as `?profile=` on the [session reads](/agents-api/sessions#hermes-profiles). A name that is not lowercase letters, digits, `-` or `_` is `400 validation_error`, a profile that does not exist is `404 profile_not_found`, and `profile` with a non-Hermes `agent` is `400 validation_error`.
+</ParamField>
+
 <ParamField body="mode" type="string" default="chat">
   `chat` runs one turn and replies. `goal` is reserved: sending it returns `400 validation_error` today.
 </ParamField>
@@ -73,6 +77,10 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
 
 <ResponseField name="agent" type="string">
   The agent that ran the turn, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, `opencode`, or `pi`.
+</ResponseField>
+
+<ResponseField name="profile" type="string | null">
+  The Hermes profile the turn ran in, or `null` for the instance's own Hermes home.
 </ResponseField>
 
 <ResponseField name="model" type="string | null">
