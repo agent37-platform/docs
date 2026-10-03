@@ -30,7 +30,7 @@ My key is in AGENT37_API_KEY.
 
 ## 1. Choose a starting image
 
-To customize Hermes, build on [`ghcr.io/agent37-platform/hermes-base`](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base). It includes Hermes, the gateway, Chromium, and the standard toolchain. This example adds a CLI:
+To customize Hermes, build on [`ghcr.io/agent37-platform/hermes-base`](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base). It includes Hermes, the gateway, Chromium, and the standard toolchain, and its Dockerfile is public: [`images/b2b/hermes`](https://github.com/agent37-platform/templates/tree/main/images/b2b/hermes) (`--target base`) in [agent37-platform/templates](https://github.com/agent37-platform/templates). This example adds a CLI:
 
 ```dockerfile
 FROM ghcr.io/agent37-platform/hermes-base:latest

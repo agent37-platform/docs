@@ -63,6 +63,12 @@ Everything n8n stores (workflows, credentials, execution history, its encryption
 
 Pass any `N8N_*` variable n8n documents as [instance env](/agents-api/instances#environment-variables). The image sets `N8N_EDITOR_BASE_URL` and `N8N_WEBHOOK_URL` from the public port automatically, so those need no setting.
 
+## Image source
+
+The image behind `agent37-n8n` is built from a public Dockerfile, [`images/b2b/n8n`](https://github.com/agent37-platform/templates/tree/main/images/b2b/n8n) in [agent37-platform/templates](https://github.com/agent37-platform/templates). Read it, or point your coding agent at it, to see exactly what the instance has installed and how the entrypoint configures n8n at boot. It is the fastest way to tell whether something comes from the image or from your own setup.
+
+Each published version is a git tag in that repo, `b2b-n8n/<tag>`, matching `agent37-n8n@<tag>`. `main` can be ahead of what you run, so take the tag from the template's `image_ref` on [`GET /v1/templates`](/agents-api/templates) and open that tag.
+
 ## Troubleshooting
 
 | Symptom | Fix |

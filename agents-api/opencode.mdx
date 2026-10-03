@@ -81,6 +81,12 @@ FROM ghcr.io/agent37-platform/opencode-base:latest
 
 See [Build a custom image](/agents-api/custom-image).
 
+## Image source
+
+The image behind `agent37-opencode` is built from a public Dockerfile, [`images/b2b/opencode`](https://github.com/agent37-platform/templates/tree/main/images/b2b/opencode) in [agent37-platform/templates](https://github.com/agent37-platform/templates). Read it, or point your coding agent at it, to see exactly what the instance has installed and how the entrypoint configures OpenCode at boot. It is the fastest way to tell whether something comes from the image or from your own setup.
+
+Each published version is a git tag in that repo, `b2b-opencode/<tag>`, matching `agent37-opencode@<tag>`. `main` can be ahead of what you run, so take the tag from the template's `image_ref` on [`GET /v1/templates`](/agents-api/templates) and open that tag.
+
 ## Troubleshooting
 
 | Symptom | Fix |
