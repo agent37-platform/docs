@@ -1,7 +1,22 @@
 ---
-title: "Managed services in your image"
-description: "Every instance gets a working LLM endpoint, a Composio MCP server, and a pay-per-call paid-tools server from its environment. No API keys, no OAuth wiring, and it works in a fully custom image."
+title: "Managed services"
+description: "Use Agent37's LLM router at OpenRouter cost with no markup, Brave Search over HTTP, and Composio and Perflo over MCP. One instance token spends workspace credit within its budget."
 ---
+
+Agent37 provides four managed services for stock templates and custom images. You do not need
+your own provider keys or accounts:
+
+| Service | Interface | Endpoint |
+| --- | --- | --- |
+| LLM router | OpenAI-compatible HTTP API | `https://api.agent37.com/llm/v1` |
+| Brave Search | HTTP API, JSON requests | `https://api.agent37.com/search/brave` |
+| Composio app integrations | MCP, streamable HTTP | `https://api.agent37.com/mcp/composio` |
+| Perflo paid tools | MCP, streamable HTTP | `https://api.agent37.com/mcp/perflo` |
+
+**LLM and Brave are APIs; Composio and Perflo are MCP servers.** Configure the LLM URL as your
+model client's base URL. Register Composio and Perflo with your MCP client.
+
+## Credentials in your instance
 
 Every Agent37 instance boots with credentials already in its environment. Your image does not
 receive them from you, does not store them, and does not need to ask for them:
@@ -10,16 +25,49 @@ receive them from you, does not store them, and does not need to ask for them:
 | --- | --- |
 | `AGENT37_MANAGED_TOKEN` | A per-instance token |
 | `AGENT37_LLM_PROXY_URL` | `https://api.agent37.com/llm/v1` |
+| `AGENT37_BRAVE_PROXY_URL` | `https://api.agent37.com/search/brave` |
 | `AGENT37_COMPOSIO_MCP_URL` | `https://api.agent37.com/mcp/composio` |
 | `AGENT37_PERFLO_MCP_URL` | `https://api.agent37.com/mcp/perflo` |
 | `AGENT37_INSTANCE_ID` | This instance's id |
 
-That token opens all three endpoints. **This applies to any image**, including one you built
+That token opens all four services. **This applies to any image**, including one you built
 yourself from scratch: the platform injects these at container create, not the image.
 
-Those five are the contract, alongside the three switches in [Not using them](#not-using-them). A
+Those six are the contract, alongside the three switches in [Not using them](#not-using-them). A
 container's environment carries other `AGENT37_`-prefixed variables that are runtime internals;
-they change without notice, so build against the five above and nothing else.
+they change without notice, so build against the six above.
+
+### Spend workspace credit with the starter token
+
+The **starter token** is the instance credential now named `AGENT37_MANAGED_TOKEN`.
+`AGENT37_STARTER_TOKEN` and `OPENCLAW_STARTER_TOKEN` are older aliases for the same value;
+use `AGENT37_MANAGED_TOKEN` in new code. Send it as `Authorization: Bearer` on each managed
+request, as the examples below show. Read it from the instance environment on every boot.
+
+To let an instance spend:
+
+1. Fund the workspace [wallet](/agents-api/billing), or use its available signup credit.
+2. Grant the instance [budget headroom](/agents-api/budgets), which defaults to zero. At create,
+   `"budget": { "credit_micros": 1000000 }` grants \$1 of one-time headroom. For an existing
+   instance, use the request below.
+3. Call a managed service with the instance token. Agent37 charges the workspace wallet and
+   counts the usage against that instance's budget automatically.
+
+Run this from your backend with your workspace API key to grant an existing instance \$1 of
+one-time headroom. Set `INSTANCE_ID` to the id returned when you created the instance:
+
+```bash
+curl -sS -X POST "https://api.agent37.com/v1/instances/$INSTANCE_ID/budget/top-up" \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "amount_micros": 1000000, "idempotency_key": "managed-services-setup-1" }'
+```
+
+The `sk_live_...` workspace key manages budgets; the instance token authorizes managed-service
+usage. The token does not contain money, and granting headroom does not add funds to the wallet.
+Both wallet funds and instance headroom must be available for a paid call to succeed.
+
+Run the service examples below **inside the instance**, where the environment variables are set.
 
 ```text title="Paste this into your coding agent" wrap
 Read https://www.agent37.com/docs/llms-full.txt.
@@ -29,10 +77,24 @@ Done when my agent, run over exec, answers a question on the managed model and l
 My key is in AGENT37_API_KEY.
 ```
 
-## A model
+## LLM router
 
-An OpenAI-compatible endpoint with exactly two routes: `GET /v1/models` and
-`POST /v1/chat/completions`. Point any OpenAI-compatible client at it.
+Agent37's LLM router uses OpenRouter and passes through the reported inference cost with **no
+Agent37 markup**. Choose any supported paid model from its catalog; you do not need your own
+OpenRouter account or API key. The cost draws on the same workspace wallet as the other services.
+
+Set an OpenAI-compatible client's base URL to `$AGENT37_LLM_PROXY_URL` and its API key to
+`$AGENT37_MANAGED_TOKEN`. The router exposes `GET /llm/v1/models` and
+`POST /llm/v1/chat/completions`. It is a plain HTTP API, not an MCP server.
+
+List the available models:
+
+```bash
+curl -sS "$AGENT37_LLM_PROXY_URL/models" \
+  -H "Authorization: Bearer $AGENT37_MANAGED_TOKEN"
+```
+
+Send a completion:
 
 ```bash
 curl -sS "$AGENT37_LLM_PROXY_URL/chat/completions" \
@@ -41,9 +103,29 @@ curl -sS "$AGENT37_LLM_PROXY_URL/chat/completions" \
   -d '{ "model": "default", "messages": [{"role":"user","content":"hello"}] }'
 ```
 
-`"default"` is a fast, low-cost model we pick and keep current. `GET /v1/models` lists every
-paid model you can name instead; it is free to call. Streaming works. Free models and models
-without tool support are rejected, because agents need tools.
+`"default"` is a fast, low-cost model we pick and keep current. To choose another model, replace
+`"default"` with an exact `data[].id` from the model list, using its OpenRouter `provider/model`
+name. Listing models is free. Set `"stream": true` for streaming completions. Free models and
+models without tool support are rejected, because agents need tools.
+
+This model list belongs to the router. The [Agent API model list](/agents-api/models) on your
+instance's URL describes the models configured in that instance's agent harness.
+
+## Web search
+
+Call Brave Search with `POST $AGENT37_BRAVE_PROXY_URL`, the same bearer token, and a JSON body.
+It is an HTTP API, not an MCP server. Each call costs \$0.005 (5,000 micros).
+
+```bash
+curl -sS "$AGENT37_BRAVE_PROXY_URL" \
+  -H "Authorization: Bearer $AGENT37_MANAGED_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "query": "Agent37 documentation", "count": 3 }'
+```
+
+`query` is required. `count` is optional and is clamped to 1 through 20. Optional string fields
+are `country`, `searchLang`, `uiLang`, `safesearch`, and `freshness`. The response is Brave's JSON
+search result, with web results under `web.results`.
 
 ## Integrations
 
@@ -192,9 +274,11 @@ template with the managed model already wired.
 
 ## Budgets
 
-Both endpoints draw on the instance [budget](/agents-api/budgets) and then the workspace wallet.
-LLM calls are metered at provider cost with no markup; Composio tool calls at \$0.000114 each.
-Refusals are a `402`:
+Paid calls across all four services debit the workspace wallet within the instance
+[budget](/agents-api/budgets). LLM calls pass through OpenRouter inference cost with no markup;
+Brave calls cost \$0.005 each; billable Composio tool calls cost \$0.000114 each; Perflo passes
+through its reported charge with no markup. Check spend with `GET /v1/instances/{id}/usage`.
+Budget or wallet refusals are a `402`:
 
 ```json
 { "error": { "type": "instance_budget_exhausted", "message": "..." } }
@@ -204,7 +288,7 @@ Refusals are a `402`:
 the instance cap being reached.
 
 <Warning>
-  **An instance created without a budget has a cap of zero, and every managed call returns `402`.**
+  **An instance created without a budget has a cap of zero, and paid managed calls return `402`.**
   Pass one at create, or `PATCH /v1/instances/{id}/budget` with `monthly_cap_micros`. Agents often
   surface this badly: a `402` from the model endpoint can look like a hang rather than an error.
   If a new instance's agent does nothing, read `GET /v1/instances/{id}/budget` first.

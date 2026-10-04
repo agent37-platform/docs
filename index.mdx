@@ -9,6 +9,12 @@ Agent37 Cloud gives every user their own hosted agent computer. Create an instan
   **Building with an AI coding agent?** Point it at **[llms-full.txt](https://www.agent37.com/docs/llms-full.txt)**, the entire API in one file, and it can scaffold a working client.
 </Note>
 
+Every instance also gets [managed services](/agents-api/managed-services): an **LLM router at
+OpenRouter inference cost with no Agent37 markup**, **Brave Search over HTTP**, and **Composio
+and Perflo over MCP**. The instance's starter token (`AGENT37_MANAGED_TOKEN`) authorizes calls
+against workspace credit within its [budget](/agents-api/budgets). The managed-services reference
+shows how to pick a model, grant spending headroom, and call each service.
+
 **Three ways to build on Agent37:**
 
 <CardGroup cols={3}>
@@ -29,7 +35,7 @@ Those are the three most common starting points; [Build with Agent37](/agents-ap
 
 <Steps>
   <Step title="Get a key">
-    Mint an API key at [www.agent37.com/dashboard/cloud/api-keys](https://www.agent37.com/dashboard/cloud/api-keys). The full `sk_live_...` key is shown once, at creation. Send it as `Authorization: Bearer` on `api.agent37.com` and as `X-Agent37-Key` on your instance's URL.
+    Mint an API key at [www.agent37.com/dashboard/cloud/api-keys](https://www.agent37.com/dashboard/cloud/api-keys). The full `sk_live_...` key is shown once, at creation. Send it as `Authorization: Bearer` on the Hosting API (`https://api.agent37.com/v1`) and as `X-Agent37-Key` on your instance's URL.
 
     New workspaces include enough credit to create one instance. Add funds from [billing](https://www.agent37.com/dashboard/cloud/billing) before you run more than one instance. [Billing](/agents-api/billing) covers pricing, instance limits, and top-up rules.
   </Step>
