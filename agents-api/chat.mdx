@@ -48,7 +48,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="profile" type="string">
-  Hermes only. Runs the turn in the [Hermes profile](https://hermes-agent.nousresearch.com/docs/user-guide/profiles) of that name, the directory `~/.hermes/profiles/<profile>` on the instance, with its own persona (`SOUL.md`), skills, memory, config, and sessions. Omit it, or send `default`, for the instance's own Hermes home. Like `agent`, it is per request: send it on every turn of the session, and as `?profile=` on the [session reads](/agents-api/sessions#hermes-profiles). A name that is not lowercase letters, digits, `-` or `_` is `400 validation_error`, a profile that does not exist is `404 profile_not_found`, and `profile` with a non-Hermes `agent` is `400 validation_error`.
+  A named setup inside the agent, with its own instructions, skills, memory, config, and sessions, so one instance can host several distinct agents (a support agent and a sales agent, say). Omit it, or send `default`, for the agent's own setup. Like `agent`, it is per request: send it on every turn of the session, and as `?profile=` on the [session reads](/agents-api/sessions#profiles). Supported on `hermes` today; `profile` with any other `agent` is `400 validation_error`. A name that is not lowercase letters, digits, `-` or `_` is `400 validation_error`, and a profile that does not exist on the instance is `404 profile_not_found`.
 </ParamField>
 
 <ParamField body="mode" type="string" default="chat">
@@ -80,7 +80,7 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
 </ResponseField>
 
 <ResponseField name="profile" type="string | null">
-  The Hermes profile the turn ran in, or `null` for the instance's own Hermes home.
+  The profile the turn ran in, or `null` for the agent's own setup.
 </ResponseField>
 
 <ResponseField name="model" type="string | null">
