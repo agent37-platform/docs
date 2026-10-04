@@ -30,11 +30,16 @@ Every read on this page takes an optional `?agent=` query, `hermes`, `openclaw`,
   `codex`, `grok`, `opencode`, and `pi` issue their own session ids. A client cannot bring an unknown `session_id` on the first turn: `POST /v1/responses` rejects one it did not issue with `400 validation_error` (`param: session_id`). Omit `session_id` to start a thread and reuse the id the response returns. Sessions you start in the instance terminal appear in `GET /v1/sessions?agent=codex` (or `?agent=grok`, `?agent=opencode`, `?agent=pi`) on their own. `grok` and `pi` store no editable session title, so `PATCH /v1/sessions/{id}` answers `405 rename_unsupported` there.
 </Note>
 
-## Hermes profiles
+## Profiles
 
-One `agent37-hermes` instance can host several personas as [Hermes profiles](https://hermes-agent.nousresearch.com/docs/user-guide/profiles), each a directory under `~/.hermes/profiles/` with its own `SOUL.md`, skills, memory, config, and session store. Pick one per turn with `profile` on [`POST /v1/responses`](/agents-api/chat), and pass the same name as `?profile=` on every read on this page (list, retrieve, rename, delete) to reach that profile's sessions. Omit it, or send `default`, for the instance's own Hermes home. An unknown profile is `404 profile_not_found`.
+A profile is a named setup inside the agent, with its own instructions, skills, memory, config, and session store, so one instance can host several distinct agents. Pick one per turn with `profile` on [`POST /v1/responses`](/agents-api/chat), and pass the same name as `?profile=` on every read on this page (list, retrieve, rename, delete) and on [`GET /v1/models`](/agents-api/models) to reach that profile. Omit it, or send `default`, for the agent's own setup. An unknown profile is `404 profile_not_found`.
 
-Create profiles from the instance terminal or with [exec](/agents-api/exec), for example `hermes profile create support` then edit `~/.hermes/profiles/support/SOUL.md`. Each profile runs in its own Hermes process, started on its first request and stopped after 10 idle minutes, so the first turn on a cold profile takes a few seconds longer.
+| Agent | Profiles |
+| --- | --- |
+| `hermes` | Yes. Each profile is a [Hermes profile](https://hermes-agent.nousresearch.com/docs/user-guide/profiles), the directory `~/.hermes/profiles/<name>` with its own `SOUL.md`. |
+| All others | Not yet: `profile` is `400 validation_error`. |
+
+On Hermes, create a profile from the instance terminal or with [exec](/agents-api/exec), for example `hermes profile create support`, then write its persona to `~/.hermes/profiles/support/SOUL.md`. Each profile runs in its own process, started on its first request and stopped after 10 idle minutes, so the first turn on a cold profile takes a few seconds longer.
 
 ## The session object
 
