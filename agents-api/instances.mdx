@@ -261,6 +261,7 @@ Six names are set by the platform and rejected with `400 invalid_request` rather
 | `POST` | `/v1/instances/{id}/restart` | `200` `{ id, status }` ack |
 | `POST` | `/v1/instances/{id}/update` | `200` `{ id, status, image_ref, image_digest, template_revision }` ack |
 | `POST` | `/v1/instances/{id}/resize` | `200` `{ id, status, resources }` ack |
+| `POST` | `/v1/instances/{id}/fork` | `201` with the new instance's full object |
 | `GET` | `/v1/instances/{id}/backups` | `200` `{ "data": [...] }`, newest first, each a [backup record](#list-backups) |
 | `POST` | `/v1/instances/{id}/backups` | `201` with the backup record |
 | `POST` | `/v1/instances/{id}/restore` | `200` `{ id, status }` ack |
@@ -440,7 +441,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
 
 ### Resize
 
-`POST /v1/instances/{id}/resize` grows a running instance to a bigger size. The body uses the same vocabulary as create's `resources`, and omitted fields keep their current value, so `{ "disk": 10 }` grows disk alone and `{ "cpu": 4, "memory": 8 }` moves up a shape (disk carries over unchanged). Resize only grows: any request that would shrink a dimension returns `400`, and moving to a smaller size means creating a new instance. The ack carries the new `resources`, and the meter bills at the new rate from the moment of the resize (see [Billing](/agents-api/billing)).
+`POST /v1/instances/{id}/resize` grows a running instance to a bigger size. The body uses the same vocabulary as create's `resources`, and omitted fields keep their current value, so `{ "disk": 10 }` grows disk alone and `{ "cpu": 4, "memory": 8 }` moves up a shape (disk carries over unchanged). Resize only grows: any request that would shrink a dimension returns `400`. To come back down, [fork](#fork) the instance at the smaller size and delete the big one. The ack carries the new `resources`, and the meter bills at the new rate from the moment of the resize (see [Billing](/agents-api/billing)).
 
 When its current host has room, the container is recreated in place with the new limits, like `restart`: the disk, instance id, and URLs are kept, in-memory state is lost, and the instance is back in seconds. When the host cannot fit the increase, the platform moves the instance to one that can: it stops, its data is copied over, and it boots on the new host, so it is down for the copy (about a couple of minutes per 10 GB) and no writes are lost. A move that runs longer than the request returns `202` with the instance still `updating`, and the platform finishes it on its own: poll `GET /v1/instances/{id}` until it reads `running`. Only when no host has room at all does it return `409 capacity_unavailable`, changing nothing.
 
@@ -524,6 +525,32 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restore \
   -H "Content-Type: application/json" \
   -d '{ "backup": "3ab0c4d5e6f708192a3b" }'
 # -> { "id": "ab12cd34ef", "status": "running" }
+```
+
+## Fork
+
+`POST /v1/instances/{id}/fork` copies an instance into a second instance: the same image and the same files, with its own id, URLs, starter credential, budget, and meter. The source keeps running throughout and is not touched. The body is optional and every field in it defaults to the source's, so a bare `POST` clones the instance as it stands.
+
+| Field | Default |
+| --- | --- |
+| `resources` | the source's shape |
+| `name`, `user`, `metadata` | the source's |
+| `auto_sleep`, `idle_timeout_seconds` | the source's |
+
+`resources` is the field that makes fork more than a copy. `cpu` and `memory` may move in either direction, so forking is how you come back down after a burst: [resize](#resize) up for the work, fork to a smaller shape when it is done, delete the big one. `disk` can only match or grow, since the fork has to hold the same files, and a smaller one returns `400`. The new instance is created under the same gates as any other, so it counts against your workspace's instance limit and needs a day of balance (see [Capacity and limit errors](#capacity-and-limit-errors)).
+
+What is copied is the source's disk, not its memory: processes running in the source do not carry over, and the fork boots fresh with the same files. The copy is taken at the moment of the call. From there the two instances are fully independent, each with its own disk, so a write in one is never visible in the other.
+
+The fork gets fresh URLs, and its [public ports](/agents-api/public-ports) are its template's defaults minted for its own id, never the source's: a slug is the credential for the port it opens, so it is not shared out by a copy. Anything the agent keeps in its own files does come across, including credentials you put there, which is what makes a fork a fork. If the source has a messaging channel connected, both instances will hold the same bot token, so disconnect it on one of them.
+
+A fork of a large instance can outrun its request. It then returns `202` with the new instance `provisioning` and the platform finishes it on its own: poll `GET /v1/instances/{id}` until it reads `running`. The source must be `running`, `stopped`, or `sleeping`; one parked in cold storage has to be started first.
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/fork \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "burst-worker", "resources": { "cpu": 8, "memory": 16 } }'
+# -> { "id": "7f91ab02cd", "status": "running", "name": "burst-worker", ... }
 ```
 
 ## Auto-sleep
