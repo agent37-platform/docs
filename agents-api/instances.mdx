@@ -441,9 +441,11 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
 
 ### Resize
 
-`POST /v1/instances/{id}/resize` grows a running instance to a bigger size. The body uses the same vocabulary as create's `resources`, and omitted fields keep their current value, so `{ "disk": 10 }` grows disk alone and `{ "cpu": 4, "memory": 8 }` moves up a shape (disk carries over unchanged). Resize only grows: any request that would shrink a dimension returns `400`. To come back down, [fork](#fork) the instance at the smaller size and delete the big one. The ack carries the new `resources`, and the meter bills at the new rate from the moment of the resize (see [Billing](/agents-api/billing)).
+`POST /v1/instances/{id}/resize` changes a running instance's size, keeping its id and URLs. The body uses the same vocabulary as create's `resources`, and omitted fields keep their current value, so `{ "disk": 10 }` grows disk alone and `{ "cpu": 4, "memory": 8 }` moves to another shape (disk carries over unchanged). `cpu` and `memory` go in either direction, so the call that scales an instance up for a burst is the one that scales it back down afterwards. `disk` only ever grows: a smaller one returns `400`, since the quota sits on a tree that already holds the data. At least one dimension has to change, or the call returns `400`. The ack carries the new `resources`, and the meter bills at the new rate from the moment of the resize (see [Billing](/agents-api/billing)).
 
-When its current host has room, the container is recreated in place with the new limits, like `restart`: the disk, instance id, and URLs are kept, in-memory state is lost, and the instance is back in seconds. When the host cannot fit the increase, the platform moves the instance to one that can: it stops, its data is copied over, and it boots on the new host, so it is down for the copy (about a couple of minutes per 10 GB) and no writes are lost. A move that runs longer than the request returns `202` with the instance still `updating`, and the platform finishes it on its own: poll `GET /v1/instances/{id}` until it reads `running`. Only when no host has room at all does it return `409 capacity_unavailable`, changing nothing.
+A smaller shape takes effect the moment the container is recreated, so leave room for what the agent actually uses: an instance that goes past its memory limit is killed whole, not just the process that asked for the memory. [Metrics](/agents-api/metrics) show its real working set, which is the number to size against.
+
+When its current host has room, the container is recreated in place with the new limits, like `restart`: the disk, instance id, and URLs are kept, in-memory state is lost, and the instance is back in seconds. A shrink always fits where the instance already is, so it always takes that path. When the host cannot fit an increase, the platform moves the instance to one that can: it stops, its data is copied over, and it boots on the new host, so it is down for the copy (about a couple of minutes per 10 GB) and no writes are lost. A move that runs longer than the request returns `202` with the instance still `updating`, and the platform finishes it on its own: poll `GET /v1/instances/{id}` until it reads `running`. Only when no host has room at all does it return `409 capacity_unavailable`, changing nothing.
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
@@ -451,6 +453,13 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
   -H "Content-Type: application/json" \
   -d '{ "cpu": 4, "memory": 8 }'
 # -> { "id": "ab12cd34ef", "status": "running", "resources": { "cpu": 4, "memory": 8, "disk": 6 } }
+
+# ...and back down when the burst is over. The 6 GB disk stays.
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "cpu": 2, "memory": 4 }'
+# -> { "id": "ab12cd34ef", "status": "running", "resources": { "cpu": 2, "memory": 4, "disk": 6 } }
 ```
 
 ### Boot hooks
@@ -537,7 +546,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restore \
 | `name`, `user`, `metadata` | the source's |
 | `auto_sleep`, `idle_timeout_seconds` | the source's |
 
-`resources` is the field that makes fork more than a copy. `cpu` and `memory` may move in either direction, so forking is how you come back down after a burst: [resize](#resize) up for the work, fork to a smaller shape when it is done, delete the big one. `disk` can only match or grow, since the fork has to hold the same files, and a smaller one returns `400`. The new instance is created under the same gates as any other, so it counts against your workspace's instance limit and needs a day of balance (see [Capacity and limit errors](#capacity-and-limit-errors)).
+`resources` is the field that makes fork more than a copy: `cpu` and `memory` may move in either direction, so a fork can be smaller or larger than its source. `disk` can only match or grow, since the fork has to hold the same files, and a smaller one returns `400`. To change one instance's size and keep its id and URLs, [resize](#resize) it instead; fork when you want a second instance at the other size. The new instance is created under the same gates as any other, so it counts against your workspace's instance limit and needs a day of balance (see [Capacity and limit errors](#capacity-and-limit-errors)).
 
 What is copied is the source's disk, not its memory: processes running in the source do not carry over, and the fork boots fresh with the same files. The copy is taken at the moment of the call. From there the two instances are fully independent, each with its own disk, so a write in one is never visible in the other.
 
