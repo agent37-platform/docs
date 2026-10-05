@@ -67,7 +67,7 @@ Set `"stream": true` to receive the turn as Server-Sent Events instead of one JS
 
 ## Models
 
-`GET /v1/models?agent=codex` on the instance lists Codex's own live model catalog, the `gpt-5.x` family. Pass an id as `model` on a turn, and set `reasoning_effort` per turn; `ultra` maps to Codex's multi-agent mode. Usage bills to your OpenAI account, not your Agent37 wallet. See [Models](/agents-api/models).
+`GET /v1/models?agent=codex` on the instance lists Codex's own live model catalog, the `gpt-5.x` family. Pass an id as `model` on a turn, and set `reasoning_effort` per turn; `ultra` maps to Codex's multi-agent mode, and a level the target model does not advertise runs at the nearest level below it. The response's `reasoning_effort` reports the level applied. Usage bills to your OpenAI account, not your Agent37 wallet. See [Models](/agents-api/models).
 
 ## Bring your own model
 

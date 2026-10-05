@@ -43,7 +43,7 @@ Set `"stream": true` to receive the turn as Server-Sent Events instead of one JS
 
 ## Models
 
-`GET /v1/models?agent=grok` on the instance lists the models your xAI key can run, the `grok-4.x` family. With no key set the list is empty. Pass an id as `model` on a turn, and set `reasoning_effort` per turn (`ultra` maps to Grok's `max`; non-reasoning models ignore the knob). Usage bills to your xAI account, not your Agent37 wallet, and each turn's `usage` reports the real USD cost. See [Models](/agents-api/models).
+`GET /v1/models?agent=grok` on the instance lists the models your xAI key can run, the `grok-4.x` family. With no key set the list is empty. Pass an id as `model` on a turn, and set `reasoning_effort` per turn (`ultra` maps to Grok's `max`; non-reasoning models ignore the knob). The response's `reasoning_effort` reports the level sent to Grok, which on a non-reasoning model is a level nothing ran at. Usage bills to your xAI account, not your Agent37 wallet, and each turn's `usage` reports the real USD cost. See [Models](/agents-api/models).
 
 ## Connect apps
 

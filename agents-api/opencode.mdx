@@ -47,7 +47,7 @@ OpenCode manages sessions natively: the `session_id` on a response is OpenCode's
 
 `GET /v1/models?agent=opencode` on the instance lists every model OpenCode can run, each as a `provider/model` id: `agent37/default` (the managed model) plus every model of any provider you have registered, for example `openai/gpt-5.2`. Pass one as `model` on a turn. Omit `model` and the turn runs on OpenCode's configured default, `agent37/default`. A bare or malformed id (one that is not a `provider/model` entry from the list) is rejected with `model_error`. See [Models](/agents-api/models).
 
-Set `reasoning_effort` per turn. It maps onto OpenCode's per-model variant, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`, clamped to what the target model advertises, and `none` omits it. See [Send a message](/agents-api/chat).
+Set `reasoning_effort` per turn. It maps onto OpenCode's per-model variant, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`, clamped to what the target model advertises, and `none` omits it. The response's `reasoning_effort` reports the level applied. See [Send a message](/agents-api/chat).
 
 Usage on `agent37/default` is managed: it meters against your Agent37 wallet like Hermes, bounded by the instance's [budget](/agents-api/budgets). A turn on a model you [brought yourself](#bring-your-own-provider) bills the provider key behind it instead.
 

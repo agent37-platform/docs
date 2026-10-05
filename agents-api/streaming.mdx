@@ -3,7 +3,7 @@ title: "Streaming"
 description: "Stream a reply as named Server-Sent Events from your instance URL, and reconnect without losing the answer."
 ---
 
-Send `stream: true` on [a message](/agents-api/chat) and the reply comes back as Server-Sent Events. Each event is named, so you can render text, reasoning, and tool activity live. Events arrive in order, and the terminal `response.completed` event carries the final `output_text`, `usage`, and `context`.
+Send `stream: true` on [a message](/agents-api/chat) and the reply comes back as Server-Sent Events. Each event is named, so you can render text, reasoning, and tool activity live. Events arrive in order, and the terminal `response.completed` event carries the final `output_text`, `usage`, `context`, and `reasoning_effort`.
 
 The base URL is your instance URL: `https://{instanceId}.agent37.app`, with the same `sk_live_` key sent as the `X-Agent37-Key` header on every request. This page documents the gateway's streaming contract, the API every instance serves.
 
@@ -43,7 +43,7 @@ data: {"text":"## EV market memo\n\n"}
 :keepalive
 
 event: response.completed
-data: {"output_text":"## EV market memo\n\n...","usage":{"input_tokens":1840,"output_tokens":920,"cost_usd":0.0137},"context":{"used_tokens":22600,"window_tokens":256000}}
+data: {"output_text":"## EV market memo\n\n...","usage":{"input_tokens":1840,"output_tokens":920,"cost_usd":0.0137},"context":{"used_tokens":22600,"window_tokens":256000},"reasoning_effort":"high"}
 ```
 
 ## Events
@@ -59,7 +59,7 @@ There are exactly nine event types:
 | `response.tool_call.started` | `{ tool, label?, arguments? }`, the call is running; `label` is the harness's one-line summary and `arguments` the tool's actual input as an object, with long string values clipped |
 | `response.tool_call.completed` | `{ tool, duration_ms? }` |
 | `response.tool_call.failed` | `{ tool, error? }`, the run continues |
-| `response.completed` | `{ output_text, usage, context }`, terminal; `usage` and `context` can be `null`, and `cost_usd` inside `usage` is absent or `null` when the provider reports no cost |
+| `response.completed` | `{ output_text, usage, context, reasoning_effort }`, terminal; `usage`, `context` and `reasoning_effort` can be `null`, and `cost_usd` inside `usage` is absent or `null` when the provider reports no cost. `reasoning_effort` is the level applied to the turn, which is not always the one requested (see [Send a message](/agents-api/chat)); it needs gateway `0.18.0` |
 | `response.failed` | `{ error: { code, message, param?, hint? } }`, terminal |
 
 <Info>

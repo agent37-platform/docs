@@ -49,7 +49,7 @@ Session ids are issued for you: omit `session_id` on a turn to start a thread, t
 
 `GET /v1/models?agent=pi` on the instance lists every model Pi can run, each as a `provider/model` id: `agent37/default` (the managed model) plus every model of any provider whose credential resolves on the instance, for example `anthropic/claude-sonnet-5`. Pass one as `model` on a turn. Omit `model` and the turn runs on Pi's startup model, `agent37/default`. A model Pi cannot resolve, or has no credential for, is rejected with `model_error`. See [Models](/agents-api/models).
 
-Set `reasoning_effort` per turn. It maps onto Pi's thinking level, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`, and Pi clamps the level to what the target model supports.
+Set `reasoning_effort` per turn. It maps onto Pi's thinking level, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`, and Pi clamps the level to what the target model supports. The response's `reasoning_effort` reports the level sent to Pi, which is the ceiling: Pi does its own clamping without reporting the result.
 
 Usage on `agent37/default` is managed: it meters against your Agent37 wallet like Hermes, bounded by the instance's [budget](/agents-api/budgets). A turn on a model you [brought yourself](#bring-your-own-credential) bills the credential behind it instead.
 

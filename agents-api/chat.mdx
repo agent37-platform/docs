@@ -37,6 +37,8 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 
 <ParamField body="reasoning_effort" type="string">
   How hard the model thinks: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. `max` is the strongest plain thinking level; `ultra` is the harness's own Ultra mode, top thinking plus its agentic orchestration (on OpenClaw it also turns on proactive subagent orchestration). It applies to this turn only on both harnesses. Omit it and Hermes uses the instance's configured effort, while OpenClaw uses the session's own thinking level. On OpenClaw the values map one to one onto its thinking levels, with `none` sent as `off`. `max` and `ultra` need gateway `0.10.0`: older instances reject them with `validation_error` until [updated](/agents-api/instances#update).
+
+  Codex and OpenCode advertise their levels per model, and a level a model does not accept is run at the nearest level below it rather than failing the turn. The response's `reasoning_effort` reports the level applied, so read that rather than assuming the request was honoured.
 </ParamField>
 
 <ParamField body="metadata" type="object">
@@ -89,6 +91,12 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
 
 <ResponseField name="provider" type="string | null">
   The `provider` you sent on this request, echoed back; `null` when you omitted it.
+</ResponseField>
+
+<ResponseField name="reasoning_effort" type="string | null">
+  The reasoning level applied to this turn, which is not always the one you asked for. Every harness takes the same eight levels and maps them onto its own: Hermes and OpenClaw run all eight, Claude Code runs `minimal` as `low`, grok and pi run `ultra` as `max`, and Codex and OpenCode go further and advertise which levels each individual model supports. Rather than reject a turn for a level a model cannot run, the gateway runs it at the nearest level below. Ask OpenCode for `ultra` and you get `max` or lower back. `null` when you sent no level and the harness used its own default: the turn still ran at some effort, but the gateway reports only what it applied.
+
+  This is the level sent to the harness, not a reading taken from the model. A harness that lowers it again on its own is not visible here: Pi clamps to the model's limits itself, and a non-reasoning Grok model ignores the setting outright. Read it as the ceiling the turn ran under. It also rides the terminal `response.completed` event when you [stream](/agents-api/streaming). Needs gateway `0.18.0`; older instances omit the field.
 </ResponseField>
 
 <ResponseField name="output_text" type="string">
@@ -169,6 +177,7 @@ const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
   "agent": "hermes",
   "model": null,
   "provider": null,
+  "reasoning_effort": "high",
   "output_text": "Memo: the top 3 EV makers...",
   "usage": { "input_tokens": 1840, "output_tokens": 920, "cost_usd": 0.0137 },
   "context": { "used_tokens": 22600, "window_tokens": 256000 },
