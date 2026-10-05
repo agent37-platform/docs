@@ -32,7 +32,7 @@ Every read on this page takes an optional `?agent=` query, `hermes`, `openclaw`,
 
 ## Profiles
 
-A profile is a named setup inside the agent, with its own instructions, skills, memory, config, and session store, so one instance can host several distinct agents. Pick one per turn with `profile` on [`POST /v1/responses`](/agents-api/chat), and pass the same name as `?profile=` on every read on this page (list, retrieve, rename, delete) and on [`GET /v1/models`](/agents-api/models) to reach that profile. Omit it, or send `default`, for the agent's own setup. An unknown profile is `404 profile_not_found`.
+A profile is a named setup inside the agent, with its own instructions, skills, memory, config, and session store, so one instance can host several distinct agents. Pick one per turn with `profile` on [`POST /v1/responses`](/agents-api/chat) (or per [cron](/agents-api/crons), for scheduled turns), and pass the same name as `?profile=` on every read on this page (list, retrieve, rename, delete) and on [`GET /v1/models`](/agents-api/models) to reach that profile. Omit it, or send `default`, for the agent's own setup. An unknown profile is `404 profile_not_found`.
 
 | Agent | Profiles |
 | --- | --- |
