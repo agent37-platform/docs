@@ -353,11 +353,11 @@ Each user's agent is one [instance](/agents-api/instances): a persistent compute
 
 ## Watch and take over its computer
 
-Dots puts its computer beside the chat: you watch it work, and when a site needs you (a sign-in, a code sent to your phone, a CAPTCHA), you take over the mouse and keyboard, then return control. The stock `agent37-hermes` browser is headless, so this needs an image with a screen. The example turns it on when `DESKTOP_TEMPLATE` is set in its `.env`, and runs exactly as above without it.
+Dots puts its computer beside the chat: you watch it work, and when a site needs you (a sign-in, a code sent to your phone, a CAPTCHA), you take over the mouse and keyboard, then return control. The stock `agent37-hermes` browser is headless, so this needs an image with a screen: see [Browser and desktop](/agents-api/desktop). The example turns it on when `DESKTOP_TEMPLATE` is set in its `.env`, and runs exactly as above without it.
 
 <Steps>
   <Step title="Build the desktop template">
-    The [hermes-vnc-desktop](https://github.com/agent37-platform/examples/tree/main/custom-images/hermes-vnc-desktop) recipe is the stock Hermes image plus a visible Chromium, which the agent's browser tool drives, and noVNC serving that screen on port `6901`. Build it into a [workspace template](/agents-api/templates#build-an-image-in-the-cloud) once; the build runs in the cloud, so you don't need Docker:
+    Build the [hermes-vnc-desktop](/agents-api/desktop#add-a-desktop) recipe into a workspace template once. It is the stock Hermes image plus a visible Chromium, which the agent's browser tool drives, and noVNC serving that screen on port `6901`. The build runs in the cloud, so you don't need Docker:
 
     ```bash
     git clone https://github.com/agent37-platform/examples

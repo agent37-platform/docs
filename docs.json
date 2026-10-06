@@ -36,6 +36,7 @@
             ]
           },
           "agents-api/white-label",
+          "agents-api/desktop",
           "agents-api/messaging",
           "agents-api/byo-model",
           "agents-api/composio",

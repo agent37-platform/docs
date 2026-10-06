@@ -1,0 +1,162 @@
+---
+title: "Browser and desktop"
+sidebarTitle: "Browser and desktop"
+description: "Browser use and computer use on Agent37: the stock agent drives a headless browser, and one cloud build gives it a full desktop you can watch live and take over."
+---
+
+Every instance is a Linux machine with a browser on it. The stock `agent37-hermes` template drives that browser headless: the agent opens pages, clicks, fills forms, and reads what comes back, with nothing for you to watch. Build the desktop recipe instead and the same browser runs on a screen you can open in a tab, watch live, and take control of when a site needs a human.
+
+| You want | Use |
+| --- | --- |
+| The agent to work on websites on its own | `agent37-hermes`, nothing to set up |
+| To watch it work, and take over the mouse and keyboard | The [desktop template](#add-a-desktop), one cloud build |
+
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want to watch my agent use a browser and take over when it needs me.
+Build https://github.com/agent37-platform/examples/tree/main/custom-images/hermes-vnc-desktop with npx agent37 templates build . --name hermes-vnc-desktop --default-port 3737, create an instance from that template with a budget, mint a signed URL for port 6901, and open it at /vnc.html.
+Done when I can see the agent's browser move while it answers a chat turn.
+My key is in AGENT37_API_KEY.
+```
+
+## Browsing with no screen
+
+Nothing to configure: `agent37-hermes` ships Chromium and a browser tool, so "book me a table" or "pull the pricing off these five sites" works from the first chat turn. See [Chat](/agents-api/chat).
+
+The agent also has the rest of the machine. It can install software with `apt-get`, run scripts, and serve its own ports, as itself or through [exec](/agents-api/exec) as root:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "apt-get update && apt-get install -y ffmpeg", "user": "root" }'
+```
+
+What a headless browser can't do is show you what happened, or let you finish a step it can't: a sign-in, a code texted to your phone, a CAPTCHA. That is what the desktop is for.
+
+## Add a desktop
+
+[hermes-vnc-desktop](https://github.com/agent37-platform/examples/tree/main/custom-images/hermes-vnc-desktop) is the stock Hermes image plus a view: a visible Chromium that the agent's browser tool drives, and [noVNC](https://github.com/novnc/noVNC) serving that screen on port `6901`. Everything the stock template does still happens, because the recipe wraps the stock entrypoint rather than replacing it: the [managed model](/agents-api/managed-services), [app connections](/agents-api/integrations), web search, and the `agent37` CLI the agent uses to [schedule itself](/agents-api/crons#your-agent-can-schedule-itself).
+
+Build it into a [workspace template](/agents-api/templates) once. The build runs on Agent37, so you don't need Docker:
+
+```bash
+git clone https://github.com/agent37-platform/examples
+cd examples/custom-images/hermes-vnc-desktop
+
+export AGENT37_API_KEY=sk_live_...
+npx agent37 templates build . --name hermes-vnc-desktop --default-port 3737
+```
+
+Then create instances from the name, exactly as you would from a system template:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "hermes-vnc-desktop", "budget": { "monthly_cap_micros": 5000000 }, "auto_sleep": true }'
+```
+
+`--default-port 3737` makes the create wait for the gateway, so the instance is ready to chat when it returns. The desktop adds nothing to the bill: a running instance is priced by its [shape](/agents-api/instances), not by what runs inside.
+
+<Tip>
+  Tell the agent it has an audience. Add a line to its instructions saying the user can see its screen, so it browses in the visible browser and asks the user to take over on a sign-in instead of asking for a password in chat.
+</Tip>
+
+## Open the desktop
+
+Mint a [signed URL](/agents-api/urls#browser-access-with-signed-urls) for port `6901` and change the path from `/` to `/vnc.html`, keeping the token:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/signed-url \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "port": 6901, "ttl_seconds": 300 }'
+```
+
+```text
+https://ab12cd34ef-6901.agent37.app/vnc.html?a37_token=6abc...e1f0&autoconnect=1&resize=scale
+```
+
+Open that in a top-level tab. Add `&view_only=1` to watch without controlling. Ask the agent to browse something and watch it work.
+
+## Embed it in your own app
+
+Load the noVNC client in your own page and connect its WebSocket straight to the instance, with the signed token in the query string. That connection needs no cookie, so it works from your origin in every browser.
+
+Your server mints the token for the signed-in user's own instance and hands the browser only a WebSocket URL:
+
+```javascript node
+app.post("/api/computer", async (req, res) => {
+  const { instanceId } = await db.users.get(req.session.userId); // their own instance only
+  const r = await fetch(`https://api.agent37.com/v1/instances/${instanceId}/signed-url`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.AGENT37_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ port: 6901, ttl_seconds: 60 }),
+  });
+  if (!r.ok) return res.status(r.status).json(await r.json());
+  const signed = new URL((await r.json()).url);
+  res.json({ ws: `wss://${signed.host}/websockify?a37_token=${signed.searchParams.get("a37_token")}` });
+});
+```
+
+noVNC is plain ES modules, so the page imports a pinned release from a CDN, with nothing to install and no build step. Start in view-only mode. **Take over** cancels the turn in flight, so you and the agent never fight over the mouse, and turns view-only off; **Return control** turns it back on:
+
+```html
+<div id="screen" style="aspect-ratio: 16 / 10"></div>
+<span id="who">Your agent has control</span> <button id="control">Take over</button>
+
+<script type="module">
+  import RFB from "https://cdn.jsdelivr.net/npm/@novnc/novnc@1.7.0/core/rfb.js";
+
+  let activeResponseId = null; // set from response.created while a chat turn streams
+
+  const { ws } = await (await fetch("/api/computer", { method: "POST" })).json();
+  const rfb = new RFB(document.getElementById("screen"), ws);
+  rfb.scaleViewport = true;
+  rfb.viewOnly = true;
+
+  document.getElementById("control").onclick = async (event) => {
+    if (rfb.viewOnly && activeResponseId) {
+      // your server forwards this to POST /v1/responses/{id}/cancel on the instance
+      await fetch(`/api/responses/${activeResponseId}/cancel`, { method: "POST" });
+    }
+    rfb.viewOnly = !rfb.viewOnly;
+    if (!rfb.viewOnly) rfb.focus();
+    event.target.textContent = rfb.viewOnly ? "Take over" : "Return control";
+    document.getElementById("who").textContent = rfb.viewOnly
+      ? "Your agent has control"
+      : "You have control";
+  };
+  rfb.addEventListener("disconnect", () => {
+    // POST /api/computer again and connect a new RFB with the fresh URL
+  });
+</script>
+```
+
+You and the agent share one browser, so the page you leave open is the one it sees next. Tell it so: send a line of context with the first message after a takeover, saying the user used the computer and it should look at the browser before carrying on.
+
+<Warning>
+  Don't iframe the signed URL itself. Its auth rides a `SameSite=Lax` cookie, which a cross-site frame does not send, so noVNC's sub-resources come back `401`. Connecting noVNC to the WebSocket, as above, needs no cookie. If you would rather frame a page, serve the instance from a [custom domain](/agents-api/domains) on your own registrable domain, or reverse-proxy port `6901` through your own server with the `X-Agent37-Key` header attached.
+</Warning>
+
+### About the token
+
+- **It grants full control.** `viewOnly` is a setting in your page, not a permission: anyone holding the token can connect a VNC client that clicks and types. Mint it only for the instance's owner.
+- **It cannot be revoked.** Keep `ttl_seconds` at `60`, the minimum. The token only has to be valid when the socket opens, an open socket keeps working after it expires, and every reconnect mints a fresh one.
+- **Opening it wakes a sleeping instance.** The edge holds the connection while the instance restores, and the screen comes back as the agent left it.
+
+## Worth knowing
+
+- **The login survives.** Chromium keeps a persistent profile on the instance's home volume, so a sign-in you finish during a takeover stays signed in across restarts, updates, and sleep, and the agent's browser uses the same profile.
+- **[Auto-sleep](/agents-api/instances#auto-sleep) works.** The desktop and the visible Chromium survive the checkpoint and restore, with the page the agent left open. Connect the view only while it is on screen: it streams even when nothing changes, and that traffic counts as activity, so an open view keeps the instance awake.
+- **Give it room.** The default 2 vCPU / 4 GB works; use 4 / 8 if the agent opens heavy pages.
+- **Ports.** `6901` serves noVNC. VNC (`5900`) and DevTools (`9222`) stay on loopback inside the instance.
+- **Screen size** is 1440x900. Add `ENV AGENT37_SCREEN_GEOMETRY=1920x1080x24` to the Dockerfile for another size.
+- **Crons** work as on `agent37-hermes`, with one difference: on a workspace template, set `"agent": "hermes"` when you create one, or the run records its `session_id` only once the turn finishes. See [Crons](/agents-api/crons).
+- **Telegram** webhook ports are wired at create on `agent37-hermes` only, so a Telegram bot on this template polls and needs `auto_sleep` off. See [Public ports](/agents-api/public-ports).
+
+A full app built on this is [Build your own Dots](/agents-api/dots): a personal agent with its computer beside the chat.
