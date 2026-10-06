@@ -66,6 +66,10 @@ Start with the default. For a Performance instance, pass `"type": "performance"`
 
 [Auto-sleep](/agents-api/instances#auto-sleep) does not change these rates. An auto-sleep instance bills the same rate as an always-on one for the time it is awake, and disk alone for the time it is asleep, so anything idle for most of the day costs a fraction of the always-on price. See [Per-minute metering](#per-minute-metering).
 
+### Burstable instances
+
+**Burstable** is an experimental instance type for low average CPU and RAM usage, with pricing starting at \$1/month. [Book a call with the founders](https://cal.com/vishnukool/30min) to request access for your workspace.
+
 ## Per-minute metering
 
 The monthly price is the rate; the wallet is metered per minute (the monthly price divided by 730 hours, divided by 60). What a minute costs depends on what the instance holds:
