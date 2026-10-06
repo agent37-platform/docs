@@ -20,7 +20,9 @@ Creating an instance requires one day of compute at its running rate in your wor
 </ParamField>
 
 <ParamField body="type" type="string" default="default">
-  `default` is what every create uses, and for most harnesses it is all you need. `performance` runs the instance on dedicated cores, for heavy work such as computer use, at 4x the default compute rate. Start with the default. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
+  `default` is used when you omit `type`, and for most harnesses it is all you need. `performance` runs the instance on dedicated cores, for heavy work such as computer use, at 4x the default compute rate. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
+
+  **Burstable** is an experimental instance type for low average CPU and RAM usage, starting at \$1/month. [Apply here](https://cal.com/vishnukool/30min) to enable Burstable for your workspace.
 </ParamField>
 
 <ParamField body="user" type="string">
@@ -65,6 +67,8 @@ Creating an instance requires one day of compute at its running rate in your wor
 | 16 | 32 GB | 2-80 GB | \$37.36 per month |
 
 Disk bills at \$0.09 per GB per month, included in the prices above at the default disk. Those are the prices of the `default` [instance type](/agents-api/billing#default-and-performance-instances). The monthly price is the rate; the wallet is metered per minute, and only for what the instance holds: running time bills the full rate, and stopped or sleeping time bills the disk alone. Deleting an instance settles its final minutes and billing ends. See [Billing](/agents-api/billing).
+
+[Burstable instances](/agents-api/billing#burstable-instances) start at \$1/month for low average CPU and RAM usage and require workspace enablement.
 
 ### Example
 
