@@ -293,6 +293,10 @@ A failed build carries its reason in `error.code`:
   The port the bare instance URL (`https://{instanceId}.agent37.app`) routes to, and the port the platform probes at boot to decide the create succeeded. Your service must bind it on `0.0.0.0`, not only localhost. An integer 1 to 65535; the reserved ports `7681`, `8080`, `6080`, `7890`, `9119`, and `22022` ([SSH](/agents-api/ssh)) are rejected (they belong to the managed runtime). Omitted, the bare URL falls back to `3737` (right for images built on [the Hermes base image](#build-on-the-hermes-base-image), whose gateway serves it) and no TCP boot probe runs. A private sandbox can listen on nothing and be driven by [exec](/agents-api/exec), but its main process must still stay running. Every other port needs no declaration: it is already reachable at `https://{instanceId}-{port}.agent37.app`. With [auto-sleep](/agents-api/instances#auto-sleep) on, a sandbox nothing ever requests only wakes by an explicit [`start`](/agents-api/instances#start).
 </ParamField>
 
+<ParamField body="entrypoint" type="string[]">
+  The command the instance runs, replacing the image's own `ENTRYPOINT` and `CMD`. Exactly what `docker run --entrypoint` does. An array of arguments, not a shell line: `["/bin/sh", "-c", "node server.js"]`. Omitted, the image decides, which is what you want for an image you built. Set it to run a stock image you did not build, like `node:24-slim`, whose own command opens a REPL and exits. Changing it publishes a new [revision](#pin-a-template-version), so a pin freezes the command along with the image.
+</ParamField>
+
 <CodeGroup>
 
 ```bash curl
@@ -342,6 +346,24 @@ console.log(await resp.json());
 
 </CodeGroup>
 
+### Run a stock image
+
+An image you did not build usually starts the wrong thing. `node:24-slim` runs `node`, which opens a REPL and exits, so an instance from it would never serve anything. `entrypoint` replaces that without forking the image:
+
+```bash
+curl -X POST https://api.agent37.com/v1/templates \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-app",
+    "image_ref": "docker.io/library/node:24-bookworm-slim",
+    "default_port": 8080,
+    "entrypoint": ["/bin/sh", "-c", "exec /app/start.sh"]
+  }'
+```
+
+Instances from this template boot `/app/start.sh`, which you put on the instance's disk with [exec](/agents-api/exec) or [SSH](/agents-api/ssh). Because the command belongs to the template rather than to a one-off call, it runs again on every start, restart, and wake from [auto-sleep](/agents-api/instances#auto-sleep).
+
 Registration copies the image into private storage before it returns, so `POST` and `PATCH` are synchronous and can take up to a few minutes for a large image. A reference the platform cannot pull (private without `registry_auth`, or a wrong login), one that isn't `linux/amd64`, or one over the cap is rejected at registration with `400 invalid_request` or `400 image_too_large`, so a broken image never reaches instance create.
 
 <Tip>
@@ -380,7 +402,7 @@ The contract:
 
 ## Update a template
 
-`PATCH /v1/templates/{name}` changes any of `name`, `image_ref`, `description`, or `default_port` (send `null` to clear it back to the `3737` fallback). Send at least one field. A changed `image_ref` is copied into private storage (send `registry_auth` again for a private registry), so an image update is synchronous like create, and each successful image update increments the platform-controlled `revision`. Sending the exact same `image_ref` string reuses the existing snapshot and does not increment it; renaming or changing only `description` or `default_port` also leaves it unchanged. To ship a new image on a template published by a [cloud build](#build-an-image-in-the-cloud) (no `image_ref`), run a new build under the same name; every successful build publishes a new revision, even when the built image's digest is unchanged. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
+`PATCH /v1/templates/{name}` changes any of `name`, `image_ref`, `description`, `default_port` (send `null` to clear it back to the `3737` fallback), or `entrypoint` (send `null` to go back to the image's own command). Send at least one field. A changed `image_ref` is copied into private storage (send `registry_auth` again for a private registry), so an image update is synchronous like create, and each successful image update increments the platform-controlled `revision`. Sending the exact same `image_ref` string reuses the existing snapshot and does not increment it; renaming or changing only `description` or `default_port` also leaves it unchanged. A changed `entrypoint` does increment it, since it changes what the template runs. To ship a new image on a template published by a [cloud build](#build-an-image-in-the-cloud) (no `image_ref`), run a new build under the same name; every successful build publishes a new revision, even when the built image's digest is unchanged. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
 
 ```bash curl
 curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
@@ -433,6 +455,7 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
   "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
   "description": "Hermes general agent: browser, code, files.",
   "default_port": 3737,
+  "entrypoint": null,
   "created": null,
   "updated": null
 }
@@ -449,6 +472,7 @@ A workspace template registered from a registry reference echoes that reference 
   "image_digest": "sha256:9b2e...c41f",
   "description": "My agent",
   "default_port": 8000,
+  "entrypoint": null,
   "created": 1752460800,
   "updated": 1752547200,
   "revisions": [
@@ -485,6 +509,9 @@ A workspace template registered from a registry reference echoes that reference 
 <ResponseField name="default_port" type="integer | null">
   The declared default port, or `null` when the template relies on the `3737` fallback. See [Instance and preview URLs](/agents-api/urls).
 </ResponseField>
+<ResponseField name="entrypoint" type="string[] | null">
+  The command that replaces the image's own, or `null` when the image decides. A [pinned](#pin-a-template-version) read reports the command that revision was published with, not the current one.
+</ResponseField>
 <ResponseField name="created" type="integer | null">
   Creation time in epoch seconds. `null` for system templates.
 </ResponseField>
@@ -496,7 +523,7 @@ A workspace template registered from a registry reference echoes that reference 
 
 | Status | Code | When |
 | --- | --- | --- |
-| `400` | `invalid_request` | Bad `name`, `image_ref`, or `default_port`; a template create with no `image_ref`; a registry reference the platform cannot pull (private without `registry_auth`, or a wrong login); a malformed `registry_auth`; the legacy `ports` array; a direct image reference passed as `template` on instance create; a bad [pin](#pin-a-template-version) on create or update (unpublished system tag, `@latest`, non-numeric or unpublished workspace revision); a [build](#build-an-image-in-the-cloud) `start` with no uploaded context, one over 1 GB, or a malformed `secrets` or `registry_auth` body |
+| `400` | `invalid_request` | Bad `name`, `image_ref`, `default_port`, or `entrypoint` (not a non-empty array of non-empty strings); a template create with no `image_ref`; a registry reference the platform cannot pull (private without `registry_auth`, or a wrong login); a malformed `registry_auth`; the legacy `ports` array; a direct image reference passed as `template` on instance create; a bad [pin](#pin-a-template-version) on create or update (unpublished system tag, `@latest`, non-numeric or unpublished workspace revision); a [build](#build-an-image-in-the-cloud) `start` with no uploaded context, one over 1 GB, or a malformed `secrets` or `registry_auth` body |
 | `400` | `image_too_large` | The staged image is over the 8 GB decimal cap |
 | `403` | `forbidden` | `PATCH` or `DELETE` on a system template: they are read-only |
 | `404` | `not_found` | Unknown template name or build id; a pinned `GET` for an unpublished version or revision; repeat `DELETE` |
