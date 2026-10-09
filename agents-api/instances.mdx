@@ -22,7 +22,7 @@ Creating an instance requires one day of compute at its running rate in your wor
 <ParamField body="type" type="string" default="default">
   `default` is used when you omit `type`, and for most harnesses it is all you need. `performance` runs the instance on dedicated cores, for heavy work such as computer use, at 4x the default compute rate. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
 
-  `burstable` is in private preview and requires workspace approval. [Book a call](https://cal.com/vishnukool/30min) to request access. Without approval, create and fork return `403 forbidden`. See [Burstable instances](/agents-api/billing#burstable-instances).
+  `burstable` is an experimental instance type for low average CPU and RAM usage, starting at \$1/month. [Apply here](https://cal.com/vishnukool/30min) to enable it for your workspace.
 </ParamField>
 
 <ParamField body="user" type="string">
@@ -200,7 +200,7 @@ Six names are set by the platform and rejected with `400 invalid_request` rather
 </ResponseField>
 
 <ResponseField name="type" type="string">
-  `default`, `burstable`, or `performance`. Burstable currently uses Default's runtime and rates. See [Billing](/agents-api/billing#default-and-performance-instances).
+  `default` or `performance`. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
 </ResponseField>
 
 <ResponseField name="resources" type="object">
