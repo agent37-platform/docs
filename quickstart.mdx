@@ -1,0 +1,129 @@
+---
+title: "Quickstart"
+description: "Create a persistent sandbox, run a command, and reach your services over HTTPS."
+---
+
+An **instance** is your persistent sandbox: a Linux computer for code, services, or agent harnesses.
+
+Get an [API key](https://www.agent37.com/dashboard/cloud/api-keys), then run `export AGENT37_API_KEY="sk_live_..."` in your terminal. Your [workspace wallet](/agents-api/billing) funds compute.
+
+## Create and run
+
+The curl example uses `jq`; Python uses `requests`; Node uses built-in `fetch`. Run these calls from your backend or terminal.
+
+<CodeGroup>
+```bash curl
+# Create an instance using the default template.
+INSTANCE=$(curl --fail-with-body -sS -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer $AGENT37_API_KEY")
+export INSTANCE_ID=$(printf '%s' "$INSTANCE" | jq -er '.id')
+
+# Run a command on that instance.
+curl --fail-with-body -sS "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "uname -s"}'
+```
+
+```python Python
+import os
+import requests
+
+headers = {"Authorization": f"Bearer {os.environ['AGENT37_API_KEY']}"}
+base = "https://api.agent37.com/v1/instances"
+
+response = requests.post(base, headers=headers)
+response.raise_for_status()
+instance = response.json()
+print("Instance:", instance["id"])
+
+response = requests.post(
+    f"{base}/{instance['id']}/exec",
+    headers=headers,
+    json={"command": "uname -s"},
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node
+const headers = { Authorization: `Bearer ${process.env.AGENT37_API_KEY}` };
+const base = "https://api.agent37.com/v1/instances";
+
+const created = await fetch(base, { method: "POST", headers });
+if (!created.ok) throw new Error(await created.text());
+const instance = await created.json();
+console.log("Instance:", instance.id);
+
+const response = await fetch(`${base}/${instance.id}/exec`, {
+  method: "POST",
+  headers: { ...headers, "Content-Type": "application/json" },
+  body: JSON.stringify({ command: "uname -s" }),
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+```
+</CodeGroup>
+
+```json Result
+{
+  "exit_code": 0,
+  "stdout": "Linux\n",
+  "stderr": "",
+  "truncated": false
+}
+```
+
+The instance keeps its files between commands. `exec` runs as the image's default user; read `exit_code` to tell whether your command succeeded. See [Run commands](/agents-api/exec) for root access, timeouts, and background processes.
+
+The default template is `agent37-hermes`, which includes Linux tools and the Hermes agent. This quickstart uses its shell. Choose another [template](/agents-api/templates) or [bring your own Docker image](/agents-api/custom-image) for your workload; an Agent API is a capability of the image you choose.
+
+## Reach a service on any port
+
+A service listening on port `8000` is reachable at `https://{instanceId}-8000.agent37.app`. No port registration is needed. Start this example server on the instance you just created, then request its preview URL:
+
+```bash
+# Python and Node users: set INSTANCE_ID to the id printed above.
+curl --fail-with-body -sS "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "mkdir -p /tmp/hello && echo Hello > /tmp/hello/index.html && nohup python3 -m http.server 8000 --bind 0.0.0.0 --directory /tmp/hello > /tmp/hello-server.log 2>&1 &"}'
+
+curl --fail-with-body -sS "https://$INSTANCE_ID-8000.agent37.app" \
+  -H "X-Agent37-Key: $AGENT37_API_KEY"
+# Hello
+```
+
+If the server is still starting, retry the preview request. To open the service in a browser, create a [signed URL](/agents-api/urls#browser-access-with-signed-urls). Use a [public port](/agents-api/public-ports) when a caller cannot send credentials.
+
+<Note>
+  The Hosting API uses `Authorization: Bearer`. Instance and preview URLs use `X-Agent37-Key`, leaving `Authorization` available to the software you run. Keep your workspace key on your backend.
+</Note>
+
+## Clean up
+
+Delete the instance when you are done. This removes its data and ends billing. To keep its files, [stop it](/agents-api/instances/stop) instead; stopped instances still bill for disk.
+
+```bash
+curl --fail-with-body -sS -X DELETE "https://api.agent37.com/v1/instances/$INSTANCE_ID" \
+  -H "Authorization: Bearer $AGENT37_API_KEY"
+```
+
+## Build on your sandbox
+
+<CardGroup cols={2}>
+  <Card title="Bring your own image" icon="package" href="/agents-api/custom-image">
+    Run your own tools, services, or agent harness.
+  </Card>
+  <Card title="Instance lifecycle" icon="server" href="/agents-api/instance-lifecycle">
+    Stop, restart, resize, and update while keeping your data.
+  </Card>
+  <Card title="Use an agent template" icon="message" href="/agents-api/agent-quickstart">
+    Create a Hermes instance and send its first message.
+  </Card>
+  <Card title="Examples" icon="code" href="/agents-api/examples">
+    Host harnesses, build apps, and connect external agents.
+  </Card>
+</CardGroup>
+
+For coding agents, start with the [documentation index](https://www.agent37.com/docs/llms.txt) to retrieve individual pages, or use the [complete reference](https://www.agent37.com/docs/llms-full.txt).

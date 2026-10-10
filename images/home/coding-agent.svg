@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="480" viewBox="0 0 720 480" fill="none">
+  <title>A coding agent and its persistent working files</title>
+  <rect width="720" height="480" fill="#E8EDE7"/>
+  <path d="M0 80H720M0 160H720M0 240H720M0 320H720M0 400H720M80 0V480M160 0V480M240 0V480M320 0V480M400 0V480M480 0V480M560 0V480M640 0V480" stroke="#D7DED5"/>
+  <rect x="65" y="95" width="490" height="302" rx="14" fill="#CAD2C8"/>
+  <rect x="53" y="77" width="490" height="302" rx="14" fill="#252A27"/>
+  <path d="M53 123H543" stroke="#444B45"/>
+  <circle cx="78" cy="101" r="5" fill="#D57B5E"/>
+  <circle cx="96" cy="101" r="5" fill="#8E9E89"/>
+  <circle cx="114" cy="101" r="5" fill="#C9C8B9"/>
+  <text x="155" y="108" fill="#D1D9CF" font-family="monospace" font-size="17">~/workspace</text>
+  <path d="M85 165L98 176L85 187M111 188H129" stroke="#EBA081" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="149" y="183" fill="#F2F1E9" font-family="monospace" font-size="23">claude</text>
+  <text x="85" y="229" fill="#B5C4AE" font-family="monospace" font-size="18">Your tools. Your files.</text>
+  <path d="M85 262H284M85 284H339M85 306H220" stroke="#536053" stroke-width="8" stroke-linecap="round"/>
+  <rect x="380" y="248" width="278" height="166" rx="12" fill="#BCC6B8"/>
+  <rect x="369" y="235" width="278" height="166" rx="12" fill="#FAFAF5" stroke="#B8C4B3"/>
+  <path d="M393 260H410L417 267H441V292H393V260Z" fill="#D77C5E"/>
+  <text x="459" y="286" fill="#374133" font-family="sans-serif" font-size="20" font-weight="600">workspace</text>
+  <path d="M406 310V362H426M406 328H426" stroke="#A2B19C" stroke-width="2"/>
+  <text x="437" y="334" fill="#596652" font-family="monospace" font-size="18">src/</text>
+  <text x="437" y="368" fill="#596652" font-family="monospace" font-size="18">README.md</text>
+</svg>

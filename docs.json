@@ -20,6 +20,7 @@
             "group": "Get started",
             "pages": [
               "index",
+              "quickstart",
               "agents-api/concepts"
             ]
           },
@@ -217,7 +218,7 @@
   "redirects": [
     {
       "source": "/agents-api/quickstart",
-      "destination": "/"
+      "destination": "/quickstart"
     },
     {
       "source": "/agents-api/messages",

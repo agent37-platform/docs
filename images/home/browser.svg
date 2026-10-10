@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="480" viewBox="0 0 720 480" fill="none">
+  <title>An agent uses a browser with a desktop you can watch and control</title>
+  <rect width="720" height="480" fill="#F3E8DF"/>
+  <path d="M0 80H720M0 160H720M0 240H720M0 320H720M0 400H720M80 0V480M160 0V480M240 0V480M320 0V480M400 0V480M480 0V480M560 0V480M640 0V480" stroke="#E6D8CC"/>
+  <rect x="94" y="86" width="548" height="316" rx="14" fill="#DECCBE"/>
+  <rect x="80" y="70" width="548" height="316" rx="14" fill="#FDFAF5" stroke="#D1BDAF"/>
+  <path d="M80 116H628" stroke="#E7D9CD"/>
+  <circle cx="104" cy="93" r="5" fill="#C8876C"/>
+  <circle cx="122" cy="93" r="5" fill="#D4B69F"/>
+  <circle cx="140" cy="93" r="5" fill="#A7B097"/>
+  <rect x="172" y="82" width="324" height="23" rx="5" fill="#EEE7DF"/>
+  <text x="188" y="98" fill="#7C6B5E" font-family="monospace" font-size="14">Browser inside your sandbox</text>
+  <rect x="107" y="143" width="150" height="217" rx="6" fill="#F0E7DD"/>
+  <path d="M126 168H223M126 193H201M126 218H215" stroke="#CCBAA8" stroke-width="7" stroke-linecap="round"/>
+  <rect x="281" y="145" width="181" height="12" rx="6" fill="#584B40"/>
+  <path d="M281 177H590" stroke="#D6C6B8" stroke-width="6" stroke-linecap="round"/>
+  <rect x="281" y="205" width="311" height="49" rx="6" fill="#FFFFFF" stroke="#D7C4B5"/>
+  <text x="299" y="235" fill="#917764" font-family="sans-serif" font-size="19">Search or enter a task</text>
+  <rect x="281" y="276" width="136" height="51" rx="7" fill="#BD6D50"/>
+  <text x="309" y="308" fill="#FFF8F1" font-family="sans-serif" font-size="20" font-weight="600">Continue</text>
+  <path d="M388 306L431 331L411 337L403 356L388 306Z" fill="#353C33" stroke="#FDFAF5" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="428" y="334" width="234" height="77" rx="10" fill="#F8FAF4" stroke="#AFBBA0"/>
+  <circle cx="453" cy="360" r="5" fill="#657D50"/>
+  <text x="469" y="366" fill="#43543A" font-family="sans-serif" font-size="18" font-weight="600">Your agent at work</text>
+  <text x="449" y="393" fill="#66785C" font-family="sans-serif" font-size="16">Watch live. Take over.</text>
+</svg>
