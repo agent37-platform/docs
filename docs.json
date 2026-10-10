@@ -69,15 +69,10 @@
                   "agents-api/chat-app",
                   "agents-api/site-builder",
                   "agents-api/white-label",
-                  {
-                    "group": "Build your own",
-                    "pages": [
-                      "agents-api/dots",
-                      "agents-api/instinct",
-                      "agents-api/grok-bot",
-                      "agents-api/muse"
-                    ]
-                  }
+                  "agents-api/dots",
+                  "agents-api/instinct",
+                  "agents-api/grok-bot",
+                  "agents-api/muse"
                 ]
               },
               {
