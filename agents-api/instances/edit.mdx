@@ -7,48 +7,82 @@ authMethod: "bearer"
 ---
 
 <RequestExample>
-```bash curl
-curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef \
+```bash curl wrap
+curl -X PATCH \
+  https://api.agent37.com/v1/instances/ab12cd34ef \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{"name": "Production agent", "user": "u_882", "metadata": {"plan": "pro"}}'
+  -d '{
+    "name": "Production agent",
+    "user": "u_882",
+    "metadata": {
+      "plan": "pro"
+    },
+    "auto_sleep": true,
+    "idle_timeout_seconds": 900
+  }'
 ```
 
-```python Python
+```python Python wrap
 import requests
 
 response = requests.patch(
     "https://api.agent37.com/v1/instances/ab12cd34ef",
-    headers={"Authorization": "Bearer sk_live_..."},
-    json={'name': 'Production agent', 'user': 'u_882', 'metadata': {'plan': 'pro'}},
+    headers={
+        "Authorization": "Bearer sk_live_...",
+    },
+    json={
+        "name": "Production agent",
+        "user": "u_882",
+        "metadata": {
+            "plan": "pro",
+        },
+        "auto_sleep": True,
+        "idle_timeout_seconds": 900,
+    },
 )
 response.raise_for_status()
 print(response.json())
 ```
 
-```javascript Node
-const response = await fetch("https://api.agent37.com/v1/instances/ab12cd34ef", {
-  method: "PATCH",
-  headers: {
-    Authorization: "Bearer sk_live_...",
-    "Content-Type": "application/json",
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef",
+  {
+    method: "PATCH",
+    headers: {
+      Authorization: "Bearer sk_live_...",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: "Production agent",
+      user: "u_882",
+      metadata: {
+        plan: "pro",
+      },
+      auto_sleep: true,
+      idle_timeout_seconds: 900,
+    }),
   },
-  body: JSON.stringify({"name": "Production agent", "user": "u_882", "metadata": {"plan": "pro"}}),
-});
-if (!response.ok) throw new Error(await response.text());
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
 console.log(await response.json());
 ```
 </RequestExample>
 
 <ResponseExample>
-```json 200 (excerpt)
+```json 200 (excerpt) wrap
 {
   "id": "ab12cd34ef",
   "name": "Production agent",
   "user": "u_882",
   "metadata": {
     "plan": "pro"
-  }
+  },
+  "auto_sleep": true,
+  "idle_timeout_seconds": 900
 }
 ```
 </ResponseExample>
@@ -62,6 +96,8 @@ Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.co
 </ParamField>
 
 ## Request body
+
+The examples include every editable field. Send only the fields you want to change.
 
 <ParamField body="name" type="string | null">
   A label for the instance, up to 60 characters. `null` or `""` clears it.
