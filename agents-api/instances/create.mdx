@@ -7,36 +7,136 @@ authMethod: "bearer"
 ---
 
 <RequestExample>
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances \
-  -H "Authorization: Bearer sk_live_..."
+```bash curl wrap
+curl -X POST \
+  https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "agent37-hermes",
+    "resources": {
+      "cpu": 2,
+      "memory": 4,
+      "disk": 4
+    },
+    "type": "default",
+    "user": "u_882",
+    "name": "Production agent",
+    "metadata": {
+      "plan": "pro"
+    },
+    "env": {
+      "APP_ENV": "production",
+      "LOG_LEVEL": "info"
+    },
+    "budget": {
+      "monthly_cap_micros": 5000000,
+      "credit_micros": 1000000
+    },
+    "auto_sleep": true,
+    "idle_timeout_seconds": 900,
+    "public_ports": [
+      {
+        "port": 8080,
+        "prefix": "app"
+      }
+    ]
+  }'
 ```
 
-```python Python
+```python Python wrap
 import requests
 
 response = requests.post(
     "https://api.agent37.com/v1/instances",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={
+        "Authorization": "Bearer sk_live_...",
+    },
+    json={
+        "template": "agent37-hermes",
+        "resources": {
+            "cpu": 2,
+            "memory": 4,
+            "disk": 4,
+        },
+        "type": "default",
+        "user": "u_882",
+        "name": "Production agent",
+        "metadata": {
+            "plan": "pro",
+        },
+        "env": {
+            "APP_ENV": "production",
+            "LOG_LEVEL": "info",
+        },
+        "budget": {
+            "monthly_cap_micros": 5000000,
+            "credit_micros": 1000000,
+        },
+        "auto_sleep": True,
+        "idle_timeout_seconds": 900,
+        "public_ports": [
+            {
+                "port": 8080,
+                "prefix": "app",
+            },
+        ],
+    },
 )
 response.raise_for_status()
 print(response.json())
 ```
 
-```javascript Node
-const response = await fetch("https://api.agent37.com/v1/instances", {
-  method: "POST",
-  headers: {
-    Authorization: "Bearer sk_live_...",
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/instances",
+  {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer sk_live_...",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      template: "agent37-hermes",
+      resources: {
+        cpu: 2,
+        memory: 4,
+        disk: 4,
+      },
+      type: "default",
+      user: "u_882",
+      name: "Production agent",
+      metadata: {
+        plan: "pro",
+      },
+      env: {
+        APP_ENV: "production",
+        LOG_LEVEL: "info",
+      },
+      budget: {
+        monthly_cap_micros: 5000000,
+        credit_micros: 1000000,
+      },
+      auto_sleep: true,
+      idle_timeout_seconds: 900,
+      public_ports: [
+        {
+          port: 8080,
+          prefix: "app",
+        },
+      ],
+    }),
   },
-});
-if (!response.ok) throw new Error(await response.text());
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
 console.log(await response.json());
 ```
 </RequestExample>
 
 <ResponseExample>
-```json 201 (excerpt)
+```json 201 (excerpt) wrap
 {
   "id": "ab12cd34ef",
   "status": "running",
@@ -48,6 +148,8 @@ console.log(await response.json());
 Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.com`.
 
 ## Request body
+
+The examples include every optional field. Omit any field to use its default.
 
 <ParamField body="template" type="string" default="agent37-hermes">
   A system or workspace [template name](/agents-api/templates). Defaults to `agent37-hermes`. Add `@<version>` to pin a published release. See [Template selection](#template-selection) for harness requirements and version rules.

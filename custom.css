@@ -1,3 +1,16 @@
+/* API example panels ignore code-fence wrap metadata in both layouts. */
+:is(#content-side-layout, #api-playground-2-operation-page) [data-component-part="code-group-tab-content"],
+:is(#content-side-layout, #api-playground-2-operation-page) pre,
+:is(#content-side-layout, #api-playground-2-operation-page) pre code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+:is(#content-side-layout, #api-playground-2-operation-page) pre code {
+  width: 100%;
+  min-width: 0;
+}
+
 /* The visual overview uses the available space; reference pages keep their layout. */
 #content-container:has(.docs-home) {
   max-width: 90rem;
