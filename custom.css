@@ -34,3 +34,27 @@
 .docs-home-previous {
   font-size: 0.875rem;
 }
+
+/* Keep cards readable when the sidebar leaves less room on smaller laptops. */
+@container columns-container (min-width: 30rem) and (max-width: 49.99rem) {
+  /* Layered important rules override Mintlify's important grid utilities. */
+  @layer base {
+    .docs-home .columns {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .docs-home .columns:has([data-component-part="card-image"]) {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+  }
+
+  .docs-home .card:has([data-component-part="card-image"]) {
+    flex-direction: row;
+  }
+
+  .docs-home [data-component-part="card-image"] {
+    width: 42%;
+    flex-shrink: 0;
+  }
+}
