@@ -2,7 +2,7 @@
 
 October 9, 2026. Original audit and implementation plan, updated with the sandbox-first direction below. The evidence table describes the docs before this change.
 
-**The main problem is content order and navigation.** Put a successful request first, then explain the options. Humans and coding agents both benefit from small, complete pages organized around a specific task or operation.
+**The main problems are content order, navigation, and a plain entry page.** Give people a visual overview to choose a path. On task and API pages, put a successful request first, then explain the options. Humans and coding agents both benefit from small, complete pages organized around a specific task or operation.
 
 ## What feels wrong today
 
@@ -12,7 +12,7 @@ October 9, 2026. Original audit and implementation plan, updated with the sandbo
 | The same 618-line page covers 14 API operations. | Individual operations are hard to find, link to, and retrieve. |
 | [Send a message](../agents-api/chat.mdx) puts request and response schemas before its first request example. | Readers must understand the whole contract before trying it. |
 | [Navigation](../docs.json) places 26 build-guide pages before the APIs. | Common API tasks are buried below a long sidebar. |
-| [Quickstart](../index.mdx) jumps from creation to chat; Instances separately says to wait for agent health. | The first-run path needs its readiness guidance reconciled. |
+| [Quickstart](../quickstart.mdx) jumps from creation to chat; Instances separately says to wait for agent health. | The first-run path needs its readiness guidance reconciled. |
 | The live [full Markdown export](https://www.agent37.com/docs/llms-full.txt) is about 640,000 characters. | Agents benefit from an index and focused page retrieval instead of always loading everything. |
 
 ## Changes, in order
@@ -29,9 +29,11 @@ October 9, 2026. Original audit and implementation plan, updated with the sandbo
 
 6. **Keep one accurate source for humans and agents.** Preserve complete types, defaults, nullability, units, limits, error semantics, and harness-specific exceptions. Every endpoint must identify its host and authentication: Hosting uses `Authorization: Bearer`; Agent uses `X-Agent37-Key`. Check that page Markdown and `llms-full.txt` retain all essential content after layout changes. Keep `llms.txt` useful for targeted retrieval and preserve `llms-full.txt` for existing clients.
 
+7. **Make the homepage visual.** Use Browserbase's illustrated entry cards, capability grid, and visual use-case gallery as the structural reference. Create original Agent37 artwork for sandboxes, templates, and APIs, followed by workflow illustrations for coding agents, live previews, and browser automation. Move the existing walkthrough intact to `/quickstart`, keep it one click away, update the legacy quickstart redirect, and keep the visual overview readable as Markdown. Check light and dark themes, mobile, keyboard navigation, and image loading. The homepage should help people choose what to build without making chat the default.
+
 ## Benchmarks and completion checks
 
-Use [E2B](https://docs.e2b.dev/) for its early runnable example and [Browserbase](https://docs.browserbase.com/welcome/introduction) for task-based entry points. Keep Agent37's persistent-instance model and terminology.
+Use [E2B](https://docs.e2b.dev/) for its early runnable example and [Browserbase](https://docs.browserbase.com/welcome/introduction) for illustrated entry cards and visual use-case sections. Keep Agent37's persistent-instance model and terminology.
 
 Review the two-page pilot before expanding it. A new developer should find and copy a request without scrolling through schemas. A fresh coding agent using only public Markdown should create an instance, run a command, and reach its service with the correct headers. The optional agent path should wait for readiness before sending a message. Validate examples in a test workspace against the deployed API, check old links and fragments, run Mintlify validation and broken-link checks, and compare exported contracts for lost fields or constraints.
 

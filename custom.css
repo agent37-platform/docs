@@ -1,0 +1,36 @@
+/* The visual overview uses the available space; reference pages keep their layout. */
+#content-container:has(.docs-home) {
+  max-width: 90rem;
+}
+
+#content-area:has(.docs-home) #page-title {
+  font-size: clamp(1.875rem, 3vw, 2.5rem);
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+
+.docs-home [data-component-part="card-image"] {
+  aspect-ratio: 3 / 2;
+}
+
+.docs-home .card:has([data-component-part="card-cta"]),
+.docs-home .card:has([data-component-part="card-cta"]) [data-component-part="card-content-container"],
+.docs-home .card:has([data-component-part="card-cta"]) [data-component-part="card-content-container"] > a > .w-full {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.docs-home [data-component-part="card-cta"] {
+  margin-top: auto;
+  padding-top: 1.5rem;
+}
+
+.docs-home .card:focus-visible {
+  outline: 2px solid #ba664b;
+  outline-offset: 4px;
+}
+
+.docs-home-previous {
+  font-size: 0.875rem;
+}

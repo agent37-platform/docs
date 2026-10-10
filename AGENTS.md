@@ -19,7 +19,7 @@ Two API planes, one `sk_live_` key, and the reference nav mirrors that split:
 
 Navigation has two tabs, **Guides** and **API reference**:
 
-- **Guides** starts with `index` and `concepts`, then sandbox management, images, agent templates, and application examples. The quickstart creates an instance, runs a command, and reaches a service. Chat is an optional capability of agent templates, introduced in `agent-quickstart`; do not make it a prerequisite for using a sandbox.
+- **Guides** starts with the illustrated overview (`index`), `quickstart`, and `concepts`, then sandbox management, images, agent templates, and application examples. The homepage uses native image cards and workflow illustrations to help readers choose a starting point. The quickstart creates an instance, runs a command, and reaches a service. Chat is an optional capability of agent templates, introduced in `agent-quickstart`; do not make it a prerequisite for using a sandbox.
 - **Build with Agent37** is task-shaped: what you can build, usually pointing at a forkable repo. `examples` indexes those guides, so a new use-case guide needs a row there. Keep mechanics in the reference pages they link to.
 - **API reference** separates Hosting API, Agent API, and Shared reference (`billing`, `errors`, and the desktop protocol). Instance operations live in `agents-api/instances/`, one endpoint per page; `instances.mdx` retains the overview and old section anchors. Extended lifecycle, sizing, environment, auto-sleep, and backup explanations live in the `instance-*.mdx` guides.
 

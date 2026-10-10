@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="480" viewBox="0 0 720 480" fill="none">
+  <title>A service in a sandbox opens as a website preview</title>
+  <rect width="720" height="480" fill="#E7EDF1"/>
+  <path d="M0 80H720M0 160H720M0 240H720M0 320H720M0 400H720M80 0V480M160 0V480M240 0V480M320 0V480M400 0V480M480 0V480M560 0V480M640 0V480" stroke="#D6E0E7"/>
+  <rect x="64" y="109" width="290" height="260" rx="12" fill="#C3D1DC"/>
+  <rect x="53" y="97" width="290" height="260" rx="12" fill="#26333D"/>
+  <path d="M53 143H343" stroke="#485965"/>
+  <circle cx="79" cy="120" r="5" fill="#D88568"/>
+  <circle cx="97" cy="120" r="5" fill="#A6B6C2"/>
+  <circle cx="115" cy="120" r="5" fill="#748D9E"/>
+  <text x="81" y="186" fill="#CEDAE3" font-family="monospace" font-size="19">~/site</text>
+  <path d="M81 215H220M81 237H278M81 259H187" stroke="#657D8D" stroke-width="8" stroke-linecap="round"/>
+  <rect x="79" y="291" width="160" height="34" rx="6" fill="#3B514F"/>
+  <circle cx="97" cy="308" r="4" fill="#A8C9AC"/>
+  <text x="111" y="314" fill="#D5E6D6" font-family="monospace" font-size="17">port 8788</text>
+  <path d="M270 283H320V402H440" stroke="#C16B50" stroke-width="3"/>
+  <path d="M431 394L440 402L431 410" stroke="#C16B50" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="336" y="81" width="326" height="278" rx="12" fill="#C3D1DC"/>
+  <rect x="324" y="67" width="326" height="278" rx="12" fill="#FCFCF8" stroke="#B7C6D1"/>
+  <path d="M324 112H650" stroke="#DCE3E7"/>
+  <circle cx="346" cy="89" r="4" fill="#B5C3CE"/>
+  <rect x="363" y="78" width="264" height="23" rx="5" fill="#EBF0F3"/>
+  <text x="376" y="95" fill="#566975" font-family="monospace" font-size="13">https://...agent37.app</text>
+  <rect x="346" y="133" width="282" height="108" rx="6" fill="#E7B79F"/>
+  <circle cx="548" cy="173" r="24" fill="#F7DFC8"/>
+  <path d="M346 228L424 162L508 241H346V228Z" fill="#A85F47"/>
+  <path d="M452 241L549 180L628 235V241H452Z" fill="#C98060"/>
+  <rect x="346" y="259" width="159" height="10" rx="5" fill="#394B56"/>
+  <path d="M346 286H612M346 303H549" stroke="#D5DEE4" stroke-width="6" stroke-linecap="round"/>
+  <text x="455" y="409" fill="#80503E" font-family="sans-serif" font-size="20" font-weight="600">Open your preview</text>
+</svg>
