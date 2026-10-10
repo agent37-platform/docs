@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="480" viewBox="0 0 720 480" fill="none">
+  <title>Give a coding agent the documentation index</title>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1.5" fill="#DDC7BF"/></pattern>
+  </defs>
+  <rect width="720" height="480" fill="#F1E1DB"/>
+  <rect width="720" height="480" fill="url(#grid)"/>
+  <path d="M85 62H311L374 125V341H85V62Z" fill="#DCBEB1"/>
+  <path d="M71 48H297L360 111V327H71V48Z" fill="#FFF9F2" stroke="#CFB8AC" stroke-width="2"/>
+  <path d="M297 49V111H359" fill="#EBD6C8"/>
+  <path d="M297 49V111H359" stroke="#CFB8AC" stroke-width="2" stroke-linejoin="round"/>
+  <text x="95" y="157" fill="#624333" font-family="monospace" font-size="40" font-weight="600">llms.txt</text>
+  <path d="M99 193H304M99 218H273M99 243H288" stroke="#C7AE9D" stroke-width="7" stroke-linecap="round"/>
+  <path d="M391 140H569V200" stroke="#B77559" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M557 189L569 201L581 189" stroke="#B77559" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="253" y="233" width="418" height="205" rx="14" fill="#DCBEB1"/>
+  <rect x="240" y="220" width="418" height="205" rx="14" fill="#352E2B"/>
+  <path d="M240 275H658" stroke="#605049" stroke-width="2"/>
+  <circle cx="269" cy="247" r="6" fill="#DB9575"/>
+  <text x="291" y="256" fill="#E1CDBD" font-family="sans-serif" font-size="26">Your coding agent</text>
+  <text x="270" y="327" fill="#F7F0E7" font-family="monospace" font-size="32">Read the docs.</text>
+  <text x="270" y="374" fill="#D9B69C" font-family="monospace" font-size="32">Build with them.</text>
+</svg>

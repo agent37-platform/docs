@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="480" viewBox="0 0 720 480" fill="none">
+  <title>Run your first command in a sandbox terminal</title>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1.5" fill="#C9D4C7"/></pattern>
+  </defs>
+  <rect width="720" height="480" fill="#E5EDE2"/>
+  <rect width="720" height="480" fill="url(#grid)"/>
+  <rect x="77" y="83" width="578" height="328" rx="16" fill="#BFCCBA"/>
+  <rect x="61" y="67" width="578" height="328" rx="16" fill="#232C27"/>
+  <path d="M61 128H639" stroke="#465248" stroke-width="2"/>
+  <circle cx="90" cy="98" r="6" fill="#E68E6C"/>
+  <circle cx="111" cy="98" r="6" fill="#D4C99F"/>
+  <circle cx="132" cy="98" r="6" fill="#94B68B"/>
+  <text x="170" y="106" fill="#C4D0C1" font-family="monospace" font-size="24">sandbox / terminal</text>
+  <path d="M96 182L114 197L96 212" stroke="#EBA180" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="139" y="210" fill="#F5F4EC" font-family="monospace" font-size="41">uname -s</text>
+  <text x="96" y="274" fill="#ADCDA3" font-family="monospace" font-size="41">Linux</text>
+  <path d="M96 323L114 338L96 353" stroke="#EBA180" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="139" y="321" width="19" height="34" rx="2" fill="#DAE4D6"/>
+  <rect x="442" y="340" width="224" height="76" rx="12" fill="#F8FBF3" stroke="#B2C3A9" stroke-width="2"/>
+  <circle cx="479" cy="378" r="9" fill="#648557"/>
+  <text x="501" y="389" fill="#30462B" font-family="sans-serif" font-size="31" font-weight="600">Running</text>
+</svg>

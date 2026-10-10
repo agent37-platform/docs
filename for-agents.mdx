@@ -1,0 +1,30 @@
+---
+title: "For coding agents"
+description: "Give your coding agent the documentation and a starting task."
+---
+
+Use these docs with the coding agent you already work with. Start with the [documentation index](https://www.agent37.com/docs/llms.txt), then let your agent fetch the pages it needs.
+
+## Give your agent a starting task
+
+Copy this prompt into your coding agent:
+
+```text
+Read https://www.agent37.com/docs/llms.txt and the quickstart linked there.
+Use the relevant API reference pages to build a script that creates an
+Agent37 sandbox, runs a shell command, and reaches a service over HTTPS.
+Read the API key from a server-side environment variable.
+Include a cleanup command to delete the instance when I am finished.
+```
+
+Replace the task with what you want to build, such as hosting a harness or running your own Docker image.
+
+## Choose the documentation format
+
+| Resource | Use it for |
+| --- | --- |
+| [Documentation index](https://www.agent37.com/docs/llms.txt) | Find the relevant pages without loading the entire reference. |
+| [Complete documentation](https://www.agent37.com/docs/llms-full.txt) | Read the guides and reference in one text file when your agent has room for the full context. |
+| **Copy page** on any docs page | Give your agent the specific page you are reading. |
+
+For endpoint examples, start with the [REST API reference](/agents-api/overview). For the sandbox walkthrough, use the [Quickstart](/quickstart).

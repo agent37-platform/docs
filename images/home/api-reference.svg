@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="480" viewBox="0 0 720 480" fill="none">
+  <title>An instance creation request and its response</title>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1.5" fill="#C6D3DE"/></pattern>
+  </defs>
+  <rect width="720" height="480" fill="#E3EBF3"/>
+  <rect width="720" height="480" fill="url(#grid)"/>
+  <rect x="58" y="69" width="591" height="174" rx="14" fill="#BFCEDB"/>
+  <rect x="45" y="56" width="591" height="174" rx="14" fill="#263642"/>
+  <rect x="71" y="82" width="116" height="46" rx="7" fill="#D69B75"/>
+  <text x="87" y="115" fill="#302D28" font-family="monospace" font-size="30" font-weight="700">POST</text>
+  <text x="72" y="189" fill="#F5F6F2" font-family="monospace" font-size="42">/v1/instances</text>
+  <path d="M90 252V310H124" stroke="#738FA2" stroke-width="4" stroke-linecap="round"/>
+  <path d="M113 298L125 310L113 322" stroke="#738FA2" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="155" y="260" width="524" height="176" rx="14" fill="#BFCEDB"/>
+  <rect x="142" y="247" width="524" height="176" rx="14" fill="#F8FAFA" stroke="#BBCDD6" stroke-width="2"/>
+  <circle cx="177" cy="282" r="8" fill="#708D64"/>
+  <text x="198" y="292" fill="#4C6440" font-family="monospace" font-size="30">201 Created</text>
+  <path d="M142 314H666" stroke="#D8E2E7" stroke-width="2"/>
+  <text x="169" y="354" fill="#607A8C" font-family="monospace" font-size="28">"status":</text>
+  <text x="169" y="393" fill="#253E4E" font-family="monospace" font-size="36">"running"</text>
+</svg>

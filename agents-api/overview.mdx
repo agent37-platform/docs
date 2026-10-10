@@ -1,0 +1,39 @@
+---
+title: "REST API reference"
+sidebarTitle: "Overview"
+description: "Find endpoints, request examples, response fields, and authentication details."
+---
+
+Use the **Hosting API** to manage sandboxes. Agent templates also provide an **Agent API** for conversations and tools inside an instance.
+
+Start with [Create an instance](/agents-api/instances/create) for a request you can copy, or follow the [Quickstart](/quickstart) to create a sandbox, run a command, and reach a service.
+
+## Hosting API
+
+Manage instances, choose templates, run commands, and route services through HTTPS.
+
+| Resource | Reference |
+| --- | --- |
+| Instances | [Create, list, inspect, and delete](/agents-api/instances), [instance object](/agents-api/instances/object) |
+| Lifecycle | [Stop](/agents-api/instances/stop), [start](/agents-api/instances/start), [restart](/agents-api/instances/restart), [update](/agents-api/instances/update), [resize](/agents-api/instances/resize), [fork](/agents-api/instances/fork) |
+| Backups | [List](/agents-api/instances/list-backups), [create](/agents-api/instances/create-backup), [restore](/agents-api/instances/restore) |
+| Templates | [System catalog and your own images](/agents-api/templates) |
+| Networking | [Instance and preview URLs](/agents-api/urls), [public ports](/agents-api/public-ports), [custom domains](/agents-api/domains) |
+| Execution | [Run commands](/agents-api/exec), [scheduled runs](/agents-api/crons), [SSH](/agents-api/ssh) |
+| Operations | [Logs](/agents-api/logs), [metrics](/agents-api/metrics), [budgets](/agents-api/budgets), [integrations](/agents-api/integrations) |
+
+## Agent API
+
+These endpoints are provided by the gateway in agent templates. A custom image or web app does not need to provide a chat API.
+
+| Resource | Reference |
+| --- | --- |
+| Conversations | [Send a message](/agents-api/chat), [streaming](/agents-api/streaming), [sessions](/agents-api/sessions) |
+| Agent environment | [Models](/agents-api/models), [files](/agents-api/files), [health and version](/agents-api/health) |
+| Browser and desktop | [Hermes desktop protocol](/agents-api/hermes-desktop) |
+
+## Authentication and shared reference
+
+See [Core concepts](/agents-api/concepts#two-planes-one-key) for the base URLs and authentication headers for each API. For costs and failures, use [Billing](/agents-api/billing) and [Errors](/agents-api/errors).
+
+Building with a coding agent? [Give it the documentation](/for-agents).
