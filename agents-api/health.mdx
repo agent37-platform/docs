@@ -10,12 +10,51 @@ Both endpoints live on the instance URL, not the hosting API: the base is `https
 `GET /v1/health` returns `{ "ok": true, "agent": "hermes", "healthy": true, "hermes": true }`. `ok` is true whenever the gateway is up; `agent` is the harness that was probed, and `healthy` reports whether that harness behind it is reachable. By default it probes the instance's configured harness; pass `?agent=`, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, `opencode`, or `pi`, to probe a specific one (an unknown value is `400 validation_error`, and an empty value is the same as omitting it). An unreachable or unprovisioned harness reports as `healthy: false` with a `200`; so does `claude-code` until a [Claude account is connected](/agents-api/claude-code#connect-your-claude-account), `codex` until an [OpenAI account is connected](/agents-api/codex#connect-your-openai-account), and `grok` until an [xAI key is set](/agents-api/grok). When Hermes is probed, the body also carries a `hermes` field mirroring `healthy`, kept for backward compatibility; other harnesses omit it. Use it as a readiness probe after [create or start](/agents-api/instances): the create call returns as soon as the instance's computer is up, while the agent inside is still booting, and a start that boots the instance fresh (a stopped instance, or a [wake](/agents-api/instance-auto-sleep) that has to rebuild it because the checkpoint could not be restored or the instance was moved to another host or to cold storage) returns `running` the same way, before the agent is ready. Poll until `healthy` is `true` before sending work; `ok` alone only tells you the gateway is answering.
 
 <CodeGroup>
-```bash curl
-curl https://ab12cd34ef.agent37.app/v1/health \
+```bash curl wrap
+curl -X GET \
+  https://ab12cd34ef.agent37.app/v1/health \
+  --url-query "agent=hermes" \
   -H "X-Agent37-Key: sk_live_..."
 ```
 
-```json response
+```python Python wrap
+import requests
+
+response = requests.get(
+    "https://ab12cd34ef.agent37.app/v1/health",
+    headers={
+        "X-Agent37-Key": "sk_live_..."
+    },
+    params={
+        "agent": "hermes"
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const query = new URLSearchParams({
+  "agent": "hermes"
+});
+
+const response = await fetch(
+  "https://ab12cd34ef.agent37.app/v1/health" + "?" + query,
+  {
+    method: "GET",
+    headers: {
+      "X-Agent37-Key": "sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+
+
+```json response wrap
 { "ok": true, "agent": "hermes", "healthy": true, "hermes": true }
 ```
 </CodeGroup>
@@ -23,3 +62,40 @@ curl https://ab12cd34ef.agent37.app/v1/health \
 ## Version
 
 `GET /v1/version` returns the gateway build as `{ "name": "agent37-gateway", "version": "<semver>" }`, where `version` is the gateway release pinned in the instance's image.
+
+<CodeGroup>
+```bash curl wrap
+curl -X GET \
+  https://ab12cd34ef.agent37.app/v1/version \
+  -H "X-Agent37-Key: sk_live_..."
+```
+
+```python Python wrap
+import requests
+
+response = requests.get(
+    "https://ab12cd34ef.agent37.app/v1/version",
+    headers={
+        "X-Agent37-Key": "sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://ab12cd34ef.agent37.app/v1/version",
+  {
+    method: "GET",
+    headers: {
+      "X-Agent37-Key": "sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>

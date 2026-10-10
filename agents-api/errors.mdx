@@ -13,7 +13,7 @@ Every error uses a standard HTTP status code and returns a stable, machine-reada
 
 Errors from `https://api.agent37.com/v1/*` always carry `code` and `message`, plus `detail` on the one error that has raw output worth showing: a failed create's `provisioning_failed` includes the tail of your container's console log, so a container that crashed on boot returns its own startup error. There is no `param` or `hint` on this plane.
 
-```json
+```json wrap
 {
   "error": {
     "code": "insufficient_balance",
@@ -65,7 +65,7 @@ A [template build](/agents-api/templates#build-an-image-in-the-cloud) that fails
 
 Errors from the gateway at `https://{instanceId}.agent37.app/v1/*` use the same envelope plus optional `param`, `hint`, and `response_id`.
 
-```json
+```json wrap
 {
   "error": {
     "code": "validation_error",
@@ -144,7 +144,7 @@ Auth, instance lookup, and routing happen on the platform between you and the ga
 Read `code`, then act by remedy: busy sessions get a cancel or a new session, transient codes get a retry with backoff, validation errors get fixed (read `param`), and anything unknown is agent-side.
 
 <CodeGroup>
-```python python
+```python python wrap
 import requests
 
 r = requests.post(
@@ -175,7 +175,7 @@ if not r.ok or body.get("status") == "failed":
         ...  # unknown codes are agent-side failures: log code, show message
 ```
 
-```javascript node
+```javascript node wrap
 const res = await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
   method: "POST",
   headers: {

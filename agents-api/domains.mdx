@@ -12,35 +12,54 @@ Setup is three steps: register, set the nameservers at your registrar, verify.
 ## Register the domain
 
 <CodeGroup>
-
-```bash curl
-curl -X POST https://api.agent37.com/v1/domains \
+```bash curl wrap
+curl -X POST \
+  https://api.agent37.com/v1/domains \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "domain": "acme-agents.com" }'
+  -d '{
+    "domain": "acme-agents.com"
+  }'
 ```
 
-```python python
+```python Python wrap
 import requests
 
-r = requests.post(
+response = requests.post(
     "https://api.agent37.com/v1/domains",
-    headers={"Authorization": "Bearer sk_live_..."},
-    json={"domain": "acme-agents.com"},
+    headers={
+        "Authorization": "Bearer sk_live_...",
+        "Content-Type": "application/json"
+    },
+    json={
+        "domain": "acme-agents.com"
+    },
 )
-print(r.json()["dns"])
+response.raise_for_status()
+print(response.json())
 ```
 
-```javascript node
-const res = await fetch("https://api.agent37.com/v1/domains", {
-  method: "POST",
-  headers: { Authorization: "Bearer sk_live_...", "Content-Type": "application/json" },
-  body: JSON.stringify({ domain: "acme-agents.com" }),
-});
-console.log((await res.json()).dns);
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/domains",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer sk_live_...",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "domain": "acme-agents.com"
+    }),
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
 ```
 
-```json response
+```json response wrap
 {
   "domain": "acme-agents.com",
   "status": "pending",
@@ -80,12 +99,44 @@ At the registrar where the domain is registered, replace its nameservers with th
 
 Once the nameservers are set, verify:
 
-```bash curl
-curl -X POST https://api.agent37.com/v1/domains/acme-agents.com/verify \
+<CodeGroup>
+```bash curl wrap
+curl -X POST \
+  https://api.agent37.com/v1/domains/acme-agents.com/verify \
   -H "Authorization: Bearer sk_live_..."
 ```
 
-```json response
+```python Python wrap
+import requests
+
+response = requests.post(
+    "https://api.agent37.com/v1/domains/acme-agents.com/verify",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/domains/acme-agents.com/verify",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+```json response wrap
 { "domain": "acme-agents.com", "status": "active" }
 ```
 
@@ -97,12 +148,12 @@ TLS is one wildcard certificate covering every hostname under the domain, issued
 
 Hit the mirrored instance URL exactly as you would the `agent37.app` one:
 
-```bash curl
+```bash curl wrap
 curl https://ab12cd34ef.acme-agents.com/v1/health \
   -H "X-Agent37-Key: sk_live_..."
 ```
 
-```json response
+```json response wrap
 { "ok": true, "agent": "hermes", "healthy": true, "hermes": true }
 ```
 
@@ -112,7 +163,7 @@ Only labels your own workspace serves resolve under your domain. Any other label
 
 Once a domain is active, instance reads expose the mirrored URLs as `domain_urls`, on the instance, on each public-port entry, and on minted [signed URLs](/agents-api/urls#browser-access-with-signed-urls). Entries are ordered oldest domain first, and the dashboard's open and copy-link actions lead with that first domain:
 
-```json
+```json wrap
 {
   "id": "ab12cd34ef",
   "url": "https://ab12cd34ef.agent37.app",
@@ -133,12 +184,124 @@ Once a domain is active, instance reads expose the mirrored URLs as `domain_urls
 
 `GET /v1/domains` lists the workspace's domains as `{ "data": [...] }`, each entry in the full shape above (including the `dns` block, so you can always re-read the nameservers to set). `GET /v1/domains/{domain}` reads one.
 
-```bash curl
-curl -X DELETE https://api.agent37.com/v1/domains/acme-agents.com \
+### List domains
+
+<CodeGroup>
+```bash curl wrap
+curl -X GET \
+  https://api.agent37.com/v1/domains \
   -H "Authorization: Bearer sk_live_..."
 ```
 
-```json response
+```python Python wrap
+import requests
+
+response = requests.get(
+    "https://api.agent37.com/v1/domains",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/domains",
+  {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+### Read a domain
+
+<CodeGroup>
+```bash curl wrap
+curl -X GET \
+  https://api.agent37.com/v1/domains/acme-agents.com \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python Python wrap
+import requests
+
+response = requests.get(
+    "https://api.agent37.com/v1/domains/acme-agents.com",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/domains/acme-agents.com",
+  {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+### Delete a domain
+
+<CodeGroup>
+```bash curl wrap
+curl -X DELETE \
+  https://api.agent37.com/v1/domains/acme-agents.com \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python Python wrap
+import requests
+
+response = requests.delete(
+    "https://api.agent37.com/v1/domains/acme-agents.com",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/domains/acme-agents.com",
+  {
+    method: "DELETE",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+```json response wrap
 { "domain": "acme-agents.com", "deleted": true }
 ```
 
