@@ -5,7 +5,7 @@ description: "Name an image once, then create every instance from that name."
 
 A template is a named image, plus (optionally) the port its main service listens on. Instances are always created from template names: pass `template` on [`POST /v1/instances`](/agents-api/instances), or omit it for the default `agent37-hermes`. Direct image references are rejected with `400 invalid_request`; register a template first, then pass its name.
 
-```bash curl
+```bash curl wrap
 curl -X POST https://api.agent37.com/v1/instances \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
@@ -49,7 +49,7 @@ Every system template is built from a public Dockerfile in [agent37-platform/tem
 
 If you need every instance you create to be identical (say a setup script runs after each create and depends on exact paths or versions), pin the version: append `@<tag>` (system templates) or `@<revision>` (workspace templates) to the template name on create.
 
-```bash curl
+```bash curl wrap
 curl -X POST https://api.agent37.com/v1/instances \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
@@ -60,7 +60,7 @@ Every release is an immutable dated tag, never republished, so a pin is a freeze
 
 Workspace templates pin by revision number: every image publish (a changed `image_ref` or a successful [cloud build](#build-an-image-in-the-cloud)) appends a release, `GET /v1/templates/{name}` lists them under [`revisions`](#the-template-object), and `my-agent@2` freezes revision `2`. `GET /v1/templates/my-agent@2` probes one the same way as a system tag, returning `404` if it was never published, and an unpublished revision on create or update returns `400 invalid_request` naming the published ones.
 
-The pin sticks: the instance object's `template` field carries it (`"agent37-hermes@2026.07.02b"`, `"my-agent@2"`), and every lifecycle operation, including [`update`](/agents-api/instances/update), stays on the pinned version. To pin an existing instance, move its pin, or clear it, pass a `template` to update: the name with an `@<tag>` or `@<revision>` sets or switches the pin, the bare name clears it and follows latest again.
+The pin sticks: the instance object's `template` field carries it (`"agent37-hermes@2026.10.05a"`, `"my-agent@2"`), and every lifecycle operation, including [`update`](/agents-api/instances/update), stays on the pinned version. To pin an existing instance, move its pin, or clear it, pass a `template` to update: the name with an `@<tag>` or `@<revision>` sets or switches the pin, the bare name clears it and follows latest again.
 
 ## Endpoints
 
@@ -76,16 +76,85 @@ The pin sticks: the instance object's `template` field carries it (`"agent37-her
 | `GET` | `/v1/template-builds/{id}` | `200` with the build, including the published template once it succeeds |
 | `GET` | `/v1/template-builds/{id}/logs` | `200` with the build plus an incremental chunk of its build log |
 
-```bash curl
-curl https://api.agent37.com/v1/templates \
+<CodeGroup>
+```bash curl wrap
+curl -X GET \
+  https://api.agent37.com/v1/templates \
   -H "Authorization: Bearer sk_live_..."
 ```
+
+```python Python wrap
+import requests
+
+response = requests.get(
+    "https://api.agent37.com/v1/templates",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/templates",
+  {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+<CodeGroup>
+```bash curl wrap
+curl -X GET \
+  https://api.agent37.com/v1/templates/my-agent \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python Python wrap
+import requests
+
+response = requests.get(
+    "https://api.agent37.com/v1/templates/my-agent",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/templates/my-agent",
+  {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
 
 ## Build an image in the cloud
 
 To publish a local or private image, you don't upload the image; you upload a small **build context** (a `Dockerfile` plus the files it `COPY`s) and Agent37 builds the image on its own infrastructure. No local Docker needed, and nothing has to be public except what the build fetches. The supported path is the Agent37 CLI:
 
-```bash
+```bash wrap
 export AGENT37_API_KEY=sk_live_...
 npx agent37 templates build ./my-agent --name my-agent
 ```
@@ -114,17 +183,78 @@ See [Build a custom image](/agents-api/custom-image) for the walkthrough. The ra
   Optional free-text description for the published template.
 </ParamField>
 
-```bash curl
-tar --exclude-vcs -czf context.tar.gz -C ./my-agent .
-BYTES=$(wc -c < context.tar.gz | tr -d ' ')
+Pack the context first, then choose a client below. The curl examples also use `jq`; all three clients read `AGENT37_API_KEY` from your environment and save the response to `build.json` for the upload and start steps.
 
-curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-builds \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d "{\"name\":\"my-agent\",\"size_bytes\":$BYTES}" > build.json
+```bash wrap
+tar --exclude-vcs -czf context.tar.gz -C ./my-agent .
 ```
 
-```json response
+<CodeGroup>
+```bash curl wrap
+BYTES=$(wc -c < context.tar.gz | tr -d ' ')
+
+jq -n --argjson size_bytes "$BYTES" '{
+  name: "my-agent",
+  size_bytes: $size_bytes,
+  default_port: 8000,
+  description: "My agent"
+}' | curl --fail-with-body -sS -X POST \
+  https://api.agent37.com/v1/template-builds \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data-binary @- > build.json
+```
+
+```python Python wrap
+import json
+import os
+from pathlib import Path
+import requests
+
+response = requests.post(
+    "https://api.agent37.com/v1/template-builds",
+    headers={
+        "Authorization": f"Bearer {os.environ['AGENT37_API_KEY']}",
+        "Content-Type": "application/json"
+    },
+    json={
+        "name": "my-agent",
+        "size_bytes": Path("context.tar.gz").stat().st_size,
+        "default_port": 8000,
+        "description": "My agent"
+    },
+)
+response.raise_for_status()
+Path("build.json").write_text(json.dumps(response.json()))
+```
+
+```javascript Node wrap
+import fs from "node:fs/promises";
+
+const response = await fetch(
+  "https://api.agent37.com/v1/template-builds",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.AGENT37_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "name": "my-agent",
+      "size_bytes": (await fs.stat("context.tar.gz")).size,
+      "default_port": 8000,
+      "description": "My agent"
+    }),
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+await fs.writeFile("build.json", JSON.stringify(await response.json()));
+```
+</CodeGroup>
+
+```json response wrap
 {
   "id": "tb_7d3a90b81f264bc2a113",
   "name": "my-agent",
@@ -155,10 +285,41 @@ curl --fail-with-body -sS -X POST https://api.agent37.com/v1/template-builds \
 
 `PUT` the gzipped tar to `upload_url`. The archive must have `Dockerfile` at its root: pack the folder's contents, not the folder. Clear curl's default `Expect: 100-continue` header; it is incompatible with these presigned uploads:
 
-```bash curl
-curl --fail-with-body -X PUT -H 'Expect:' \
-  --data-binary @context.tar.gz "$(jq -r '.upload_url' build.json)"
+<CodeGroup>
+```bash curl wrap
+curl --fail-with-body -X PUT \
+  "$(jq -r '.upload_url' build.json)" \
+  -H 'Expect:' \
+  --data-binary @context.tar.gz
 ```
+
+```python Python wrap
+import json
+from pathlib import Path
+import requests
+
+build = json.loads(Path("build.json").read_text())
+with open("context.tar.gz", "rb") as context:
+    response = requests.put(
+        build["upload_url"],
+        data=context,
+    )
+response.raise_for_status()
+```
+
+```javascript Node wrap
+import fs from "node:fs/promises";
+
+const build = JSON.parse(await fs.readFile("build.json", "utf8"));
+const response = await fetch(build.upload_url, {
+  method: "PUT",
+  body: await fs.readFile("context.tar.gz"),
+});
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+```
+</CodeGroup>
 
 ### 3. Start the build
 
@@ -172,20 +333,93 @@ The body is optional. Send one when a `RUN` step needs a credential or `FROM` pu
   Registry logins for `FROM`, keyed by host: `{ "registry.acme.com": { "username": "...", "password": "..." } }`. Up to 8 registries.
 </ParamField>
 
-```bash curl
+Set `GITHUB_TOKEN` and `REGISTRY_PASSWORD` in your environment and replace `registry.acme.com` with your registry. Omit either object when the build does not need it.
+
+<CodeGroup>
+```bash curl wrap
 BUILD_ID=$(jq -r '.id' build.json)
 
-curl --fail-with-body -sS -X POST \
+jq -n \
+  --arg github_token "$GITHUB_TOKEN" \
+  --arg registry_password "$REGISTRY_PASSWORD" '{
+    secrets: {
+      GITHUB_TOKEN: $github_token
+    },
+    registry_auth: {
+      "registry.acme.com": {
+        username: "bot",
+        password: $registry_password
+      }
+    }
+  }' | curl --fail-with-body -sS -X POST \
   "https://api.agent37.com/v1/template-builds/$BUILD_ID/start" \
   -H "Authorization: Bearer $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{
-    \"secrets\": { \"GITHUB_TOKEN\": \"$GITHUB_TOKEN\" },
-    \"registry_auth\": { \"registry.acme.com\": { \"username\": \"bot\", \"password\": \"$REGISTRY_PASSWORD\" } }
-  }"
+  --data-binary @-
 ```
 
-```json response
+```python Python wrap
+import json
+import os
+from pathlib import Path
+import requests
+
+build = json.loads(Path("build.json").read_text())
+response = requests.post(
+    f"https://api.agent37.com/v1/template-builds/{build['id']}/start",
+    headers={
+        "Authorization": f"Bearer {os.environ['AGENT37_API_KEY']}",
+        "Content-Type": "application/json"
+    },
+    json={
+        "secrets": {
+            "GITHUB_TOKEN": os.environ["GITHUB_TOKEN"]
+        },
+        "registry_auth": {
+            "registry.acme.com": {
+                "username": "bot",
+                "password": os.environ["REGISTRY_PASSWORD"]
+            }
+        }
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+import fs from "node:fs/promises";
+
+const build = JSON.parse(await fs.readFile("build.json", "utf8"));
+const response = await fetch(
+  `https://api.agent37.com/v1/template-builds/${build.id}/start`,
+  {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.AGENT37_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "secrets": {
+        "GITHUB_TOKEN": process.env.GITHUB_TOKEN
+      },
+      "registry_auth": {
+        "registry.acme.com": {
+          "username": "bot",
+          "password": process.env.REGISTRY_PASSWORD
+        }
+      }
+    }),
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+```json response wrap
 { "id": "tb_7d3a90b81f264bc2a113", "status": "building" }
 ```
 
@@ -195,12 +429,111 @@ Starting a build whose context was never uploaded, or is over 1 GB, returns `400
 
 `GET /v1/template-builds/{id}` returns the build; `GET /v1/template-builds/{id}/logs?offset=N` returns the same fields plus a chunk of build log starting at `offset`. Pass the returned `offset` back to tail incrementally. Poll rather than wait silently: the poll that finds the build finished is what triggers template registration (an unpolled build is still completed by a platform sweep within about five minutes).
 
-```bash curl
-curl -sS "https://api.agent37.com/v1/template-builds/$BUILD_ID/logs?offset=0" \
+Read the build status:
+
+<CodeGroup>
+```bash curl wrap
+BUILD_ID=$(jq -r '.id' build.json)
+
+curl -X GET \
+  "https://api.agent37.com/v1/template-builds/$BUILD_ID" \
   -H "Authorization: Bearer $AGENT37_API_KEY"
 ```
 
-```json response
+```python Python wrap
+import json
+import os
+from pathlib import Path
+import requests
+
+build = json.loads(Path("build.json").read_text())
+response = requests.get(
+    f"https://api.agent37.com/v1/template-builds/{build['id']}",
+    headers={
+        "Authorization": f"Bearer {os.environ['AGENT37_API_KEY']}"
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+import fs from "node:fs/promises";
+
+const build = JSON.parse(await fs.readFile("build.json", "utf8"));
+const response = await fetch(
+  `https://api.agent37.com/v1/template-builds/${build.id}`,
+  {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${process.env.AGENT37_API_KEY}`
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+Read a log chunk, starting at byte `0` on the first request:
+
+<CodeGroup>
+```bash curl wrap
+BUILD_ID=$(jq -r '.id' build.json)
+
+curl -X GET \
+  "https://api.agent37.com/v1/template-builds/$BUILD_ID/logs" \
+  --url-query "offset=0" \
+  -H "Authorization: Bearer $AGENT37_API_KEY"
+```
+
+```python Python wrap
+import json
+import os
+from pathlib import Path
+import requests
+
+build = json.loads(Path("build.json").read_text())
+response = requests.get(
+    f"https://api.agent37.com/v1/template-builds/{build['id']}/logs",
+    headers={
+        "Authorization": f"Bearer {os.environ['AGENT37_API_KEY']}"
+    },
+    params={
+        "offset": 0
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+import fs from "node:fs/promises";
+
+const build = JSON.parse(await fs.readFile("build.json", "utf8"));
+const query = new URLSearchParams({
+  "offset": "0"
+});
+
+const response = await fetch(
+  `https://api.agent37.com/v1/template-builds/${build.id}/logs` + "?" + query,
+  {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${process.env.AGENT37_API_KEY}`
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+```json response wrap
 {
   "id": "tb_7d3a90b81f264bc2a113",
   "name": "my-agent",
@@ -297,51 +630,90 @@ A failed build carries its reason in `error.code`:
   The command the instance runs, replacing the image's own `ENTRYPOINT` and `CMD`. Exactly what `docker run --entrypoint` does. An array of arguments, not a shell line: `["/bin/sh", "-c", "node server.js"]`. Omitted, the image decides, which is what you want for an image you built. Set it to run a stock image you did not build, like `node:24-slim`, whose own command opens a REPL and exits. Changing it publishes a new [revision](#pin-a-template-version), so a pin freezes the command along with the image.
 </ParamField>
 
-<CodeGroup>
+The example includes private-registry credentials and a command override. Use your published tag and registry token; omit `registry_auth` for a public image and `entrypoint` to keep the image's own command. If you use the override, `/app/start.sh` must exist in your image.
 
-```bash curl
-curl -X POST https://api.agent37.com/v1/templates \
+<CodeGroup>
+```bash curl wrap
+curl -X POST \
+  https://api.agent37.com/v1/templates \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
     "name": "my-agent",
-    "image_ref": "ghcr.io/acme/my-agent:v1",
+    "image_ref": "ghcr.io/acme/my-agent:<tag>",
+    "registry_auth": {
+      "username": "acme",
+      "password": "<registry-token>"
+    },
     "description": "My agent",
-    "default_port": 8000
+    "default_port": 8000,
+    "entrypoint": [
+      "/bin/sh",
+      "-c",
+      "exec /app/start.sh"
+    ]
   }'
 ```
 
-```python python
+```python Python wrap
 import requests
 
-resp = requests.post(
+response = requests.post(
     "https://api.agent37.com/v1/templates",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={
+        "Authorization": "Bearer sk_live_...",
+        "Content-Type": "application/json"
+    },
     json={
         "name": "my-agent",
-        "image_ref": "ghcr.io/acme/my-agent:v1",
+        "image_ref": "ghcr.io/acme/my-agent:<tag>",
+        "registry_auth": {
+            "username": "acme",
+            "password": "<registry-token>"
+        },
         "description": "My agent",
         "default_port": 8000,
+        "entrypoint": [
+            "/bin/sh",
+            "-c",
+            "exec /app/start.sh"
+        ]
     },
 )
-print(resp.json())
+response.raise_for_status()
+print(response.json())
 ```
 
-```javascript node
-const resp = await fetch("https://api.agent37.com/v1/templates", {
-  method: "POST",
-  headers: {
-    Authorization: "Bearer sk_live_...",
-    "Content-Type": "application/json",
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/templates",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer sk_live_...",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "name": "my-agent",
+      "image_ref": "ghcr.io/acme/my-agent:<tag>",
+      "registry_auth": {
+        "username": "acme",
+        "password": "<registry-token>"
+      },
+      "description": "My agent",
+      "default_port": 8000,
+      "entrypoint": [
+        "/bin/sh",
+        "-c",
+        "exec /app/start.sh"
+      ]
+    }),
   },
-  body: JSON.stringify({
-    name: "my-agent",
-    image_ref: "ghcr.io/acme/my-agent:v1",
-    description: "My agent",
-    default_port: 8000,
-  }),
-});
-console.log(await resp.json());
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
 ```
 
 </CodeGroup>
@@ -350,7 +722,7 @@ console.log(await resp.json());
 
 An image you did not build usually starts the wrong thing. `node:24-slim` runs `node`, which opens a REPL and exits, so an instance from it would never serve anything. `entrypoint` replaces that without forking the image:
 
-```bash
+```bash wrap
 curl -X POST https://api.agent37.com/v1/templates \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
@@ -378,7 +750,7 @@ Registration copies the image into private storage before it returns, so `POST` 
 
 [`ghcr.io/agent37-platform/hermes-base`](https://github.com/orgs/agent37-platform/packages/container/package/hermes-base) is the published FROM target for custom templates. It ships Hermes with its browser stack (Chromium, Playwright), the gateway that serves the [chat API](/agents-api/chat), and a general toolchain: git, Python 3 with uv, Node.js, build tools. The image itself wires no model and no integrations; you add your layers on top. It does not need to carry credentials, because the platform puts a working LLM endpoint and a Composio MCP server in every instance's environment; see [Managed services in your image](/agents-api/managed-services). Point your agent at those, or bring your own model keys. Its source is [`images/b2b/hermes/Dockerfile`](https://github.com/agent37-platform/templates/blob/main/images/b2b/hermes/Dockerfile) (`--target base`).
 
-```dockerfile
+```dockerfile wrap
 FROM ghcr.io/agent37-platform/hermes-base:latest
 
 USER root
@@ -404,12 +776,92 @@ The contract:
 
 `PATCH /v1/templates/{name}` changes any of `name`, `image_ref`, `description`, `default_port` (send `null` to clear it back to the `3737` fallback), or `entrypoint` (send `null` to go back to the image's own command). Send at least one field. A changed `image_ref` is copied into private storage (send `registry_auth` again for a private registry), so an image update is synchronous like create, and each successful image update increments the platform-controlled `revision`. Sending the exact same `image_ref` string reuses the existing snapshot and does not increment it; renaming or changing only `description` or `default_port` also leaves it unchanged. A changed `entrypoint` does increment it, since it changes what the template runs. To ship a new image on a template published by a [cloud build](#build-an-image-in-the-cloud) (no `image_ref`), run a new build under the same name; every successful build publishes a new revision, even when the built image's digest is unchanged. Renaming onto an existing name returns `409 template_conflict`; system templates return `403`.
 
-```bash curl
-curl -X PATCH https://api.agent37.com/v1/templates/my-agent \
+This example shows every editable field and the optional registry credentials. Send only the fields you want to change, using a new published tag when updating the image.
+
+<CodeGroup>
+```bash curl wrap
+curl -X PATCH \
+  https://api.agent37.com/v1/templates/my-agent \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "image_ref": "ghcr.io/acme/my-agent:v2" }'
+  -d '{
+    "name": "my-agent",
+    "image_ref": "ghcr.io/acme/my-agent:<tag>",
+    "registry_auth": {
+      "username": "acme",
+      "password": "<registry-token>"
+    },
+    "description": "My agent",
+    "default_port": 8000,
+    "entrypoint": [
+      "/bin/sh",
+      "-c",
+      "exec /app/start.sh"
+    ]
+  }'
 ```
+
+```python Python wrap
+import requests
+
+response = requests.patch(
+    "https://api.agent37.com/v1/templates/my-agent",
+    headers={
+        "Authorization": "Bearer sk_live_...",
+        "Content-Type": "application/json"
+    },
+    json={
+        "name": "my-agent",
+        "image_ref": "ghcr.io/acme/my-agent:<tag>",
+        "registry_auth": {
+            "username": "acme",
+            "password": "<registry-token>"
+        },
+        "description": "My agent",
+        "default_port": 8000,
+        "entrypoint": [
+            "/bin/sh",
+            "-c",
+            "exec /app/start.sh"
+        ]
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/templates/my-agent",
+  {
+    method: "PATCH",
+    headers: {
+      "Authorization": "Bearer sk_live_...",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "name": "my-agent",
+      "image_ref": "ghcr.io/acme/my-agent:<tag>",
+      "registry_auth": {
+        "username": "acme",
+        "password": "<registry-token>"
+      },
+      "description": "My agent",
+      "default_port": 8000,
+      "entrypoint": [
+        "/bin/sh",
+        "-c",
+        "exec /app/start.sh"
+      ]
+    }),
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
 
 To roll back, [pin instances to the earlier revision](#pin-a-template-version) with `POST /v1/instances/{id}/update` and `{ "template": "my-agent@1" }`. No re-publish needed. To make an old release the template's *current* one again, point `image_ref` at the older tag (or, for a build-born template, re-run the [build](#build-an-image-in-the-cloud) from the older source); that publishes it as a new revision. Existing instances keep running on the image they already pulled; [update each instance](/agents-api/instances) to recreate it from the template's current image.
 
@@ -419,7 +871,7 @@ Workspace templates start at `revision: 1`. Compare that value with an instance'
 
 After an image update, list your instances and [update](/agents-api/instances/update) the ones still on an older revision. An instance's `template_revision` is what it has installed; the template's `revision` is the current release. Missing instance revisions read as `1`.
 
-```bash curl
+```bash curl wrap
 TEMPLATE=my-agent
 REV=$(curl -s https://api.agent37.com/v1/templates/$TEMPLATE \
   -H "Authorization: Bearer sk_live_..." | jq .revision)
@@ -439,20 +891,52 @@ The `head -n 3` is the canary: update a small slice first, verify the release on
 
 `DELETE /v1/templates/{name}` removes the workspace template and acts once: the first call returns `200` with `{ "name": "my-agent", "deleted": true }`, and a repeat returns `404`. System templates return `403`. Existing instances created from it keep running, so deletion does not immediately purge the private image copy they still reference. Contact support if you need the stored image purged after its instances are gone.
 
-```bash curl
-curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
+<CodeGroup>
+```bash curl wrap
+curl -X DELETE \
+  https://api.agent37.com/v1/templates/my-agent \
   -H "Authorization: Bearer sk_live_..."
 ```
 
+```python Python wrap
+import requests
+
+response = requests.delete(
+    "https://api.agent37.com/v1/templates/my-agent",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/templates/my-agent",
+  {
+    method: "DELETE",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
 ## The template object
 
-```json response
+```json response wrap
 {
   "name": "agent37-hermes",
   "scope": "system",
   "agents": ["hermes"],
   "revision": null,
-  "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
+  "image_ref": "ghcr.io/agent37-platform/hermes:2026.10.05a",
   "description": "Hermes general agent: browser, code, files.",
   "default_port": 3737,
   "entrypoint": null,
@@ -463,7 +947,7 @@ curl -X DELETE https://api.agent37.com/v1/templates/my-agent \
 
 A workspace template registered from a registry reference echoes that reference as `image_ref` and adds the pinned `image_digest`; one published by a [cloud build](#build-an-image-in-the-cloud) has an `image_digest` and no `image_ref`:
 
-```json response
+```json response wrap
 {
   "name": "my-agent",
   "scope": "workspace",

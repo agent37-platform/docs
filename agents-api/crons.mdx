@@ -14,57 +14,78 @@ Crons belong to an instance. Deleting the instance deletes its crons. `agent37-n
 `prompt` and `schedule` are required.
 
 <CodeGroup>
-
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/crons \
+```bash curl wrap
+curl -X POST \
+  https://api.agent37.com/v1/instances/ab12cd34ef/crons \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Weekday briefing",
-    "prompt": "Check my inbox and send me a two-line summary of anything that needs an answer today.",
+    "prompt": "Summarize the files in ~/reports.",
     "schedule": "0 9 * * 1-5",
-    "timezone": "America/New_York"
+    "agent": "hermes",
+    "profile": "default",
+    "timezone": "America/New_York",
+    "name": "Weekday briefing",
+    "enabled": true
   }'
 ```
 
-```python python
+```python Python wrap
 import requests
 
-cron = requests.post(
+response = requests.post(
     "https://api.agent37.com/v1/instances/ab12cd34ef/crons",
-    headers={"Authorization": "Bearer sk_live_..."},
-    json={
-        "name": "Weekday briefing",
-        "prompt": "Check my inbox and send me a two-line summary of anything that needs an answer today.",
-        "schedule": "0 9 * * 1-5",
-        "timezone": "America/New_York",
+    headers={
+        "Authorization": "Bearer sk_live_...",
+        "Content-Type": "application/json"
     },
-).json()
+    json={
+        "prompt": "Summarize the files in ~/reports.",
+        "schedule": "0 9 * * 1-5",
+        "agent": "hermes",
+        "profile": "default",
+        "timezone": "America/New_York",
+        "name": "Weekday briefing",
+        "enabled": True
+    },
+)
+response.raise_for_status()
+print(response.json())
 ```
 
-```javascript node
-const cron = await (await fetch("https://api.agent37.com/v1/instances/ab12cd34ef/crons", {
-  method: "POST",
-  headers: {
-    Authorization: "Bearer sk_live_...",
-    "Content-Type": "application/json",
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/crons",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer sk_live_...",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "prompt": "Summarize the files in ~/reports.",
+      "schedule": "0 9 * * 1-5",
+      "agent": "hermes",
+      "profile": "default",
+      "timezone": "America/New_York",
+      "name": "Weekday briefing",
+      "enabled": true
+    }),
   },
-  body: JSON.stringify({
-    name: "Weekday briefing",
-    prompt: "Check my inbox and send me a two-line summary of anything that needs an answer today.",
-    schedule: "0 9 * * 1-5",
-    timezone: "America/New_York",
-  }),
-})).json();
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
 ```
 
-```json response
+```json response wrap
 {
   "id": "9903c325ee3c",
   "name": "Weekday briefing",
-  "agent": null,
+  "agent": "hermes",
   "profile": null,
-  "prompt": "Check my inbox and send me a two-line summary of anything that needs an answer today.",
+  "prompt": "Summarize the files in ~/reports.",
   "schedule": "0 9 * * 1-5",
   "timezone": "America/New_York",
   "enabled": true,
@@ -124,38 +145,284 @@ const cron = await (await fetch("https://api.agent37.com/v1/instances/ab12cd34ef
 
 ## List, read, edit, delete
 
-```bash
+```bash wrap
 GET    /v1/instances/{id}/crons            # { "data": [ ... ] }, oldest first
 GET    /v1/instances/{id}/crons/{cronId}
 PATCH  /v1/instances/{id}/crons/{cronId}
 DELETE /v1/instances/{id}/crons/{cronId}   # { "id": "...", "deleted": true }
 ```
 
-`PATCH` takes any of the create fields and changes only the keys you send: `"agent": null` hands the firing back to the template's own agent, and `"profile": null` hands it back to the agent's own setup. Changing `schedule`, `timezone` or `enabled` recomputes `next_run` from now, so a new schedule never replays a window that has already passed; editing only the `prompt` or the `name` leaves the next firing exactly where it was. Pausing is a `PATCH`:
+`PATCH` takes any of the create fields and changes only the keys you send: `"agent": null` hands the firing back to the template's own agent, and `"profile": null` hands it back to the agent's own setup. Changing `schedule`, `timezone` or `enabled` recomputes `next_run` from now, so a new schedule never replays a window that has already passed; editing only the `prompt` or the `name` leaves the next firing exactly where it was. Send only the fields you want to change. This example sets every field and pauses the cron:
 
-```bash
-curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c \
+<CodeGroup>
+```bash curl wrap
+curl -X PATCH \
+  https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "enabled": false }'
+  -d '{
+    "prompt": "Summarize the files in ~/reports.",
+    "schedule": "0 9 * * 1-5",
+    "agent": "hermes",
+    "profile": "default",
+    "timezone": "America/New_York",
+    "name": "Weekday briefing",
+    "enabled": false
+  }'
 ```
 
+```python Python wrap
+import requests
+
+response = requests.patch(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c",
+    headers={
+        "Authorization": "Bearer sk_live_...",
+        "Content-Type": "application/json"
+    },
+    json={
+        "prompt": "Summarize the files in ~/reports.",
+        "schedule": "0 9 * * 1-5",
+        "agent": "hermes",
+        "profile": "default",
+        "timezone": "America/New_York",
+        "name": "Weekday briefing",
+        "enabled": False
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c",
+  {
+    method: "PATCH",
+    headers: {
+      "Authorization": "Bearer sk_live_...",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "prompt": "Summarize the files in ~/reports.",
+      "schedule": "0 9 * * 1-5",
+      "agent": "hermes",
+      "profile": "default",
+      "timezone": "America/New_York",
+      "name": "Weekday briefing",
+      "enabled": false
+    }),
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
 Delete acts once: a repeat is `404`. An instance holds at most 50 crons.
+
+### List crons
+
+<CodeGroup>
+```bash curl wrap
+curl -X GET \
+  https://api.agent37.com/v1/instances/ab12cd34ef/crons \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python Python wrap
+import requests
+
+response = requests.get(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/crons",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/crons",
+  {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+### Read a cron
+
+<CodeGroup>
+```bash curl wrap
+curl -X GET \
+  https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python Python wrap
+import requests
+
+response = requests.get(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c",
+  {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+### Delete a cron
+
+<CodeGroup>
+```bash curl wrap
+curl -X DELETE \
+  https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python Python wrap
+import requests
+
+response = requests.delete(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c",
+  {
+    method: "DELETE",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
 
 ## Run one now
 
 `POST /v1/instances/{id}/crons/{cronId}/run` fires the cron immediately, whether or not it is enabled, without touching its schedule. It answers `202` with the run record as soon as the run is recorded, before the turn is sent, so a run that reads `triggered` here can still end up `skipped` with `wake_failed`.
 
-```bash
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c/run \
+<CodeGroup>
+```bash curl wrap
+curl -X POST \
+  https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c/run \
   -H "Authorization: Bearer sk_live_..."
 ```
+
+```python Python wrap
+import requests
+
+response = requests.post(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c/run",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c/run",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
 
 ## Run history
 
 `GET /v1/instances/{id}/crons/{cronId}/runs` returns the latest 50 firings, newest first.
 
-```json
+<CodeGroup>
+```bash curl wrap
+curl -X GET \
+  https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c/runs \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python Python wrap
+import requests
+
+response = requests.get(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c/runs",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/crons/9903c325ee3c/runs",
+  {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+```json wrap
 {
   "data": [
     {
@@ -205,7 +472,7 @@ A window the platform misses (a schedule that came due while the instance was st
 The agent running on the instance can create its own crons, with the `agent37 cron` CLI baked
 into every Agent37 agent image:
 
-```bash
+```bash wrap
 agent37 cron add --schedule "0 9 * * 1-5" --prompt "Check my inbox and summarise anything urgent." --timezone America/New_York
 ```
 

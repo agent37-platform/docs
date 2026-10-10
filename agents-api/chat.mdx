@@ -11,51 +11,103 @@ Send a message or task to the agent on your instance. Omit `session_id` to start
 <span id="example" />
 
 <RequestExample>
-```bash curl
-curl https://ab12cd34ef.agent37.app/v1/responses \
+```bash curl wrap
+curl -X POST \
+  https://ab12cd34ef.agent37.app/v1/responses \
   -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "input": "Say hello in one sentence."
+    "input": "Summarize the attached spreadsheet.",
+    "files": [
+      "/home/node/leads.csv"
+    ],
+    "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+    "stream": false,
+    "model": "default",
+    "provider": "custom:Agent37",
+    "reasoning_effort": "medium",
+    "metadata": {
+      "user": "u_882"
+    },
+    "agent": "hermes",
+    "profile": "default",
+    "mode": "chat"
   }'
 ```
 
-```python python
+```python Python wrap
 import requests
 
-r = requests.post(
+response = requests.post(
     "https://ab12cd34ef.agent37.app/v1/responses",
     headers={
         "X-Agent37-Key": "sk_live_...",
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
     },
-    json={"input": "Say hello in one sentence."},
-).json()
+    json={
+        "input": "Summarize the attached spreadsheet.",
+        "files": [
+            "/home/node/leads.csv"
+        ],
+        "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+        "stream": False,
+        "model": "default",
+        "provider": "custom:Agent37",
+        "reasoning_effort": "medium",
+        "metadata": {
+            "user": "u_882"
+        },
+        "agent": "hermes",
+        "profile": "default",
+        "mode": "chat"
+    },
+)
+response.raise_for_status()
+print(response.json())
 ```
 
-```javascript node
-const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
-  method: "POST",
-  headers: {
-    "X-Agent37-Key": "sk_live_...",
-    "Content-Type": "application/json",
+```javascript Node wrap
+const response = await fetch(
+  "https://ab12cd34ef.agent37.app/v1/responses",
+  {
+    method: "POST",
+    headers: {
+      "X-Agent37-Key": "sk_live_...",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "input": "Summarize the attached spreadsheet.",
+      "files": [
+        "/home/node/leads.csv"
+      ],
+      "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+      "stream": false,
+      "model": "default",
+      "provider": "custom:Agent37",
+      "reasoning_effort": "medium",
+      "metadata": {
+        "user": "u_882"
+      },
+      "agent": "hermes",
+      "profile": "default",
+      "mode": "chat"
+    }),
   },
-  body: JSON.stringify({
-    input: "Say hello in one sentence.",
-  }),
-})).json();
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
 ```
-
-
 </RequestExample>
 
 <ResponseExample>
-```json 200 (excerpt)
+```json 200 (excerpt) wrap
 {
   "id": "c91d2a7e84f04b6f9a3d5e1c0b87f4a2",
   "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
   "status": "completed",
-  "output_text": "Hello!"
+  "output_text": "The spreadsheet lists your leads."
 }
 ```
 </ResponseExample>
@@ -65,6 +117,8 @@ const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
 The call is agentic by default: the agent can browse, run code, use a terminal, read and write files, call connected tools, and reason across many steps before answering.
 
 ## Request body
+
+The example shows all request fields for Hermes. [Upload `leads.csv`](/agents-api/files#write-a-file) first, use a session id from a previous response to continue a conversation, and choose `model` and `provider` from [Models](/agents-api/models). Omit optional fields you do not need.
 
 Request bodies are capped at 2 MB; anything larger returns `413 payload_too_large`.
 
@@ -190,15 +244,13 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
   On a non-streaming call the gateway sends the `200` and headers as soon as the turn starts, then keeps the connection alive with a whitespace tick every 25 seconds while the agent works. There is no time limit on a turn; the connection stays open until the agent is done. The JSON body arrives when the turn finishes, prefixed by that whitespace. Leading whitespace is valid JSON, so standard parsers handle it unchanged. Don't treat the early headers as the response being ready. On a sleeping instance no headers arrive at all until the wake completes, so give the request a first-byte timeout of at least three minutes; past the edge's three-minute wake budget the request gets `503 wake_timeout` instead.
 </Note>
 
-
-
 <Tip>
   Set `stream: true` to receive Server-Sent Events as the agent reasons, calls tools, and writes its answer. The terminal event carries the final `output_text`, `usage`, and `context`. See [Streaming](/agents-api/streaming).
 </Tip>
 
 ## Complete response example
 
-```json
+```json wrap
 {
   "id": "c91d2a7e84f04b6f9a3d5e1c0b87f4a2",
   "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
@@ -221,7 +273,7 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
 The first message omits `session_id` and starts a session. The reply returns a `session_id`; pass it on the next message to continue the same thread. The session holds the full history, so you never resend a transcript: you send only the new input.
 
 <CodeGroup>
-```bash curl
+```bash curl wrap
 # 1. start a session: omit session_id
 curl https://ab12cd34ef.agent37.app/v1/responses \
   -H "X-Agent37-Key: sk_live_..." \
@@ -243,7 +295,7 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
   }'
 ```
 
-```python python
+```python python wrap
 import requests
 
 BASE = "https://ab12cd34ef.agent37.app"
@@ -267,7 +319,7 @@ requests.post(
 )
 ```
 
-```javascript node
+```javascript node wrap
 const BASE = "https://ab12cd34ef.agent37.app";
 const H = {
   "X-Agent37-Key": "sk_live_...",
@@ -321,6 +373,43 @@ Every response has an id you can use after the call returns.
 `GET /v1/responses/{id}/stream` replays every event so far in order, then stays attached live, so a dropped connection never loses the answer, including after the turn has finished, while the response is still retained. See [Streaming](/agents-api/streaming) for the replay window. Lost the id (page reload, new device)? [`GET /v1/sessions/{id}`](/agents-api/sessions#retrieve-a-session-with-history) returns the running response as `active_response_id`.
 
 `POST /v1/responses/{id}/cancel` takes no body and stops a running turn (on OpenClaw it aborts the run inside OpenClaw). It returns 200 with the current response object as soon as the stop is requested, not once the agent has actually stopped, so the body normally still reads `status: "in_progress"`; the response settles to `cancelled` when the turn unwinds. To see it end, read `GET /v1/responses/{id}/stream`: a cancelled turn still closes with `response.completed`, carrying the `output_text` accumulated so far. Cancelling a finished response is a no-op that returns its terminal state, still 200.
+
+<CodeGroup>
+```bash curl wrap
+curl -X POST \
+  https://ab12cd34ef.agent37.app/v1/responses/c91d2a7e84f04b6f9a3d5e1c0b87f4a2/cancel \
+  -H "X-Agent37-Key: sk_live_..."
+```
+
+```python Python wrap
+import requests
+
+response = requests.post(
+    "https://ab12cd34ef.agent37.app/v1/responses/c91d2a7e84f04b6f9a3d5e1c0b87f4a2/cancel",
+    headers={
+        "X-Agent37-Key": "sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://ab12cd34ef.agent37.app/v1/responses/c91d2a7e84f04b6f9a3d5e1c0b87f4a2/cancel",
+  {
+    method: "POST",
+    headers: {
+      "X-Agent37-Key": "sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
 
 <Warning>
   Cancel does not rewind. Whatever the agent has already done (files written, emails sent, tools called) is not undone. The response ends with `status: "cancelled"`.

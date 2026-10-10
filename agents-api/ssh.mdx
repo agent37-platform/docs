@@ -9,7 +9,7 @@ Nothing is installed in your image. The platform injects the SSH server into the
 
 ## Quickstart
 
-```bash
+```bash wrap
 export AGENT37_API_KEY=sk_live_...   # https://www.agent37.com/dashboard/cloud/api-keys
 npx agent37 ssh setup
 ssh ab12cd34ef.agent37.app
@@ -17,7 +17,7 @@ ssh ab12cd34ef.agent37.app
 
 `ssh setup` is a one-time step and safe to re-run. It saves your API key to `~/.config/agent37/config.json` (prompting for it if `AGENT37_API_KEY` is not set), registers `~/.ssh/id_ed25519.pub` with your workspace under your machine's hostname (generating the keypair if you do not have one, and treating an already-registered key as done), and writes a managed block into `~/.ssh/config`:
 
-```text ~/.ssh/config
+```text ~/.ssh/config wrap
 # >>> agent37 >>>
 Host *.agent37.app
   ProxyCommand agent37 tunnel %h
@@ -35,7 +35,7 @@ That block is the whole client-side configuration. `ProxyCommand` is what carrie
 
 You do not have to touch `~/.ssh/config` at all. `agent37 ssh` connects with the same options inline, and takes plain `ssh` arguments after `--`:
 
-```bash
+```bash wrap
 npx agent37 ssh ab12cd34ef
 npx agent37 ssh ab12cd34ef -- -L 8080:localhost:3737
 ```
@@ -68,45 +68,66 @@ So there are two independent layers, and a connection needs both:
   A label for the key, such as `laptop`. Optional: omit it and the key's trailing comment is used.
 </ParamField>
 
+The curl example uses `jq` to encode the public key as JSON.
+
 <CodeGroup>
-```bash curl
-curl -X POST https://api.agent37.com/v1/ssh-keys \
+```bash curl wrap
+jq -n --rawfile public_key "$HOME/.ssh/id_ed25519.pub" '{
+  public_key: $public_key,
+  name: "laptop"
+}' | curl -X POST \
+  https://api.agent37.com/v1/ssh-keys \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d "{ \"public_key\": \"$(cat ~/.ssh/id_ed25519.pub)\", \"name\": \"laptop\" }"
+  --data-binary @-
 ```
 
-```python python
-import pathlib
+```python Python wrap
+from pathlib import Path
 import requests
 
-resp = requests.post(
+public_key = Path("~/.ssh/id_ed25519.pub").expanduser().read_text().strip()
+response = requests.post(
     "https://api.agent37.com/v1/ssh-keys",
-    headers={"Authorization": "Bearer sk_live_..."},
+    headers={
+        "Authorization": "Bearer sk_live_...",
+        "Content-Type": "application/json"
+    },
     json={
-        "public_key": pathlib.Path("~/.ssh/id_ed25519.pub").expanduser().read_text().strip(),
-        "name": "laptop",
+        "public_key": public_key,
+        "name": "laptop"
     },
 )
-print(resp.json()["fingerprint"])
+response.raise_for_status()
+print(response.json())
 ```
 
-```javascript node
-import { readFileSync } from "node:fs";
+```javascript Node wrap
+import fs from "node:fs/promises";
 import { homedir } from "node:os";
 
-const resp = await fetch("https://api.agent37.com/v1/ssh-keys", {
-  method: "POST",
-  headers: { Authorization: "Bearer sk_live_...", "Content-Type": "application/json" },
-  body: JSON.stringify({
-    public_key: readFileSync(`${homedir()}/.ssh/id_ed25519.pub`, "utf8").trim(),
-    name: "laptop",
-  }),
-});
-console.log((await resp.json()).fingerprint);
+const publicKey = await fs.readFile(`${homedir()}/.ssh/id_ed25519.pub`, "utf8");
+const response = await fetch(
+  "https://api.agent37.com/v1/ssh-keys",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer sk_live_...",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "public_key": publicKey.trim(),
+      "name": "laptop"
+    }),
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
 ```
 
-```json response
+```json response wrap
 {
   "id": "9f2c1a7b4e0d6538ac91b2f4",
   "name": "laptop",
@@ -137,12 +158,44 @@ A fingerprint registers once per workspace: sending a key that is already regist
 
 ### List keys
 
-```bash curl
-curl https://api.agent37.com/v1/ssh-keys \
+<CodeGroup>
+```bash curl wrap
+curl -X GET \
+  https://api.agent37.com/v1/ssh-keys \
   -H "Authorization: Bearer sk_live_..."
 ```
 
-```json response
+```python Python wrap
+import requests
+
+response = requests.get(
+    "https://api.agent37.com/v1/ssh-keys",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/ssh-keys",
+  {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+```json response wrap
 {
   "data": [
     {
@@ -160,12 +213,44 @@ Only your workspace's keys are listed, and the public key blob is not echoed bac
 
 ### Delete a key
 
-```bash curl
-curl -X DELETE https://api.agent37.com/v1/ssh-keys/9f2c1a7b4e0d6538ac91b2f4 \
+<CodeGroup>
+```bash curl wrap
+curl -X DELETE \
+  https://api.agent37.com/v1/ssh-keys/9f2c1a7b4e0d6538ac91b2f4 \
   -H "Authorization: Bearer sk_live_..."
 ```
 
-```json response
+```python Python wrap
+import requests
+
+response = requests.delete(
+    "https://api.agent37.com/v1/ssh-keys/9f2c1a7b4e0d6538ac91b2f4",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/ssh-keys/9f2c1a7b4e0d6538ac91b2f4",
+  {
+    method: "DELETE",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+```json response wrap
 { "id": "9f2c1a7b4e0d6538ac91b2f4", "deleted": true }
 ```
 
@@ -181,7 +266,7 @@ Key changes reach running instances automatically, within about two minutes of t
 
 `scp` and `sftp` work as they do anywhere, recursive copies included:
 
-```bash
+```bash wrap
 scp ./report.csv ab12cd34ef.agent37.app:data/
 scp -r ab12cd34ef.agent37.app:output ./output
 sftp ab12cd34ef.agent37.app

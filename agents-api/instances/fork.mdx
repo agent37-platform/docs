@@ -7,41 +7,89 @@ authMethod: "bearer"
 ---
 
 <RequestExample>
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/fork \
+```bash curl wrap
+curl -X POST \
+  https://api.agent37.com/v1/instances/ab12cd34ef/fork \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{"name": "burst-worker", "resources": {"cpu": 8, "memory": 16}}'
+  -d '{
+    "resources": {
+      "cpu": 2,
+      "memory": 4,
+      "disk": 6
+    },
+    "user": "u_882",
+    "name": "burst-worker",
+    "metadata": {
+      "plan": "pro"
+    },
+    "auto_sleep": true,
+    "idle_timeout_seconds": 900
+  }'
 ```
 
-```python Python
+```python Python wrap
 import requests
 
 response = requests.post(
     "https://api.agent37.com/v1/instances/ab12cd34ef/fork",
-    headers={"Authorization": "Bearer sk_live_..."},
-    json={'name': 'burst-worker', 'resources': {'cpu': 8, 'memory': 16}},
+    headers={
+        "Authorization": "Bearer sk_live_...",
+        "Content-Type": "application/json"
+    },
+    json={
+        "resources": {
+            "cpu": 2,
+            "memory": 4,
+            "disk": 6
+        },
+        "user": "u_882",
+        "name": "burst-worker",
+        "metadata": {
+            "plan": "pro"
+        },
+        "auto_sleep": True,
+        "idle_timeout_seconds": 900
+    },
 )
 response.raise_for_status()
 print(response.json())
 ```
 
-```javascript Node
-const response = await fetch("https://api.agent37.com/v1/instances/ab12cd34ef/fork", {
-  method: "POST",
-  headers: {
-    Authorization: "Bearer sk_live_...",
-    "Content-Type": "application/json",
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/fork",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer sk_live_...",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "resources": {
+        "cpu": 2,
+        "memory": 4,
+        "disk": 6
+      },
+      "user": "u_882",
+      "name": "burst-worker",
+      "metadata": {
+        "plan": "pro"
+      },
+      "auto_sleep": true,
+      "idle_timeout_seconds": 900
+    }),
   },
-  body: JSON.stringify({"name": "burst-worker", "resources": {"cpu": 8, "memory": 16}}),
-});
-if (!response.ok) throw new Error(await response.text());
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
 console.log(await response.json());
 ```
 </RequestExample>
 
 <ResponseExample>
-```json 201 (excerpt)
+```json 201 (excerpt) wrap
 {
   "id": "7f91ab02cd",
   "status": "running",

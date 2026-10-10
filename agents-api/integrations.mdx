@@ -60,32 +60,59 @@ All four require the `sk_live_` key, and the path instance must belong to your w
   Total matches for the query.
 </ResponseField>
 
+Replace `<nextCursor>` with a returned `nextCursor`; omit `cursor` for the first page.
+
 <CodeGroup>
-```bash curl
-curl "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/toolkits?search=gmail&limit=5" \
+```bash curl wrap
+curl -X GET \
+  https://api.agent37.com/v1/instances/ab12cd34ef/integrations/toolkits \
+  --url-query "search=gmail" \
+  --url-query "limit=5" \
+  --url-query "cursor=<nextCursor>" \
   -H "Authorization: Bearer sk_live_..."
 ```
 
-```python python
+```python Python wrap
 import requests
 
-H = {"Authorization": "Bearer sk_live_..."}
-page = requests.get(
+response = requests.get(
     "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/toolkits",
-    headers=H,
-    params={"search": "gmail", "limit": 5},
-).json()
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+    params={
+        "search": "gmail",
+        "limit": 5,
+        "cursor": "<nextCursor>"
+    },
+)
+response.raise_for_status()
+print(response.json())
 ```
 
-```javascript node
-const H = { Authorization: "Bearer sk_live_..." };
-const page = await (await fetch(
-  "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/toolkits?search=gmail&limit=5",
-  { headers: H },
-)).json();
+```javascript Node wrap
+const query = new URLSearchParams({
+  "search": "gmail",
+  "limit": "5",
+  "cursor": "<nextCursor>"
+});
+
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/toolkits" + "?" + query,
+  {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
 ```
 
-```json response
+```json response wrap
 {
   "items": [
     {
@@ -131,14 +158,59 @@ The workspace's own Composio auth configs are applied automatically, so toolkits
 </ResponseField>
 
 <CodeGroup>
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connect \
+<CodeGroup>
+```bash curl wrap
+curl -X POST \
+  https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connect \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "toolkit": "gmail" }'
+  -d '{
+    "toolkit": "gmail",
+    "callbackUrl": "https://app.example.com/integrations/done"
+  }'
 ```
 
-```python python
+```python Python wrap
+import requests
+
+response = requests.post(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connect",
+    headers={
+        "Authorization": "Bearer sk_live_...",
+        "Content-Type": "application/json"
+    },
+    json={
+        "toolkit": "gmail",
+        "callbackUrl": "https://app.example.com/integrations/done"
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connect",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer sk_live_...",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "toolkit": "gmail",
+      "callbackUrl": "https://app.example.com/integrations/done"
+    }),
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</CodeGroup>
+
+```python python wrap
 conn = requests.post(
     "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connect",
     headers={**H, "Content-Type": "application/json"},
@@ -147,7 +219,7 @@ conn = requests.post(
 # Send the user to conn["redirectUrl"].
 ```
 
-```javascript node
+```javascript node wrap
 const conn = await (await fetch(
   "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connect",
   {
@@ -158,7 +230,7 @@ const conn = await (await fetch(
 )).json();
 ```
 
-```json response
+```json response wrap
 {
   "toolkit": "gmail",
   "connectedAccountId": "ca_7f3a9b21",
@@ -169,7 +241,7 @@ const conn = await (await fetch(
 
 Pass a `callbackUrl` to return the user to your own app after they grant access:
 
-```json
+```json wrap
 { "toolkit": "gmail", "callbackUrl": "https://app.example.com/integrations/done" }
 ```
 
@@ -188,7 +260,7 @@ Call `connect` again for the same toolkit to add a second account, say a second 
 
 Some toolkits have no managed OAuth app and require your own credentials. For those, `connect` returns `422`:
 
-```json
+```json wrap
 { "error": "custom_auth_required", "toolkit": "salesforce" }
 ```
 
@@ -207,27 +279,50 @@ Configure the toolkit's auth config for your workspace, then retry. If managed C
 </ResponseField>
 
 <CodeGroup>
-```bash curl
-curl "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections?toolkit=gmail" \
+```bash curl wrap
+curl -X GET \
+  https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections \
+  --url-query "toolkit=gmail" \
   -H "Authorization: Bearer sk_live_..."
 ```
 
-```python python
-conns = requests.get(
+```python Python wrap
+import requests
+
+response = requests.get(
     "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections",
-    headers=H,
-    params={"toolkit": "gmail"},
-).json()
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+    params={
+        "toolkit": "gmail"
+    },
+)
+response.raise_for_status()
+print(response.json())
 ```
 
-```javascript node
-const conns = await (await fetch(
-  "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections?toolkit=gmail",
-  { headers: H },
-)).json();
+```javascript Node wrap
+const query = new URLSearchParams({
+  "toolkit": "gmail"
+});
+
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections" + "?" + query,
+  {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
 ```
 
-```json response
+```json response wrap
 {
   "connections": [
     {
@@ -251,27 +346,42 @@ const conns = await (await fetch(
 `DELETE /v1/instances/{id}/integrations/connections/{connectedAccountId}` removes one connected account. The account must belong to this instance's entity, or the call returns `404`. After deletion the agent can no longer use that account; other accounts on the instance are untouched.
 
 <CodeGroup>
-```bash curl
+```bash curl wrap
 curl -X DELETE \
   https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections/ca_7f3a9b21 \
   -H "Authorization: Bearer sk_live_..."
 ```
 
-```python python
-res = requests.delete(
+```python Python wrap
+import requests
+
+response = requests.delete(
     "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections/ca_7f3a9b21",
-    headers=H,
-).json()
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
 ```
 
-```javascript node
-const res = await (await fetch(
+```javascript Node wrap
+const response = await fetch(
   "https://api.agent37.com/v1/instances/ab12cd34ef/integrations/connections/ca_7f3a9b21",
-  { method: "DELETE", headers: H },
-)).json();
+  {
+    method: "DELETE",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
 ```
 
-```json response
+```json response wrap
 { "id": "ca_7f3a9b21", "deleted": true }
 ```
 </CodeGroup>

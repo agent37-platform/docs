@@ -9,19 +9,109 @@ The base URL is your instance URL: `https://{instanceId}.agent37.app`, with the 
 
 ## Start a stream
 
-```bash curl
-curl -N https://ab12cd34ef.agent37.app/v1/responses \
+The request uses the same [fields and prerequisites as a non-streaming turn](/agents-api/chat#request-body), with `stream: true`.
+
+<CodeGroup>
+```bash curl wrap
+curl -N -X POST \
+  https://ab12cd34ef.agent37.app/v1/responses \
   -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "input": "Research the top 3 EV makers, write a memo.",
-    "stream": true
+    "input": "Summarize the attached spreadsheet.",
+    "files": [
+      "/home/node/leads.csv"
+    ],
+    "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+    "stream": true,
+    "model": "default",
+    "provider": "custom:Agent37",
+    "reasoning_effort": "medium",
+    "metadata": {
+      "user": "u_882"
+    },
+    "agent": "hermes",
+    "profile": "default",
+    "mode": "chat"
   }'
 ```
 
+```python Python wrap
+import requests
+
+response = requests.post(
+    "https://ab12cd34ef.agent37.app/v1/responses",
+    headers={
+        "X-Agent37-Key": "sk_live_...",
+        "Content-Type": "application/json"
+    },
+    json={
+        "input": "Summarize the attached spreadsheet.",
+        "files": [
+            "/home/node/leads.csv"
+        ],
+        "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+        "stream": True,
+        "model": "default",
+        "provider": "custom:Agent37",
+        "reasoning_effort": "medium",
+        "metadata": {
+            "user": "u_882"
+        },
+        "agent": "hermes",
+        "profile": "default",
+        "mode": "chat"
+    },
+    stream=True,
+)
+response.raise_for_status()
+for line in response.iter_lines(decode_unicode=True):
+    if line:
+        print(line)
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://ab12cd34ef.agent37.app/v1/responses",
+  {
+    method: "POST",
+    headers: {
+      "X-Agent37-Key": "sk_live_...",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "input": "Summarize the attached spreadsheet.",
+      "files": [
+        "/home/node/leads.csv"
+      ],
+      "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+      "stream": true,
+      "model": "default",
+      "provider": "custom:Agent37",
+      "reasoning_effort": "medium",
+      "metadata": {
+        "user": "u_882"
+      },
+      "agent": "hermes",
+      "profile": "default",
+      "mode": "chat"
+    }),
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+const decoder = new TextDecoder();
+for await (const chunk of response.body) {
+  process.stdout.write(decoder.decode(chunk, { stream: true }));
+}
+process.stdout.write(decoder.decode());
+```
+</CodeGroup>
+
 If the instance is sleeping, the request wakes it first and no response headers arrive until the wake completes, so the first frame is subject to the same wait as any other request to the instance URL: give the request a first-byte timeout of at least three minutes, and past its wake budget the edge answers `503 wake_timeout` instead. The connection stays open and frames arrive as `event:` plus `data:` pairs separated by a blank line:
 
-```text stream
+```text stream wrap
 event: response.created
 data: {"id":"c91d2a7e84f04b6f9a3d5e1c0b87f4a2","session_id":"7f3e0b6c52a949d2b1c4a8e9d0f31726"}
 
@@ -79,16 +169,55 @@ Rules the stream always follows:
 
 ## Reconnect after a drop
 
-```text
+```text wrap
 GET /v1/responses/{id}/stream
 ```
 
 If your connection drops mid-turn, reconnect with the response id from `response.created`. Lost the id too (page reload, new device)? [`GET /v1/sessions/{id}`](/agents-api/sessions#retrieve-a-session-with-history) returns the running response as `active_response_id`; `null` means no turn is in flight (see that field's timing notes on the Sessions page).
 
-```bash curl
-curl -N https://ab12cd34ef.agent37.app/v1/responses/c91d2a7e84f04b6f9a3d5e1c0b87f4a2/stream \
+<CodeGroup>
+```bash curl wrap
+curl -N -X GET \
+  https://ab12cd34ef.agent37.app/v1/responses/c91d2a7e84f04b6f9a3d5e1c0b87f4a2/stream \
   -H "X-Agent37-Key: sk_live_..."
 ```
+
+```python Python wrap
+import requests
+
+response = requests.get(
+    "https://ab12cd34ef.agent37.app/v1/responses/c91d2a7e84f04b6f9a3d5e1c0b87f4a2/stream",
+    headers={
+        "X-Agent37-Key": "sk_live_..."
+    },
+    stream=True,
+)
+response.raise_for_status()
+for line in response.iter_lines(decode_unicode=True):
+    if line:
+        print(line)
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://ab12cd34ef.agent37.app/v1/responses/c91d2a7e84f04b6f9a3d5e1c0b87f4a2/stream",
+  {
+    method: "GET",
+    headers: {
+      "X-Agent37-Key": "sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+const decoder = new TextDecoder();
+for await (const chunk of response.body) {
+  process.stdout.write(decoder.decode(chunk, { stream: true }));
+}
+process.stdout.write(decoder.decode());
+```
+</CodeGroup>
 
 While the run is live, the gateway replays the entire ordered event buffer from `response.created` onward, then stays attached for the rest of the run. If the run just finished, it replays the buffer and ends. The buffer holds up to 100,000 events per run; the rare run that exceeds it stops buffering, so a reconnect replays the first 100,000 events and may end without the terminal event. When that happens, wait for `active_response_id` on [`GET /v1/sessions/{id}`](/agents-api/sessions#retrieve-a-session-with-history) to read `null`, then recover the final answer from the same call's `history`.
 
@@ -100,7 +229,7 @@ While the run is live, the gateway replays the entire ordered event buffer from 
 
 No SSE library needed. Read the response body, split on the blank-line frame boundary, skip comment lines, and branch on each frame's `event:` line. Stop when the connection closes after a terminal event.
 
-```javascript node
+```javascript node wrap
 const res = await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
   method: "POST",
   headers: {

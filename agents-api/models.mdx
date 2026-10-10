@@ -50,28 +50,53 @@ What you get depends on the harness. Hermes lists the models of each provider it
 </ResponseField>
 
 <CodeGroup>
-```bash curl
-curl https://ab12cd34ef.agent37.app/v1/models \
+```bash curl wrap
+curl -X GET \
+  https://ab12cd34ef.agent37.app/v1/models \
+  --url-query "agent=hermes" \
+  --url-query "profile=default" \
   -H "X-Agent37-Key: sk_live_..."
 ```
 
-```python python
+```python Python wrap
 import requests
 
-models = requests.get(
+response = requests.get(
     "https://ab12cd34ef.agent37.app/v1/models",
-    headers={"X-Agent37-Key": "sk_live_..."},
-).json()
+    headers={
+        "X-Agent37-Key": "sk_live_..."
+    },
+    params={
+        "agent": "hermes",
+        "profile": "default"
+    },
+)
+response.raise_for_status()
+print(response.json())
 ```
 
-```javascript node
-const models = await (await fetch(
-  "https://ab12cd34ef.agent37.app/v1/models",
-  { headers: { "X-Agent37-Key": "sk_live_..." } },
-)).json();
+```javascript Node wrap
+const query = new URLSearchParams({
+  "agent": "hermes",
+  "profile": "default"
+});
+
+const response = await fetch(
+  "https://ab12cd34ef.agent37.app/v1/models" + "?" + query,
+  {
+    method: "GET",
+    headers: {
+      "X-Agent37-Key": "sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
 ```
 
-```json response
+```json response wrap
 {
   "object": "list",
   "agent": "hermes",

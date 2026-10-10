@@ -70,28 +70,53 @@ Every row of `GET /v1/sessions` is the same shape regardless of harness: `{ id, 
 `GET /v1/sessions` returns the harness's sessions, newest first, wrapped in `{ "agent": "...", "data": [...] }`. The list is capped: Hermes returns up to 100 sessions, most recent activity first. OpenClaw returns only the sessions started through this API, drawn from its 1,000 most recently active sessions of any kind. Conversations from OpenClaw's own surfaces, such as its Control UI or a connected channel, count toward that window but are not listed and cannot be read by id through this API. The `agent` names which harness the list is for. Pass `?agent=hermes` or `?agent=openclaw` to pick a harness; omit it for the instance default. The list carries session metadata only, never history, so it stays cheap to poll for a sidebar. A harness without a list API returns `data: []`.
 
 <CodeGroup>
-```bash curl
-curl https://ab12cd34ef.agent37.app/v1/sessions \
+```bash curl wrap
+curl -X GET \
+  https://ab12cd34ef.agent37.app/v1/sessions \
+  --url-query "agent=hermes" \
+  --url-query "profile=default" \
   -H "X-Agent37-Key: sk_live_..."
 ```
 
-```python python
+```python Python wrap
 import requests
 
-sessions = requests.get(
+response = requests.get(
     "https://ab12cd34ef.agent37.app/v1/sessions",
-    headers={"X-Agent37-Key": "sk_live_..."},
-).json()["data"]
+    headers={
+        "X-Agent37-Key": "sk_live_..."
+    },
+    params={
+        "agent": "hermes",
+        "profile": "default"
+    },
+)
+response.raise_for_status()
+print(response.json())
 ```
 
-```javascript node
-const { data: sessions } = await (await fetch(
-  "https://ab12cd34ef.agent37.app/v1/sessions",
-  { headers: { "X-Agent37-Key": "sk_live_..." } },
-)).json();
+```javascript Node wrap
+const query = new URLSearchParams({
+  "agent": "hermes",
+  "profile": "default"
+});
+
+const response = await fetch(
+  "https://ab12cd34ef.agent37.app/v1/sessions" + "?" + query,
+  {
+    method: "GET",
+    headers: {
+      "X-Agent37-Key": "sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
 ```
 
-```json response
+```json response wrap
 {
   "agent": "hermes",
   "data": [
@@ -146,12 +171,54 @@ Each entry in `history` is a message:
 </ResponseField>
 
 <CodeGroup>
-```bash curl
-curl https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
+```bash curl wrap
+curl -X GET \
+  https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
+  --url-query "agent=hermes" \
+  --url-query "profile=default" \
   -H "X-Agent37-Key: sk_live_..."
 ```
 
-```json response
+```python Python wrap
+import requests
+
+response = requests.get(
+    "https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726",
+    headers={
+        "X-Agent37-Key": "sk_live_..."
+    },
+    params={
+        "agent": "hermes",
+        "profile": "default"
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const query = new URLSearchParams({
+  "agent": "hermes",
+  "profile": "default"
+});
+
+const response = await fetch(
+  "https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726" + "?" + query,
+  {
+    method: "GET",
+    headers: {
+      "X-Agent37-Key": "sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+
+
+```json response wrap
 {
   "id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
   "agent": "hermes",
@@ -189,14 +256,66 @@ curl https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726
 Both harnesses support rename: Hermes writes the title into its session database; OpenClaw stores it as the session's label. A harness with no editable title would return `405 rename_unsupported`; none of the shipped harnesses does. Pass `?agent=` to pick the harness.
 
 <CodeGroup>
-```bash curl
-curl -X PATCH https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
+```bash curl wrap
+curl -X PATCH \
+  https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
+  --url-query "agent=hermes" \
+  --url-query "profile=default" \
   -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "title": "EV makers memo" }'
+  -d '{
+    "title": "EV makers memo"
+  }'
 ```
 
-```json response
+```python Python wrap
+import requests
+
+response = requests.patch(
+    "https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726",
+    headers={
+        "X-Agent37-Key": "sk_live_...",
+        "Content-Type": "application/json"
+    },
+    params={
+        "agent": "hermes",
+        "profile": "default"
+    },
+    json={
+        "title": "EV makers memo"
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const query = new URLSearchParams({
+  "agent": "hermes",
+  "profile": "default"
+});
+
+const response = await fetch(
+  "https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726" + "?" + query,
+  {
+    method: "PATCH",
+    headers: {
+      "X-Agent37-Key": "sk_live_...",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "title": "EV makers memo"
+    }),
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+
+
+```json response wrap
 { "id": "7f3e0b6c52a949d2b1c4a8e9d0f31726", "agent": "hermes", "renamed": true }
 ```
 </CodeGroup>
@@ -206,12 +325,54 @@ curl -X PATCH https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e
 `DELETE /v1/sessions/{id}` is a best-effort removal from the harness's store and returns `{ "id": "...", "deleted": true|false }`. `deleted` is `true` when a transcript was removed and `false` when nothing matched the id, so the call is idempotent: repeating it simply returns `deleted: false` rather than erroring. On Hermes the transcript is removed from its session database; on OpenClaw the session leaves its list and OpenClaw archives the transcript off its active path. Pass `?agent=` to pick the harness.
 
 <CodeGroup>
-```bash curl
-curl -X DELETE https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
+```bash curl wrap
+curl -X DELETE \
+  https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726 \
+  --url-query "agent=hermes" \
+  --url-query "profile=default" \
   -H "X-Agent37-Key: sk_live_..."
 ```
 
-```json response
+```python Python wrap
+import requests
+
+response = requests.delete(
+    "https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726",
+    headers={
+        "X-Agent37-Key": "sk_live_..."
+    },
+    params={
+        "agent": "hermes",
+        "profile": "default"
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const query = new URLSearchParams({
+  "agent": "hermes",
+  "profile": "default"
+});
+
+const response = await fetch(
+  "https://ab12cd34ef.agent37.app/v1/sessions/7f3e0b6c52a949d2b1c4a8e9d0f31726" + "?" + query,
+  {
+    method: "DELETE",
+    headers: {
+      "X-Agent37-Key": "sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+
+
+```json response wrap
 { "id": "7f3e0b6c52a949d2b1c4a8e9d0f31726", "deleted": true }
 ```
 </CodeGroup>

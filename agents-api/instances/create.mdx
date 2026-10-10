@@ -38,7 +38,8 @@ curl -X POST \
     "public_ports": [
       {
         "port": 8080,
-        "prefix": "app"
+        "prefix": "app",
+        "label": "My app"
       }
     ]
   }'
@@ -79,6 +80,7 @@ response = requests.post(
             {
                 "port": 8080,
                 "prefix": "app",
+                "label": "My app",
             },
         ],
     },
@@ -123,6 +125,7 @@ const response = await fetch(
         {
           port: 8080,
           prefix: "app",
+          label: "My app",
         },
       ],
     }),
@@ -194,7 +197,7 @@ The examples include every optional field. Omit any field to use its default.
 </ParamField>
 
 <ParamField body="public_ports" type="object[]">
-  Ports to expose at permanent unauthenticated URLs, each `{ port, prefix? }`, for webhooks and other callers that can't send a credential. See [Public ports](/agents-api/public-ports), or follow the end-to-end [Hermes webhook setup](/agents-api/hermes-webhooks) for port `8644`.
+  Ports to expose at permanent unauthenticated URLs, each `{ port, prefix?, label? }`, for webhooks and other callers that can't send a credential. See [Public ports](/agents-api/public-ports), or follow the end-to-end [Hermes webhook setup](/agents-api/hermes-webhooks) for port `8644`.
 </ParamField>
 
 ## Defaults
