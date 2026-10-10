@@ -10,7 +10,7 @@ The base URL is your instance URL, `https://{instanceId}.agent37.app`, with the 
 These calls are not jailed to the workspace. The `sk_live_` key is the instance root: any path the key can reach on the instance's filesystem is fair game, with `~` expanding to the agent's home. Treat the key accordingly.
 
 <Note>
-  Every timestamp here is `modified`, the file's mtime in **epoch milliseconds**, following the Agent API convention (the Hosting API uses seconds). It is a number, not an ISO string.
+  Every timestamp here is `modified`, the file's mtime in **epoch milliseconds**, following the Agent API convention (the Sandbox API uses seconds). It is a number, not an ISO string.
 </Note>
 
 ## The file entry

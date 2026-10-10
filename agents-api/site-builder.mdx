@@ -19,7 +19,7 @@ My key is in AGENT37_API_KEY.
 
 ## Your server publishes, not the agent
 
-An agent cannot give itself a public URL: there is no agent-facing route for it, by design, so a prompt-injected agent can never expose a port on its own. Publishing is a Hosting API call with your `sk_live_` key, and that key lives only on your server. The flow that keeps everyone honest:
+An agent cannot give itself a public URL: there is no agent-facing route for it, by design, so a prompt-injected agent can never expose a port on its own. Publishing is a Sandbox API call with your `sk_live_` key, and that key lives only on your server. The flow that keeps everyone honest:
 
 1. At create, your server plants a **publish token** on the instance.
 2. The agent, briefed by your app, asks your server to publish, presenting the token.

@@ -112,7 +112,7 @@ console.log(await response.json());
 ```
 </ResponseExample>
 
-`POST /v1/responses` runs a turn on templates that include the Agent API. You make it against your instance, not against `api.agent37.com`: agent templates serve their chat API at `https://{instanceId}.agent37.app`, the `url` of the default port in the create response. This page uses `https://ab12cd34ef.agent37.app`. Authenticate with the same `sk_live_` key you use on the hosting API, sent as the `X-Agent37-Key` header.
+`POST /v1/responses` runs a turn on templates that include the Agent API. You make it against your instance, not against `api.agent37.com`: agent templates serve their chat API at `https://{instanceId}.agent37.app`, the `url` of the default port in the create response. This page uses `https://ab12cd34ef.agent37.app`. Authenticate with the same `sk_live_` key you use on the Sandbox API, sent as the `X-Agent37-Key` header.
 
 The call is agentic by default: the agent can browse, run code, use a terminal, read and write files, call connected tools, and reason across many steps before answering.
 

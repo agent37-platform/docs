@@ -1,9 +1,9 @@
 ---
 title: "App integrations"
-description: "Connect Gmail, Slack, Notion, and 250+ other apps to an instance over the Hosting API: managed Composio, one entity per instance, OAuth handled for you."
+description: "Connect Gmail, Slack, Notion, and 250+ other apps to an instance over the Sandbox API: managed Composio, one entity per instance, OAuth handled for you."
 ---
 
-Every instance ships with managed [Composio](https://composio.dev) credentials, so the agent can call real apps (Gmail, Slack, Notion, GitHub, Google Calendar, and hundreds more) without you wiring up OAuth or holding any provider tokens. The agent can connect apps in conversation, but you can also drive the whole flow over the Hosting API: browse the catalog, start a connection, list what's connected, and disconnect.
+Every instance ships with managed [Composio](https://composio.dev) credentials, so the agent can call real apps (Gmail, Slack, Notion, GitHub, Google Calendar, and hundreds more) without you wiring up OAuth or holding any provider tokens. The agent can connect apps in conversation, but you can also drive the whole flow over the Sandbox API: browse the catalog, start a connection, list what's connected, and disconnect.
 
 These endpoints live under each instance and operate on that instance's own Composio entity.
 
@@ -275,7 +275,7 @@ Configure the toolkit's auth config for your workspace, then retry. If managed C
 </ParamField>
 
 <ResponseField name="connections" type="array">
-  Composio connected-account objects, passed through as-is. Each carries `id`, `toolkitSlug`, `toolkitName`, `status`, and the account's auth and timestamp metadata. Because this is Composio's native shape, its fields follow Composio's naming and its timestamps are epoch **milliseconds** (not the Hosting API's usual seconds).
+  Composio connected-account objects, passed through as-is. Each carries `id`, `toolkitSlug`, `toolkitName`, `status`, and the account's auth and timestamp metadata. Because this is Composio's native shape, its fields follow Composio's naming and its timestamps are epoch **milliseconds** (not the Sandbox API's usual seconds).
 </ResponseField>
 
 <CodeGroup>

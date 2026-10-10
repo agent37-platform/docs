@@ -1,22 +1,22 @@
 ---
 title: "Core concepts"
-description: "Instances, templates, networking, and the APIs you use to build on Agent37 Cloud."
+description: "Persistent sandboxes for code, services, and agents: instances, templates, networking, and APIs."
 ---
 
-Agent37 Cloud runs persistent sandboxes called **instances**. A **template** chooses the software installed inside one. The Hosting API manages the computer, and authenticated HTTPS URLs let you reach the services it runs. Agent templates also include an Agent API for conversations and tools.
+Agent37 Cloud provides persistent sandboxes for code, services, and agents. Each sandbox is an **instance**. A **template** chooses the software installed inside it. The **Sandbox API** manages your instances, and authenticated HTTPS URLs let you reach the services they run. Choose an agent template when you also need the **Agent API** for conversations and tools.
 
 ## Two planes, one key
 
 | Plane | Base URL | What it serves |
 | --- | --- | --- |
-| **Hosting API** | `https://api.agent37.com/v1` | Manages the fleet: [instances](/agents-api/instances), [templates](/agents-api/templates), [budgets](/agents-api/budgets), [exec](/agents-api/exec). |
+| **Sandbox API** | `https://api.agent37.com/v1` | Creates and manages sandboxes: [instances](/agents-api/instances), [templates](/agents-api/templates), [budgets](/agents-api/budgets), [exec](/agents-api/exec). |
 | **Agent API** | `https://{instanceId}.agent37.app` | An API included in agent templates: `POST /v1/responses` for [chat](/agents-api/chat), plus `/v1/sessions`, `/v1/files`, `/v1/models`, `/v1/health`, and `/v1/version`. |
 
-Both planes take the same `sk_live_` key, in two different headers. The hosting API takes `Authorization: Bearer sk_live_...`. Instance URLs take the raw key as `X-Agent37-Key: sk_live_...`, which leaves `Authorization` free for your own app running inside the instance. Mint keys in the [dashboard](https://www.agent37.com/dashboard/cloud/api-keys); each key is scoped to one workspace. On the hosting API the key selects your workspace. On an instance URL, the platform edge authenticates the key, verifies the instance belongs to your workspace, and forwards the request to the service listening on the requested port. On an agent template's default port, that service is the agent gateway.
+Both planes take the same `sk_live_` key, in two different headers. The Sandbox API takes `Authorization: Bearer sk_live_...`. Instance URLs take the raw key as `X-Agent37-Key: sk_live_...`, which leaves `Authorization` free for your own app running inside the instance. Mint keys in the [dashboard](https://www.agent37.com/dashboard/cloud/api-keys); each key is scoped to one workspace. On the Sandbox API the key selects your workspace. On an instance URL, the platform edge authenticates the key, verifies the instance belongs to your workspace, and forwards the request to the service listening on the requested port. On an agent template's default port, that service is the agent gateway.
 
 A key can carry an **IP allowlist**: up to 20 IPs or CIDR ranges (IPv4 and IPv6), edited per key in the [dashboard](https://www.agent37.com/dashboard/cloud/api-keys). A restricted key only works from those addresses, on both planes; anywhere else it gets `403 ip_not_allowed` with the observed IP in the message. An empty list means the key works from any IP. [Signed URLs](/agents-api/urls) and [public ports](/agents-api/public-ports) carry their own authorization and are not affected, so a browser link keeps working wherever it is opened.
 
-Create and manage a sandbox through the Hosting API, regardless of which template it runs:
+Create and manage a sandbox through the Sandbox API, regardless of which template it runs:
 
 ```bash
 curl https://api.agent37.com/v1/instances/ab12cd34ef/exec \
@@ -61,7 +61,7 @@ These resources belong to the Agent API supplied by agent templates. A custom im
 
 ### How they fit together
 
-- Create an **instance** for a user or workload with `POST /v1/instances` on the hosting API. It keeps files, connected accounts, and memory across every session. An instance does not have to run around the clock: create it with `auto_sleep: true` and the platform checkpoints it to `sleeping` once it has been idle past its `idle_timeout_seconds`, billing disk alone while it sleeps; any request to its URL wakes it transparently (a few seconds for a restore, about two minutes when the instance has to be rebuilt). See [Auto-sleep](/agents-api/instance-auto-sleep).
+- Create an **instance** for a user or workload with `POST /v1/instances` on the Sandbox API. It keeps files, connected accounts, and memory across every session. An instance does not have to run around the clock: create it with `auto_sleep: true` and the platform checkpoints it to `sleeping` once it has been idle past its `idle_timeout_seconds`, billing disk alone while it sleeps; any request to its URL wakes it transparently (a few seconds for a restore, about two minutes when the instance has to be rebuilt). See [Auto-sleep](/agents-api/instance-auto-sleep).
 - On an agent template, start a **session** by sending a message to the instance's own URL: `POST https://{instanceId}.agent37.app/v1/responses`. Omit `session_id` and the gateway mints a new session; the reply carries the `session_id` you reuse to continue the thread. See [Sessions](/agents-api/sessions).
 - Each message produces a **response**. Stream it live with `stream: true` (see [Streaming](/agents-api/streaming)), or reconnect a dropped stream with `GET /v1/responses/{id}/stream`.
 
@@ -79,7 +79,7 @@ Per-instance [budgets](/agents-api/budgets) are caps, not money. A budget bounds
 - **Instance ids** are bare 10-character lowercase alphanumerics, like `ab12cd34ef`. No prefixes. The id doubles as the DNS label in the instance URL.
 - **Session and response ids** are 32-character hex strings minted by the gateway, like `7f3e0b6c52a949d2b1c4a8e9d0f31726`.
 - **Money** is integer micros: USD x 1e6, in `*_micros` fields.
-- **Timestamps** are epoch seconds on the hosting API and epoch milliseconds on the agent API. The [App integrations](/agents-api/integrations) endpoints are the exception: they pass Composio's native shapes through unchanged, with millisecond timestamps.
+- **Timestamps** are epoch seconds on the Sandbox API and epoch milliseconds on the Agent API. The [App integrations](/agents-api/integrations) endpoints are the exception: they pass Composio's native shapes through unchanged, with millisecond timestamps.
 - **Lists** wrap results in `{ "data": [...] }`. Instance and session lists are newest first. (The App integrations endpoints again pass Composio's native paginated and connection shapes through instead.)
 
 An instance's `status` is one of `provisioning`, `running`, `stopping`, `stopped`, `starting`, `restarting`, `updating`, `sleeping`, `waking`, `failed`, `deleting`, or `deleted`; a response's `status` is `in_progress`, `completed`, `failed`, or `cancelled`.

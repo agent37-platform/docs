@@ -292,7 +292,7 @@ Each user's agent is one [instance](/agents-api/instances): a persistent compute
       const { instance_id, text } = req.body;
       if (!/^[a-z0-9]{10}$/.test(instance_id ?? "")) return res.status(400).json({ error: "bad_request" });
 
-      // Owner first: an id none of your users owns never reaches the Hosting API.
+      // Owner first: an id none of your users owns never reaches the Sandbox API.
       const user = await db.users.findByInstance(instance_id);
       if (!user) return res.status(403).json({ error: "forbidden" });
 

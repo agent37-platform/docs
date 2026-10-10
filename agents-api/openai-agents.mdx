@@ -179,7 +179,7 @@ Manage or delete the OpenAI session separately through OpenAI's [session managem
 OpenAI lists sandbox providers on its [self-hosted sandboxes](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted#sandbox-providers) page, each with a short setup page. Everything needed to add Agent37 is below.
 
 ```text title="Provider description" wrap
-Agent37 Cloud provides persistent Linux sandboxes for the OpenAI Agents API. Run codex exec-server in your own image, keep the agent's files on the instance's disk across restarts, and create, run commands in, and delete sandboxes through the Agent37 Hosting API.
+Agent37 Cloud provides persistent Linux sandboxes for the OpenAI Agents API. Run codex exec-server in your own image, keep the agent's files on the instance's disk across restarts, and create, run commands in, and delete sandboxes through the Agent37 Sandbox API.
 ```
 
 ```markdown title="Provider table row"
@@ -201,7 +201,7 @@ Set `AGENT37_API_KEY` and use `OPENAI_API_KEY` for application requests. Set `OP
 
 ## 1. Set up the Agent37 environment
 
-Build an image with the Codex CLI as an Agent37 template. Create a [self-hosted session](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted#create-or-reuse-a-session) and save its environment ID. Use the Agent37 Hosting API to create an instance from the template, passing the environment key, environment ID, and remote URL as environment variables. Then [start the executor](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted#start-the-executor) through the instance's exec endpoint.
+Build an image with the Codex CLI as an Agent37 template. Create a [self-hosted session](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted#create-or-reuse-a-session) and save its environment ID. Use the Agent37 Sandbox API to create an instance from the template, passing the environment key, environment ID, and remote URL as environment variables. Then [start the executor](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted#start-the-executor) through the instance's exec endpoint.
 
 Put the working directory under `/home/node`, the instance's persistent home, so the agent's files survive stop, start, restart, and image updates. The executor's connection to OpenAI is outbound and does not count as activity, so create the instance with `auto_sleep: false`.
 

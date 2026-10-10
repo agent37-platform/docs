@@ -392,11 +392,11 @@ A managed call that can't be covered fails with a 402 carrying one of two reason
 | `insufficient_balance` | The workspace wallet is empty. | Top up the wallet at [agent37.com/dashboard/cloud/billing](https://www.agent37.com/dashboard/cloud/billing). |
 | `instance_budget_exhausted` | The wallet has funds, but this instance hit its budget. | Raise the monthly cap with `PATCH .../budget`, or add headroom with `POST .../budget/top-up`. |
 
-For the hosting API error catalog, see [Errors](/agents-api/errors).
+For the Sandbox API error catalog, see [Errors](/agents-api/errors).
 
 ## Connecting apps
 
-The agent connects apps two ways. In conversation, ask it to connect Gmail, Slack, Notion, or any other Composio-supported app, and it replies with an authorization link your user opens to grant access. Or drive the flow over the Hosting API; see [App integrations](/agents-api/integrations).
+The agent connects apps two ways. In conversation, ask it to connect Gmail, Slack, Notion, or any other Composio-supported app, and it replies with an authorization link your user opens to grant access. Or drive the flow over the Sandbox API; see [App integrations](/agents-api/integrations).
 
 ## Bring your own keys
 
