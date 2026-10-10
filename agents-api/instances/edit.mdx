@@ -99,23 +99,23 @@ Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.co
 
 The examples include every editable field. Send only the fields you want to change.
 
-<ParamField body="name" type="string | null">
+<ParamField body="name" type="string | null" post={["optional"]}>
   A label for the instance, up to 60 characters. `null` or `""` clears it.
 </ParamField>
 
-<ParamField body="user" type="string | null">
+<ParamField body="user" type="string | null" post={["optional"]}>
   Your attribution tag, up to 200 characters. `null` or `""` clears it.
 </ParamField>
 
-<ParamField body="metadata" type="object | null">
+<ParamField body="metadata" type="object | null" post={["optional"]}>
   Your key/value pairs, up to 4 KB serialized. The object replaces the stored one, it is not merged. `null` or `{}` clears it.
 </ParamField>
 
-<ParamField body="auto_sleep" type="boolean">
+<ParamField body="auto_sleep" type="boolean" post={["optional"]}>
   Turn [auto-sleep](/agents-api/instance-auto-sleep) on or off. Takes effect within about half a minute, with no restart and no recreate.
 </ParamField>
 
-<ParamField body="idle_timeout_seconds" type="integer">
+<ParamField body="idle_timeout_seconds" type="integer" post={["optional"]}>
   The new idle timeout: an integer from `300` to `86400` seconds.
 </ParamField>
 

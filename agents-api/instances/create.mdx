@@ -154,49 +154,49 @@ Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.co
 
 The examples include every optional field. Omit any field to use its default.
 
-<ParamField body="template" type="string" default="agent37-hermes">
+<ParamField body="template" type="string" default="agent37-hermes" post={["optional"]}>
   A system or workspace [template name](/agents-api/templates). Defaults to `agent37-hermes`. Add `@<version>` to pin a published release. See [Template selection](#template-selection) for harness requirements and version rules.
 </ParamField>
 
-<ParamField body="resources" type="object">
+<ParamField body="resources" type="object" post={["optional"]}>
   The instance shape, for example `{ "cpu": 2, "memory": 4, "disk": 6 }`. Omitted, it uses the smallest shape, 2 vCPU / 4 GB. See [Instance sizing](/agents-api/instance-sizing) for the four available shapes. Free workspaces (before your first top-up) run the 2 vCPU / 4 GB shape; the larger 4/8, 8/16, and 16/32 shapes return `403 tier_limit` until you top up. Disk is any whole number of GB within the shape's range, and defaults to 4, 6, 12, or 24 GB by shape when omitted. Any other combination returns `400 invalid_request` listing the valid shapes.
 </ParamField>
 
-<ParamField body="type" type="string" default="default">
+<ParamField body="type" type="string" default="default" post={["optional"]}>
   `default` is used when you omit `type`, and for most harnesses it is all you need. `performance` runs the instance on dedicated cores, for heavy work such as computer use, at 4x the default compute rate. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
 
   `burstable` is an experimental instance type for low average CPU and RAM usage, starting at \$1/month. [Apply here](https://cal.com/vishnukool/30min) to enable it for your workspace.
 </ParamField>
 
-<ParamField body="user" type="string">
+<ParamField body="user" type="string" post={["optional"]}>
   An opaque tag for your own attribution, typically your end user's id. Stored, never interpreted, echoed back on the instance object.
 </ParamField>
 
-<ParamField body="name" type="string">
+<ParamField body="name" type="string" post={["optional"]}>
   A label for the instance.
 </ParamField>
 
-<ParamField body="metadata" type="object">
+<ParamField body="metadata" type="object" post={["optional"]}>
   Your own key/value pairs. Stored, never interpreted.
 </ParamField>
 
-<ParamField body="env" type="object">
+<ParamField body="env" type="object" post={["optional"]}>
   Environment variables for the container, as string key/value pairs. Set once at create and replayed on every restart, update, and wake. Up to 64 entries and 64 KB in total; keys are uppercase letters, digits, and underscores starting with a letter; values are strings of up to 4096 characters. See [Environment variables](/agents-api/instance-environment).
 </ParamField>
 
-<ParamField body="budget" type="object">
+<ParamField body="budget" type="object" post={["optional"]}>
   Caps on this instance's managed usage (managed LLM, Brave search, and Composio calls), in micros (millionths of a dollar): `monthly_cap_micros` resets each UTC month, `credit_micros` adds one-time headroom that persists until spent. Both default to `0`, so managed calls are refused until you raise one. These are ceilings, not money; spend still draws the workspace wallet. See [Budgets](/agents-api/budgets).
 </ParamField>
 
-<ParamField body="auto_sleep" type="boolean" default="false">
+<ParamField body="auto_sleep" type="boolean" default="false" post={["optional"]}>
   Opt the instance into [auto-sleep](/agents-api/instance-auto-sleep): once no bytes have moved through its URLs for `idle_timeout_seconds`, it is checkpointed to `sleeping` and bills disk alone until a request wakes it. Awake minutes bill the ordinary compute rate.
 </ParamField>
 
-<ParamField body="idle_timeout_seconds" type="integer" default="900">
+<ParamField body="idle_timeout_seconds" type="integer" default="900" post={["optional"]}>
   How long the instance must be idle before it sleeps, in seconds. An integer from `300` to `86400` (five minutes to one day). Only meaningful with `auto_sleep: true`.
 </ParamField>
 
-<ParamField body="public_ports" type="object[]">
+<ParamField body="public_ports" type="object[]" post={["optional"]}>
   Ports to expose at permanent unauthenticated URLs, each `{ port, prefix?, label? }`, for webhooks and other callers that can't send a credential. See [Public ports](/agents-api/public-ports), or follow the end-to-end [Hermes webhook setup](/agents-api/hermes-webhooks) for port `8644`.
 </ParamField>
 

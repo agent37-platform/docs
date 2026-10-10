@@ -64,7 +64,7 @@ So there are two independent layers, and a connection needs both:
 <ParamField body="public_key" type="string" required>
   One OpenSSH public key line, the contents of a `.pub` file: `ssh-ed25519 AAAA... you@laptop`. Accepted types are `ssh-ed25519`, `ssh-rsa`, `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521`, `sk-ssh-ed25519@openssh.com`, and `sk-ecdsa-sha2-nistp256@openssh.com`. A private key, an unsupported type, or a malformed line returns `400 invalid_request`.
 </ParamField>
-<ParamField body="name" type="string">
+<ParamField body="name" type="string" post={["optional"]}>
   A label for the key, such as `laptop`. Optional: omit it and the key's trailing comment is used.
 </ParamField>
 

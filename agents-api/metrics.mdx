@@ -9,7 +9,7 @@ Samples start landing a couple of minutes after an instance first runs, so a jus
 
 ## Request
 
-<ParamField query="hours" type="integer" default="24">
+<ParamField query="hours" type="integer" default="24" post={["optional"]}>
   The window to return, ending now. Defaults to 24, capped at 336 (14 days, which is also the retention). A value that is not an integer in range returns `400 invalid_request`.
 </ParamField>
 

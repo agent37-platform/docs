@@ -25,6 +25,8 @@ Navigation has two tabs, **Guides** and **API reference**:
 
 The API reference is **hand-authored MDX**; there is no OpenAPI spec to regenerate from. Endpoint pages use `<ParamField>`/`<ResponseField>` and show curl, Python, and Node examples. Single-operation pages use `api` frontmatter with a full URL and put code blocks directly inside `<RequestExample>` and `<ResponseExample>` before the field reference; do not nest a `<CodeGroup>` inside either example component. If a page is renamed or moved, add a redirect in `docs.json` so old URLs keep working (several exist already). Keep old section anchors when splitting a resource page.
 
+Every request `<ParamField>` must show whether it is required or optional: use the native `required` prop for required parameters and `post={["optional"]}` for optional parameters. Keep defaults in the `default` prop and explain conditional requirements in the field description. Do not infer response-field optionality from the absence of `required`.
+
 ## Accuracy rules
 
 - The platform is pre-launch and moves fast; the implementation is the source of truth and these docs are hand-written, so drift is the failure mode. **Verify behavior against the live API before documenting it.** Never document from memory or from an example app.

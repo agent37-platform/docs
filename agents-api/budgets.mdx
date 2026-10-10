@@ -39,11 +39,11 @@ A budget has two parts:
 
 Pass `budget` in the create body to grant headroom from the first call.
 
-<ParamField body="budget.monthly_cap_micros" type="integer" default="0">
+<ParamField body="budget.monthly_cap_micros" type="integer" default="0" post={["optional"]}>
   Monthly managed-spend cap in micros. Resets each UTC month.
 </ParamField>
 
-<ParamField body="budget.credit_micros" type="integer" default="0">
+<ParamField body="budget.credit_micros" type="integer" default="0" post={["optional"]}>
   One-time headroom in micros. Persists until consumed.
 </ParamField>
 
@@ -242,7 +242,7 @@ Setting the cap to `0` turns managed services off for the instance once any rema
   Headroom to add, in micros. Must be a positive integer.
 </ParamField>
 
-<ParamField body="idempotency_key" type="string">
+<ParamField body="idempotency_key" type="string" post={["optional"]}>
   Up to 64 characters matching `^[A-Za-z0-9_-]{1,64}$`. Repeating a request with the same key returns the current budget without adding again, so retries are safe.
 </ParamField>
 

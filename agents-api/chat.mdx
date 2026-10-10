@@ -126,45 +126,45 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
   The message or task, a plain string. There is no image field; to attach files, upload them first and list their paths in `files`. See [Sessions](/agents-api/sessions) for how history carries across turns.
 </ParamField>
 
-<ParamField body="files" type="string[]">
+<ParamField body="files" type="string[]" post={["optional"]}>
   Paths of files on the instance to attach to this turn, typically the `path` returned by [`PUT /v1/files/content`](/agents-api/files). Each must name an existing file on the instance, or the call returns `400 validation_error`. The paths are appended to the input, and the agent reads them from disk.
 </ParamField>
 
-<ParamField body="session_id" type="string">
+<ParamField body="session_id" type="string" post={["optional"]}>
   Continue an existing conversation. Omit it to start a new one; the response returns the new session's id. The harness owns sessions and creates one on first use, so an id it has not seen simply starts a fresh thread under that id rather than erroring. The exception is a harness that issues its own session ids: `codex`, `grok`, `opencode` and `pi` reject a first turn on an id they did not issue with `400 validation_error` (`param: session_id`), so on those four always start a thread by omitting `session_id` and reuse the id the response returns.
 </ParamField>
 
-<ParamField body="stream" type="boolean" default="false">
+<ParamField body="stream" type="boolean" default="false" post={["optional"]}>
   `true` returns a Server-Sent Events stream; `false` returns the finished response as one JSON body. See [Streaming](/agents-api/streaming).
 </ParamField>
 
-<ParamField body="model" type="string">
+<ParamField body="model" type="string" post={["optional"]}>
   The LLM to run this turn on, an id from `GET /v1/models` (on OpenClaw the ids are `provider/model`). On Hermes it applies to this turn only: omit it and the turn runs on the instance's default model, whatever earlier turns chose. On OpenClaw a named model is written to the session and sticks for the turns that follow; a turn that omits it leaves the session's model as is. A `model` OpenClaw does not allow (an id outside `GET /v1/models`) never starts the turn: the response settles with `status: "failed"` and `error.code` `agent_error`, with OpenClaw's reason in `message`, and the session keeps its previous model. See [Models](/agents-api/models).
 </ParamField>
 
-<ParamField body="provider" type="string">
+<ParamField body="provider" type="string" post={["optional"]}>
   The model's provider, for example `anthropic`. Hermes only, and per turn like `model`: it tells Hermes which configured provider to run the named model on. OpenClaw ignores it (the response still echoes it); there the provider is the prefix of the `provider/model` id you pass as `model`.
 </ParamField>
 
-<ParamField body="reasoning_effort" type="string">
+<ParamField body="reasoning_effort" type="string" post={["optional"]}>
   How hard the model thinks: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. `max` is the strongest plain thinking level; `ultra` is the harness's own Ultra mode, top thinking plus its agentic orchestration (on OpenClaw it also turns on proactive subagent orchestration). It applies to this turn only on both harnesses. Omit it and Hermes uses the instance's configured effort, while OpenClaw uses the session's own thinking level. On OpenClaw the values map one to one onto its thinking levels, with `none` sent as `off`. `max` and `ultra` need gateway `0.10.0`: older instances reject them with `validation_error` until [updated](/agents-api/instances/update).
 
   Codex and OpenCode advertise their levels per model, and a level a model does not accept is run at the nearest level below it rather than failing the turn. The response's `reasoning_effort` reports the level applied, so read that rather than assuming the request was honoured.
 </ParamField>
 
-<ParamField body="metadata" type="object">
+<ParamField body="metadata" type="object" post={["optional"]}>
   Up to 16 key/value pairs, at most 64 KB serialized. Echoed back on the response object, never interpreted.
 </ParamField>
 
-<ParamField body="agent" type="string">
+<ParamField body="agent" type="string" post={["optional"]}>
   Which agent harness runs the turn, `hermes`, `openclaw`, `claude-code`, `codex`, `grok`, `opencode`, or `pi`. Omit it to use the instance's configured default (`hermes` on `agent37-hermes`, `openclaw` on `agent37-openclaw`, `claude-code` on `agent37-claude-code`, `codex` on `agent37-codex`, `grok` on `agent37-grok`, `opencode` on `agent37-opencode`, `pi` on `agent37-pi`). Routing is per request: the gateway keeps no session-to-agent binding, so if a session runs on a non-default harness, send `agent` on every turn of it. Targeting a harness the instance was not provisioned with does not reject the call: the turn settles with `status: "failed"` and `error.code` `agent_unavailable`.
 </ParamField>
 
-<ParamField body="profile" type="string">
+<ParamField body="profile" type="string" post={["optional"]}>
   A named setup inside the agent, with its own instructions, skills, memory, config, and sessions, so one instance can host several distinct agents (a support agent and a sales agent, say). Omit it, or send `default`, for the agent's own setup. Like `agent`, it is per request: send it on every turn of the session, and as `?profile=` on the [session reads](/agents-api/sessions#profiles). Supported on `hermes` today; `profile` with any other `agent` is `400 validation_error`. A name that is not lowercase letters, digits, `-` or `_` is `400 validation_error`, and a profile that does not exist on the instance is `404 profile_not_found`.
 </ParamField>
 
-<ParamField body="mode" type="string" default="chat">
+<ParamField body="mode" type="string" default="chat" post={["optional"]}>
   `chat` runs one turn and replies. `goal` is reserved: sending it returns `400 validation_error` today.
 </ParamField>
 

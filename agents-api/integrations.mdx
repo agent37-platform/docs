@@ -36,15 +36,15 @@ All four require the `sk_live_` key, and the path instance must belong to your w
 
 `GET /v1/instances/{id}/integrations/toolkits` lists the apps you can connect, newest-relevant first, paginated by cursor.
 
-<ParamField query="search" type="string">
+<ParamField query="search" type="string" post={["optional"]}>
   Filter the catalog by name or slug. Must be at least 3 characters; a shorter value returns `400`.
 </ParamField>
 
-<ParamField query="limit" type="integer" default="12">
+<ParamField query="limit" type="integer" default="12" post={["optional"]}>
   Page size, clamped to `1`–`24`.
 </ParamField>
 
-<ParamField query="cursor" type="string">
+<ParamField query="cursor" type="string" post={["optional"]}>
   The `nextCursor` from a previous page. Omit for the first page.
 </ParamField>
 
@@ -139,7 +139,7 @@ console.log(await response.json());
   The toolkit slug to connect, for example `gmail` (from the catalog's `slug`).
 </ParamField>
 
-<ParamField body="callbackUrl" type="string">
+<ParamField body="callbackUrl" type="string" post={["optional"]}>
   Where to send the user after they grant access. If present it **must** be an absolute `https://` URL (anything else returns `400`). Omit it to use Composio's hosted "you can close this window" page, with no callback needed.
 </ParamField>
 
@@ -270,7 +270,7 @@ Configure the toolkit's auth config for your workspace, then retry. If managed C
 
 `GET /v1/instances/{id}/integrations/connections` returns the accounts connected to this instance. Pass `toolkit` to filter to one app.
 
-<ParamField query="toolkit" type="string">
+<ParamField query="toolkit" type="string" post={["optional"]}>
   Return only connections for this toolkit slug.
 </ParamField>
 

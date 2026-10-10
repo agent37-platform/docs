@@ -85,15 +85,15 @@ Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.co
 
 ## Request body
 
-<ParamField body="cpu" type="integer">
+<ParamField body="cpu" type="integer" post={["optional"]}>
   Target vCPUs. Send a valid CPU and memory shape; omitted values keep their current value.
 </ParamField>
 
-<ParamField body="memory" type="integer">
+<ParamField body="memory" type="integer" post={["optional"]}>
   Target memory in GB. See [instance sizing](/agents-api/instance-sizing) for valid shapes.
 </ParamField>
 
-<ParamField body="disk" type="integer">
+<ParamField body="disk" type="integer" post={["optional"]}>
   Target disk in GB. Disk can grow but cannot shrink. At least one dimension must change.
 </ParamField>
 

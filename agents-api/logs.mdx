@@ -13,7 +13,7 @@ Unlike [exec](/agents-api/exec), which needs a `running` container, logs works i
 
 ## Request
 
-<ParamField query="tail" type="integer" default="500">
+<ParamField query="tail" type="integer" default="500" post={["optional"]}>
   How many of the most recent log lines to return. Defaults to 500, capped at 2000 (a larger value is clamped down). A value that is not a positive integer returns `400 invalid_request`.
 </ParamField>
 
