@@ -12,84 +12,166 @@
   },
   "favicon": "/favicon.svg",
   "navigation": {
-    "groups": [
+    "tabs": [
       {
-        "group": "Get started",
-        "pages": [
-          "index",
-          "agents-api/concepts"
-        ]
-      },
-      {
-        "group": "Build with Agent37",
-        "pages": [
-          "agents-api/examples",
-          "agents-api/chat-app",
-          "agents-api/site-builder",
+        "tab": "Guides",
+        "groups": [
           {
-            "group": "Build your own",
+            "group": "Get started",
             "pages": [
-              "agents-api/dots",
-              "agents-api/instinct",
-              "agents-api/grok-bot",
-              "agents-api/muse"
+              "index",
+              "agents-api/concepts"
             ]
           },
-          "agents-api/white-label",
-          "agents-api/desktop",
-          "agents-api/messaging",
-          "agents-api/byo-model",
-          "agents-api/composio",
-          "agents-api/claude-code",
-          "agents-api/claude-managed-agents",
-          "agents-api/codex",
-          "agents-api/openai-agents",
-          "agents-api/cursor",
-          "agents-api/grok",
-          "agents-api/opencode",
-          "agents-api/pi",
-          "agents-api/n8n",
-          "agents-api/custom-image",
-          "agents-api/migrate-from-docker",
-          "agents-api/managed-services",
-          "agents-api/hermes-webhooks",
-          "agents-api/imessage"
+          {
+            "group": "Sandboxes",
+            "pages": [
+              "agents-api/custom-image",
+              "agents-api/migrate-from-docker",
+              "agents-api/n8n",
+              {
+                "group": "Manage instances",
+                "pages": [
+                  "agents-api/instance-lifecycle",
+                  "agents-api/instance-sizing",
+                  "agents-api/instance-environment",
+                  "agents-api/instance-auto-sleep",
+                  "agents-api/instance-backups"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Agent templates",
+            "pages": [
+              "agents-api/agent-quickstart",
+              {
+                "group": "Host a harness",
+                "pages": [
+                  "agents-api/claude-code",
+                  "agents-api/codex",
+                  "agents-api/grok",
+                  "agents-api/opencode",
+                  "agents-api/pi"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Build with Agent37",
+            "pages": [
+              "agents-api/examples",
+              {
+                "group": "Apps and interfaces",
+                "pages": [
+                  "agents-api/chat-app",
+                  "agents-api/site-builder",
+                  "agents-api/white-label",
+                  {
+                    "group": "Build your own",
+                    "pages": [
+                      "agents-api/dots",
+                      "agents-api/instinct",
+                      "agents-api/grok-bot",
+                      "agents-api/muse"
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "External agents",
+                "pages": [
+                  "agents-api/claude-managed-agents",
+                  "agents-api/openai-agents",
+                  "agents-api/cursor"
+                ]
+              },
+              {
+                "group": "Agents and tools",
+                "pages": [
+                  "agents-api/desktop",
+                  "agents-api/messaging",
+                  "agents-api/byo-model",
+                  "agents-api/composio",
+                  "agents-api/managed-services",
+                  "agents-api/hermes-webhooks",
+                  "agents-api/imessage"
+                ]
+              }
+            ]
+          }
         ]
       },
       {
-        "group": "Hosting API",
-        "pages": [
-          "agents-api/instances",
-          "agents-api/templates",
-          "agents-api/urls",
-          "agents-api/public-ports",
-          "agents-api/domains",
-          "agents-api/exec",
-          "agents-api/crons",
-          "agents-api/ssh",
-          "agents-api/logs",
-          "agents-api/metrics",
-          "agents-api/budgets",
-          "agents-api/integrations"
-        ]
-      },
-      {
-        "group": "Agent API",
-        "pages": [
-          "agents-api/chat",
-          "agents-api/streaming",
-          "agents-api/sessions",
-          "agents-api/models",
-          "agents-api/files",
-          "agents-api/health"
-        ]
-      },
-      {
-        "group": "Reference",
-        "pages": [
-          "agents-api/billing",
-          "agents-api/errors",
-          "agents-api/hermes-desktop"
+        "tab": "API reference",
+        "groups": [
+          {
+            "group": "Hosting API",
+            "pages": [
+              {
+                "group": "Instances",
+                "expanded": true,
+                "pages": [
+                  "agents-api/instances",
+                  "agents-api/instances/create",
+                  "agents-api/instances/list",
+                  "agents-api/instances/get",
+                  "agents-api/instances/edit",
+                  "agents-api/instances/delete",
+                  {
+                    "group": "Lifecycle",
+                    "pages": [
+                      "agents-api/instances/stop",
+                      "agents-api/instances/start",
+                      "agents-api/instances/restart",
+                      "agents-api/instances/update",
+                      "agents-api/instances/resize",
+                      "agents-api/instances/fork"
+                    ]
+                  },
+                  {
+                    "group": "Backups",
+                    "pages": [
+                      "agents-api/instances/list-backups",
+                      "agents-api/instances/create-backup",
+                      "agents-api/instances/restore"
+                    ]
+                  },
+                  "agents-api/instances/object"
+                ]
+              },
+              "agents-api/templates",
+              "agents-api/urls",
+              "agents-api/public-ports",
+              "agents-api/domains",
+              "agents-api/exec",
+              "agents-api/crons",
+              "agents-api/ssh",
+              "agents-api/logs",
+              "agents-api/metrics",
+              "agents-api/budgets",
+              "agents-api/integrations"
+            ]
+          },
+          {
+            "group": "Agent API",
+            "pages": [
+              "agents-api/chat",
+              "agents-api/streaming",
+              "agents-api/sessions",
+              "agents-api/models",
+              "agents-api/files",
+              "agents-api/health"
+            ]
+          },
+          {
+            "group": "Shared reference",
+            "pages": [
+              "agents-api/billing",
+              "agents-api/errors",
+              "agents-api/hermes-desktop"
+            ]
+          }
         ]
       }
     ]
@@ -113,15 +195,15 @@
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "seo": {
     "indexing": "all"
@@ -133,16 +215,45 @@
     }
   },
   "redirects": [
-    { "source": "/agents-api/quickstart", "destination": "/" },
-    { "source": "/agents-api/messages", "destination": "/agents-api/chat" },
-    { "source": "/agents-api/embeds", "destination": "/agents-api/urls" },
-    { "source": "/agents-api/scheduled-runs", "destination": "/agents-api/crons" },
-    { "source": "/agents-api/skills", "destination": "/agents-api/templates" },
-    { "source": "/agents-api/build-your-own-image", "destination": "/agents-api/custom-image" }
+    {
+      "source": "/agents-api/quickstart",
+      "destination": "/"
+    },
+    {
+      "source": "/agents-api/messages",
+      "destination": "/agents-api/chat"
+    },
+    {
+      "source": "/agents-api/embeds",
+      "destination": "/agents-api/urls"
+    },
+    {
+      "source": "/agents-api/scheduled-runs",
+      "destination": "/agents-api/crons"
+    },
+    {
+      "source": "/agents-api/skills",
+      "destination": "/agents-api/templates"
+    },
+    {
+      "source": "/agents-api/build-your-own-image",
+      "destination": "/agents-api/custom-image"
+    }
   ],
   "footer": {
     "socials": {
       "website": "https://www.agent37.com"
+    }
+  },
+  "api": {
+    "playground": {
+      "display": "simple"
+    },
+    "mdx": {
+      "auth": {
+        "method": "key",
+        "name": "X-Agent37-Key"
+      }
     }
   }
 }

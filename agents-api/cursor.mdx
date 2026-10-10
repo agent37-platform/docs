@@ -70,7 +70,7 @@ jq -n '{
 export INSTANCE_ID=$(jq -er '.id' instance.json)
 ```
 
-Leave [auto-sleep](/agents-api/instances#auto-sleep) off: the worker's outbound connection does not keep an instance awake. The worker reads `CURSOR_API_KEY` from its environment, where commands the agent runs can read it too, so use a key dedicated to this instance.
+Leave [auto-sleep](/agents-api/instance-auto-sleep) off: the worker's outbound connection does not keep an instance awake. The worker reads `CURSOR_API_KEY` from its environment, where commands the agent runs can read it too, so use a key dedicated to this instance.
 
 ## 3. Clone the repository
 

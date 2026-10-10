@@ -1,182 +1,129 @@
 ---
 title: "Quickstart"
-description: "Create an agent and stream its first reply in two API calls."
+description: "Create a persistent sandbox, run a command, and reach your services over HTTPS."
 ---
 
-Agent37 Cloud gives every user their own hosted agent computer. Create an instance and Hermes comes back running at its own URL: it chats, streams, browses, runs tools, and keeps state between conversations. Files, connected accounts, and memory stay on the agent until you delete it. You create the agent with one call, then talk to it with the next; you never touch a server.
+An **instance** is your persistent sandbox: a Linux computer for code, services, or agent harnesses.
+
+Get an [API key](https://www.agent37.com/dashboard/cloud/api-keys), then run `export AGENT37_API_KEY="sk_live_..."` in your terminal. Your [workspace wallet](/agents-api/billing) funds compute.
+
+## Create and run
+
+The curl example uses `jq`; Python uses `requests`; Node uses built-in `fetch`. Run these calls from your backend or terminal.
+
+<CodeGroup>
+```bash curl
+# Create an instance using the default template.
+INSTANCE=$(curl --fail-with-body -sS -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer $AGENT37_API_KEY")
+export INSTANCE_ID=$(printf '%s' "$INSTANCE" | jq -er '.id')
+
+# Run a command on that instance.
+curl --fail-with-body -sS "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "uname -s"}'
+```
+
+```python Python
+import os
+import requests
+
+headers = {"Authorization": f"Bearer {os.environ['AGENT37_API_KEY']}"}
+base = "https://api.agent37.com/v1/instances"
+
+response = requests.post(base, headers=headers)
+response.raise_for_status()
+instance = response.json()
+print("Instance:", instance["id"])
+
+response = requests.post(
+    f"{base}/{instance['id']}/exec",
+    headers=headers,
+    json={"command": "uname -s"},
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node
+const headers = { Authorization: `Bearer ${process.env.AGENT37_API_KEY}` };
+const base = "https://api.agent37.com/v1/instances";
+
+const created = await fetch(base, { method: "POST", headers });
+if (!created.ok) throw new Error(await created.text());
+const instance = await created.json();
+console.log("Instance:", instance.id);
+
+const response = await fetch(`${base}/${instance.id}/exec`, {
+  method: "POST",
+  headers: { ...headers, "Content-Type": "application/json" },
+  body: JSON.stringify({ command: "uname -s" }),
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+```
+</CodeGroup>
+
+```json Result
+{
+  "exit_code": 0,
+  "stdout": "Linux\n",
+  "stderr": "",
+  "truncated": false
+}
+```
+
+The instance keeps its files between commands. `exec` runs as the image's default user; read `exit_code` to tell whether your command succeeded. See [Run commands](/agents-api/exec) for root access, timeouts, and background processes.
+
+The default template is `agent37-hermes`, which includes Linux tools and the Hermes agent. This quickstart uses its shell. Choose another [template](/agents-api/templates) or [bring your own Docker image](/agents-api/custom-image) for your workload; an Agent API is a capability of the image you choose.
+
+## Reach a service on any port
+
+A service listening on port `8000` is reachable at `https://{instanceId}-8000.agent37.app`. No port registration is needed. Start this example server on the instance you just created, then request its preview URL:
+
+```bash
+# Python and Node users: set INSTANCE_ID to the id printed above.
+curl --fail-with-body -sS "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "mkdir -p /tmp/hello && echo Hello > /tmp/hello/index.html && nohup python3 -m http.server 8000 --bind 0.0.0.0 --directory /tmp/hello > /tmp/hello-server.log 2>&1 &"}'
+
+curl --fail-with-body -sS "https://$INSTANCE_ID-8000.agent37.app" \
+  -H "X-Agent37-Key: $AGENT37_API_KEY"
+# Hello
+```
+
+If the server is still starting, retry the preview request. To open the service in a browser, create a [signed URL](/agents-api/urls#browser-access-with-signed-urls). Use a [public port](/agents-api/public-ports) when a caller cannot send credentials.
 
 <Note>
-  **Building with an AI coding agent?** Point it at **[llms-full.txt](https://www.agent37.com/docs/llms-full.txt)**, the entire API in one file, and it can scaffold a working client.
+  The Hosting API uses `Authorization: Bearer`. Instance and preview URLs use `X-Agent37-Key`, leaving `Authorization` available to the software you run. Keep your workspace key on your backend.
 </Note>
 
-Every instance also gets [managed services](/agents-api/managed-services): an **LLM router at
-OpenRouter inference cost with no Agent37 markup**, **Brave Search over HTTP**, and **Composio
-and Perflo over MCP**. The instance's starter token (`AGENT37_MANAGED_TOKEN`) authorizes calls
-against workspace credit within its [budget](/agents-api/budgets). The managed-services reference
-shows how to pick a model, grant spending headroom, and call each service.
+## Clean up
 
-**Three ways to build on Agent37:**
+Delete the instance when you are done. This removes its data and ends billing. To keep its files, [stop it](/agents-api/instances/stop) instead; stopped instances still bill for disk.
 
-<CardGroup cols={3}>
-  <Card title="White-label dashboard" icon="rocket" href="/agents-api/white-label">
-    Fork a finished multi-tenant dashboard, rebrand it, and deploy. The fastest way to ship.
+```bash
+curl --fail-with-body -sS -X DELETE "https://api.agent37.com/v1/instances/$INSTANCE_ID" \
+  -H "Authorization: Bearer $AGENT37_API_KEY"
+```
+
+## Build on your sandbox
+
+<CardGroup cols={2}>
+  <Card title="Bring your own image" icon="package" href="/agents-api/custom-image">
+    Run your own tools, services, or agent harness.
   </Card>
-  <Card title="Build a chat app" icon="message" href="/agents-api/chat-app">
-    Wire the two API planes into your own app. Where most teams start.
+  <Card title="Instance lifecycle" icon="server" href="/agents-api/instance-lifecycle">
+    Stop, restart, resize, and update while keeping your data.
   </Card>
-  <Card title="Custom Docker image" icon="package" href="/agents-api/custom-image">
-    Extend Hermes or bring any Dockerfile; Agent37 builds the image in the cloud.
+  <Card title="Use an agent template" icon="message" href="/agents-api/agent-quickstart">
+    Create a Hermes instance and send its first message.
+  </Card>
+  <Card title="Examples" icon="code" href="/agents-api/examples">
+    Host harnesses, build apps, and connect external agents.
   </Card>
 </CardGroup>
 
-Those are the three most common starting points; [Build with Agent37](/agents-api/examples) has the full table of guides and forkable repos. The rest of this page is the API itself: create an instance and stream a reply in two calls.
-
-![Agent37 Cloud routes requests from your app to isolated agent instances.](/images/agent37-gateway-flow.svg)
-
-<Steps>
-  <Step title="Get a key">
-    Mint an API key at [www.agent37.com/dashboard/cloud/api-keys](https://www.agent37.com/dashboard/cloud/api-keys). The full `sk_live_...` key is shown once, at creation. Send it as `Authorization: Bearer` on the Hosting API (`https://api.agent37.com/v1`) and as `X-Agent37-Key` on your instance's URL.
-
-    New workspaces include enough credit to create one instance. Add funds from [billing](https://www.agent37.com/dashboard/cloud/billing) before you run more than one instance. [Billing](/agents-api/billing) covers pricing, instance limits, and top-up rules.
-  </Step>
-
-  <Step title="Create an instance">
-    `POST /v1/instances` provisions a computer running the default `agent37-hermes` template and returns `201` once its `status` is `running`. Every field is optional, but include managed-spend headroom if you want built-in LLM calls to work from the first message.
-
-    <CodeGroup>
-    ```bash curl
-    curl -X POST https://api.agent37.com/v1/instances \
-      -H "Authorization: Bearer sk_live_..." \
-      -H "Content-Type: application/json" \
-      -d '{ "budget": { "credit_micros": 1000000 } }'
-    ```
-
-    ```python python
-    import requests
-
-    H = {"Authorization": "Bearer sk_live_..."}
-    inst = requests.post(
-        "https://api.agent37.com/v1/instances",
-        headers=H,
-        json={"budget": {"credit_micros": 1_000_000}},
-    ).json()
-    ```
-
-    ```javascript node
-    const H = { Authorization: "Bearer sk_live_..." };
-    const inst = await (await fetch("https://api.agent37.com/v1/instances", {
-      method: "POST",
-      headers: { ...H, "Content-Type": "application/json" },
-      body: JSON.stringify({ budget: { credit_micros: 1_000_000 } }),
-    })).json();
-    ```
-
-    ```json response
-    {
-      "id": "ab12cd34ef",
-      "status": "running",
-      "status_reason": null,
-      "template": "agent37-hermes",
-      "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
-      "image_digest": "sha256:4f8d0d9e9f3b3a5a9f4488fb33274de9f7b7450c6cf6d3573e68fd231d7c8891",
-      "resources": { "cpu": 2, "memory": 4, "disk": 6 },
-      "url": "https://ab12cd34ef.agent37.app",
-      "domain_urls": [],
-      "public_ports": [],
-      "user": null,
-      "name": null,
-      "metadata": null,
-      "auto_sleep": false,
-      "idle_timeout_seconds": 300,
-      "past_due": false,
-      "created": 1781049600
-    }
-    ```
-    </CodeGroup>
-
-    The `url` is the instance's own API: the instance id is the DNS label, so `ab12cd34ef` answers at `https://ab12cd34ef.agent37.app`. That is the address you talk to next. Any other port, including the agent's dashboard, terminal, and files, is reachable at `https://ab12cd34ef-{port}.agent37.app`; see [Instance and preview URLs](/agents-api/urls).
-  </Step>
-
-  <Step title="Send it a streamed message">
-    `POST /v1/responses` on the instance URL runs a turn. Set `stream: true` to receive Server-Sent Events as the agent reasons, calls tools, and writes its answer. Same `sk_live_` key, sent as the `X-Agent37-Key` header.
-
-    <CodeGroup>
-    ```bash curl
-    curl -N https://ab12cd34ef.agent37.app/v1/responses \
-      -H "X-Agent37-Key: sk_live_..." \
-      -H "Content-Type: application/json" \
-      -d '{
-        "input": "Research the top 3 EV makers, write a memo.",
-        "stream": true
-      }'
-    ```
-
-    ```python python
-    AGENT_H = {"X-Agent37-Key": "sk_live_..."}
-    r = requests.post(
-        "https://ab12cd34ef.agent37.app/v1/responses",
-        headers=AGENT_H,
-        stream=True,
-        json={
-            "input": "Research the top 3 EV makers, write a memo.",
-            "stream": True,
-        },
-    )
-    for line in r.iter_lines():
-        print(line.decode())
-    ```
-
-    ```javascript node
-    const AGENT_H = { "X-Agent37-Key": "sk_live_..." };
-    const res = await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
-      method: "POST",
-      headers: { ...AGENT_H, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        input: "Research the top 3 EV makers, write a memo.",
-        stream: true,
-      }),
-    });
-    // res.body is an SSE stream of named events
-    ```
-    </CodeGroup>
-
-    The stream opens with `response.created`, which carries the ids you need, and ends with a terminal event after which the server closes the connection:
-
-    ```text events
-    event: response.created
-    data: {"id":"c91d2a7e84f04b6f9a3d5e1c0b87f4a2","session_id":"7f3e0b6c52a949d2b1c4a8e9d0f31726"}
-
-    event: response.output_text.delta
-    data: {"text":"Here is the memo. Tesla still leads on"}
-
-    event: response.completed
-    data: {"output_text":"Here is the memo...","usage":{"input_tokens":1840,"output_tokens":920,"cost_usd":0.0137},"context":{"used_tokens":22600,"window_tokens":256000}}
-    ```
-
-    <Tip>
-      Prefer not to stream? Leave `stream` off (the default is `false`) and the call returns the finished response as one JSON body.
-    </Tip>
-  </Step>
-
-  <Step title="Continue the conversation">
-    Reuse the `session_id` to continue the same thread. The agent keeps the full history on the instance, so you send only the new input.
-
-    ```bash curl
-    curl https://ab12cd34ef.agent37.app/v1/responses \
-      -H "X-Agent37-Key: sk_live_..." \
-      -H "Content-Type: application/json" \
-      -d '{
-        "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
-        "input": "Make it shorter, add a quote."
-      }'
-    ```
-  </Step>
-</Steps>
-
-<Note>
-  Done experimenting? `DELETE /v1/instances/{id}` ends billing on the spot: compute is metered per minute, so you only ever pay for the time the instance existed. See [Billing](/agents-api/billing).
-</Note>
-
-<Note>
-  Looking for **OpenClaw** channel, model, or networking setup? Those guides live on the [Agent37 blog](https://www.agent37.com/blog).
-</Note>
+For coding agents, start with the [documentation index](https://www.agent37.com/docs/llms.txt) to retrieve individual pages, or use the [complete reference](https://www.agent37.com/docs/llms-full.txt).

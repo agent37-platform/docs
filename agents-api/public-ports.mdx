@@ -13,7 +13,7 @@ Agent templates come with one. Every `agent37-hermes` and `agent37-openclaw` ins
 
 ## Create one
 
-Declare public ports when you [create the instance](/agents-api/instances#create-an-instance), or add one to a running instance:
+Declare public ports when you [create the instance](/agents-api/instances/create), or add one to a running instance:
 
 <CodeGroup>
 
@@ -132,7 +132,7 @@ See [Hermes webhooks](/agents-api/hermes-webhooks) for the short Agent37 setup.
 - **One URL per port**, at most 50 public ports per instance. Creating a second entry for the same port returns `409 public_port_exists` (delete first to rotate).
 - **Only `22022` can't be made public.** [SSH](/agents-api/ssh) is the one port the platform puts in your sandbox itself, and a URL with no credential on it would be a root shell, so it is rejected with `400` and takes an authenticated SSH tunnel and nothing else. Every other port is yours, including the ones a system template's own runtime serves (`3737` gateway, `9119`, `7681` terminal, `8080` file browser, `6080` desktop): publishing one is your call to make on your own instance. Be deliberate about it. A public URL carries no credential, so a gateway or terminal behind one is open to anyone holding the link.
 - Public traffic is ordinary instance traffic: no separate meter, billed to the workspace like any other request.
-- A request to a public URL [wakes a sleeping instance](/agents-api/urls#sleeping-instances-wake-on-request), which for a webhook endpoint is the feature working. A delivery to a sleeping instance is held until the wake completes, so a sender with a short timeout records that delivery as a failure and retries on its own schedule. The flip side: any traffic to the URL keeps an [auto-sleep](/agents-api/instances#auto-sleep) instance awake, so a scraped or polled public URL keeps the compute meter running. If that happens, delete the entry.
+- A request to a public URL [wakes a sleeping instance](/agents-api/urls#sleeping-instances-wake-on-request), which for a webhook endpoint is the feature working. A delivery to a sleeping instance is held until the wake completes, so a sender with a short timeout records that delivery as a failure and retries on its own schedule. The flip side: any traffic to the URL keeps an [auto-sleep](/agents-api/instance-auto-sleep) instance awake, so a scraped or polled public URL keeps the compute meter running. If that happens, delete the entry.
 - While the instance is stopped or suspended, the URL answers `503 { "error": "unavailable" }`, so visitors never see your billing state.
 - The path `/health` is answered by the platform edge itself and never reaches your app on any instance URL, public ports included. Serve health checks on another path.
 - Public ports and [signed URLs](/agents-api/urls#browser-access-with-signed-urls) are orthogonal: deleting a public port does not invalidate signed URLs for that port, and vice versa.

@@ -8,7 +8,7 @@ Every instance with a default port is reachable at `https://{instanceId}.agent37
 An instance needs no public IP address. Every port it listens on has its own HTTPS URL, and the platform edge checks your key. A [signed URL](#browser-access-with-signed-urls) opens a port in a browser, a [public port](/agents-api/public-ports) serves one of your own ports without any key, and a [custom domain](/agents-api/domains) serves all of them under your own domain. [SSH](/agents-api/ssh) takes the same path: the stream travels over a WebSocket to the instance's SSH port.
 
 <Info>
-  Instance URLs are the Agent API plane: you reach what runs *inside* an instance here, authenticated by the same `sk_live_` key as the hosting API, sent as the `X-Agent37-Key` header. See [Core concepts](/agents-api/concepts).
+  Instance and preview URLs reach the software listening inside your sandbox. Agent templates expose the Agent API on their default port; your own services expose their own routes. Authenticate with the same `sk_live_` key as the Hosting API, sent as the `X-Agent37-Key` header. See [Core concepts](/agents-api/concepts).
 </Info>
 
 ## Every port has a URL
@@ -248,7 +248,7 @@ console.log(await res.json());
 
 ## Sleeping instances wake on request
 
-An [auto-sleep](/agents-api/instances#auto-sleep) instance that has gone to sleep keeps every one of its URLs. A request to any of them wakes it transparently: the edge holds the request while the instance restores, then forwards it. Restoring the checkpoint takes a few seconds. When the wake has to rebuild the instance instead (it was moved to another host, pulled back from cold storage after a long sleep, or the restore failed), it takes about two minutes and boots fresh: processes and in-memory state from before the sleep are gone, files on disk are kept. No status polling, no retry logic; the response you get is the response to the request you sent. No response headers arrive until the wake completes, so give the client a first-byte timeout of at least three minutes.
+An [auto-sleep](/agents-api/instance-auto-sleep) instance that has gone to sleep keeps every one of its URLs. A request to any of them wakes it transparently: the edge holds the request while the instance restores, then forwards it. Restoring the checkpoint takes a few seconds. When the wake has to rebuild the instance instead (it was moved to another host, pulled back from cold storage after a long sleep, or the restore failed), it takes about two minutes and boots fresh: processes and in-memory state from before the sleep are gone, files on disk are kept. No status polling, no retry logic; the response you get is the response to the request you sent. No response headers arrive until the wake completes, so give the client a first-byte timeout of at least three minutes.
 
 A wake can be refused or fail, and those answers use the same flat error shape as the other [transport errors](/agents-api/errors#transport-errors):
 
@@ -268,7 +268,7 @@ A request can take as long as it needs. The limit is on silence, not on total ti
 
 So an install, a migration or a large `git push` behind an instance URL needs no streaming and no job queue: do the work, answer when it is done. For work that can run past 15 minutes, send the response headers first and keep something moving, a heartbeat line or an SSE stream: every byte restarts the clock, so a stream that keeps talking has no ceiling of its own.
 
-One interaction to watch with [auto-sleep](/agents-api/instances#auto-sleep): idle is measured in bytes moved, so an instance whose `idle_timeout_seconds` is shorter than its own slowest call can be checkpointed while that call is still running. Keep the idle timeout at or above the longest request you expect. The default, 900 seconds, matches the 15-minute ceiling.
+One interaction to watch with [auto-sleep](/agents-api/instance-auto-sleep): idle is measured in bytes moved, so an instance whose `idle_timeout_seconds` is shorter than its own slowest call can be checkpointed while that call is still running. Keep the idle timeout at or above the longest request you expect. The default, 900 seconds, matches the 15-minute ceiling.
 
 ## Private sandboxes
 

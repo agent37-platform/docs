@@ -1,0 +1,12 @@
+---
+title: "Backups"
+description: "Understand backup retention and restore an instance's data."
+---
+
+Every instance's data (`/home/node` and `/home/linuxbrew`) is backed up nightly into seven rotating slots, so the last seven nights are available as restore points. You can also take a backup on demand, into a separate slot that only your next on-demand backup replaces. A new instance has none until its first nightly pass, so take one on demand if you need a restore point before then. Backups and restores are free.
+
+<CardGroup cols={2}>
+  <Card title="Create a backup" href="/agents-api/instances/create-backup">Save a restore point now.</Card>
+  <Card title="List backups" href="/agents-api/instances/list-backups">Find available restore points.</Card>
+  <Card title="Restore a backup" href="/agents-api/instances/restore">Roll an instance back in place.</Card>
+</CardGroup>

@@ -1,0 +1,15 @@
+---
+title: "Instance sizing"
+description: "Choose CPU, memory, disk, and an instance type."
+---
+
+| cpu | memory | disk | Price at the default disk |
+| --- | --- | --- | --- |
+| 2 | 4 GB | 2-12 GB | \$4.76 per month (the default) |
+| 4 | 8 GB | 2-20 GB | \$9.34 per month |
+| 8 | 16 GB | 2-40 GB | \$18.68 per month |
+| 16 | 32 GB | 2-80 GB | \$37.36 per month |
+
+Disk bills at \$0.09 per GB per month, included in the prices above at the default disk. Those are the prices of the `default` [instance type](/agents-api/billing#default-and-performance-instances). The monthly price is the rate; the wallet is metered per minute, and only for what the instance holds: running time bills the full rate, and stopped or sleeping time bills the disk alone. Deleting an instance settles its final minutes and billing ends. See [Billing](/agents-api/billing).
+
+[`burstable` instances](/agents-api/billing#burstable-instances) start at \$1/month for low average CPU and RAM usage and require workspace enablement.

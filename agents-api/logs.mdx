@@ -32,13 +32,13 @@ Unlike [exec](/agents-api/exec), which needs a `running` container, logs works i
       Whether the container is currently up.
     </ResponseField>
     <ResponseField name="restart_count" type="integer">
-      How many times the container has booted beyond its first start. Wakes from [auto-sleep](/agents-api/instances#auto-sleep) count too, so a rising number on a sleeper is normal; a count that climbs while the instance never sleeps is a crash loop.
+      How many times the container has booted beyond its first start. Wakes from [auto-sleep](/agents-api/instance-auto-sleep) count too, so a rising number on a sleeper is normal; a count that climbs while the instance never sleeps is a crash loop.
     </ResponseField>
     <ResponseField name="exit_code" type="integer | null">
       The last exit code when the runtime still has one, `null` otherwise. Expect `null` in most cases: crash evidence lives in `logs`, `restart_count`, and `resource_verdict`.
     </ResponseField>
     <ResponseField name="oom_suspected" type="boolean">
-      Best-effort inference that the container was killed for exceeding its memory limit. `resource_verdict.memory` at `"critical"` is the reliable version of the same signal. If either fires, [resize](/agents-api/instances#resize) to a larger shape.
+      Best-effort inference that the container was killed for exceeding its memory limit. `resource_verdict.memory` at `"critical"` is the reliable version of the same signal. If either fires, [resize](/agents-api/instances/resize) to a larger shape.
     </ResponseField>
     <ResponseField name="resource_verdict" type="object | null">
       Per-dimension pressure (`memory`, `cpu`, `disk`, and `overall`, each `healthy`, `pressure`, or `critical`), or `null` when the container is not running. `memory` reads `"critical"` after the instance has been killed for exceeding its memory limit.
@@ -101,7 +101,7 @@ console.log(result.health, result.logs);
 When an instance is `failed` or stuck, logs and `health` together tell you which layer broke:
 
 - **The image will not start** (a climbing `restart_count`, with the same error at the top of `logs` on every boot): read the entrypoint's own error. This is the usual signal for a [custom image](/agents-api/custom-image) mistake, such as a missing binary, an entrypoint that exits, or a service that never listens on `default_port`.
-- **It ran out of memory** (`resource_verdict.memory` is `"critical"`): the agent needs a bigger box. [Resize](/agents-api/instances#resize) to a larger shape.
-- **It booted but the agent is wedged**: the logs show the last thing it did before it stopped responding. [Restart](/agents-api/instances#restart) to recover it.
+- **It ran out of memory** (`resource_verdict.memory` is `"critical"`): the agent needs a bigger box. [Resize](/agents-api/instances/resize) to a larger shape.
+- **It booted but the agent is wedged**: the logs show the last thing it did before it stopped responding. [Restart](/agents-api/instances/restart) to recover it.
 
 Once you have a `running` container, drop into it with [exec](/agents-api/exec) to inspect further.

@@ -53,7 +53,7 @@ Usage on `agent37/default` is managed: it meters against your Agent37 wallet lik
 
 ## Bring your own provider
 
-To run OpenCode on a specific provider, set that provider's API key as [instance env](/agents-api/instances#environment-variables) on the create call. OpenCode registers the provider automatically at boot, and its models then appear in `GET /v1/models?agent=opencode` as `provider/model` ids:
+To run OpenCode on a specific provider, set that provider's API key as [instance env](/agents-api/instance-environment) on the create call. OpenCode registers the provider automatically at boot, and its models then appear in `GET /v1/models?agent=opencode` as `provider/model` ids:
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances \
@@ -92,6 +92,6 @@ Each published version is a git tag in that repo, `b2b-opencode/<tag>`, matching
 | Symptom | Fix |
 | --- | --- |
 | A turn fails with `model_error` | The `model` was not a `provider/model` id from `GET /v1/models?agent=opencode`. Send a listed id, or omit `model` to run on `agent37/default`. |
-| A model you set a key for is missing from `GET /v1/models?agent=opencode` | OpenCode registers a provider from its key at boot. Confirm the key is set as instance [env](/agents-api/instances#environment-variables) under the right name (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `OPENROUTER_API_KEY`); a key added after create needs the instance [restarted](/agents-api/instances) to take effect. |
+| A model you set a key for is missing from `GET /v1/models?agent=opencode` | OpenCode registers a provider from its key at boot. Confirm the key is set as instance [env](/agents-api/instance-environment) under the right name (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `OPENROUTER_API_KEY`); a key added after create needs the instance [restarted](/agents-api/instances) to take effect. |
 | A first turn on a `session_id` you chose is rejected with `400 validation_error` (`param: session_id`) | OpenCode mints its own session ids: a client cannot bring an unknown `session_id` on the first turn. Omit it to start a thread, then reuse the id the response returns. Sessions you start in the terminal appear in `GET /v1/sessions?agent=opencode` on their own. |
-| A turn returns `503 agent_unavailable` | The OpenCode binary is not present on this instance, so a turn that has to create or resolve a session cannot run. Recreate or [update](/agents-api/instances#update) the instance to a template revision that ships OpenCode. |
+| A turn returns `503 agent_unavailable` | The OpenCode binary is not present on this instance, so a turn that has to create or resolve a session cannot run. Recreate or [update](/agents-api/instances/update) the instance to a template revision that ships OpenCode. |

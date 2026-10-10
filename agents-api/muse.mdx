@@ -42,7 +42,7 @@ The rest of the product is files too. The agent writes `~/muse/ideas.json`, `~/m
 
 <Steps>
   <Step title="Create the user's agent">
-    One [instance](/agents-api/instances#create-an-instance) per user, created when they finish onboarding. Three fields make it a Muse: a monthly `budget` (the managed LLM, search, and app calls are refused until you grant one), `auto_sleep` so an idle agent bills disk alone, and a random token in `env` that the agent later presents when it messages the user.
+    One [instance](/agents-api/instances/create) per user, created when they finish onboarding. Three fields make it a Muse: a monthly `budget` (the managed LLM, search, and app calls are refused until you grant one), `auto_sleep` so an idle agent bills disk alone, and a random token in `env` that the agent later presents when it messages the user.
 
     <CodeGroup>
     ```bash curl

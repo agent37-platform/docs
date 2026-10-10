@@ -41,7 +41,7 @@ Every template, system or your own, offers the same four shapes and starts at 2 
 
 On every system template but one, port `3737` is the gateway: the [chat API](/agents-api/chat) at `https://{instanceId}.agent37.app`. Any other port an instance serves, including the built-in dashboard, terminal, and file browser, is reachable at its derivable `https://{instanceId}-{port}.agent37.app` URL; see [Instance and preview URLs](/agents-api/urls). `agent37-n8n` is the exception: its default port is `5678`, there is no gateway, and it serves the n8n editor on a public URL; see [Host n8n](/agents-api/n8n).
 
-System templates track the newest platform image: their `image_ref` moves forward as new versions ship, and each create uses whatever the template points at in that moment. Existing instances are unaffected: an instance keeps the image it was created from until you [update it](/agents-api/instances#update).
+System templates track the newest platform image: their `image_ref` moves forward as new versions ship, and each create uses whatever the template points at in that moment. Existing instances are unaffected: an instance keeps the image it was created from until you [update it](/agents-api/instances/update).
 
 Every system template is built from a public Dockerfile in [agent37-platform/templates](https://github.com/agent37-platform/templates), so you, or your coding agent, can read exactly what an instance runs: what the image installs and how its entrypoint configures the agent at boot. Each published version is a git tag there named `<key>/<tag>`, for example `b2b-hermes/<tag>` for `agent37-hermes@<tag>`; the repo's README maps every template to its key. `main` can be ahead of what your instances run, so read the tag in your instance's image.
 
@@ -60,7 +60,7 @@ Every release is an immutable dated tag, never republished, so a pin is a freeze
 
 Workspace templates pin by revision number: every image publish (a changed `image_ref` or a successful [cloud build](#build-an-image-in-the-cloud)) appends a release, `GET /v1/templates/{name}` lists them under [`revisions`](#the-template-object), and `my-agent@2` freezes revision `2`. `GET /v1/templates/my-agent@2` probes one the same way as a system tag, returning `404` if it was never published, and an unpublished revision on create or update returns `400 invalid_request` naming the published ones.
 
-The pin sticks: the instance object's `template` field carries it (`"agent37-hermes@2026.07.02b"`, `"my-agent@2"`), and every lifecycle operation, including [`update`](/agents-api/instances#update), stays on the pinned version. To pin an existing instance, move its pin, or clear it, pass a `template` to update: the name with an `@<tag>` or `@<revision>` sets or switches the pin, the bare name clears it and follows latest again.
+The pin sticks: the instance object's `template` field carries it (`"agent37-hermes@2026.07.02b"`, `"my-agent@2"`), and every lifecycle operation, including [`update`](/agents-api/instances/update), stays on the pinned version. To pin an existing instance, move its pin, or clear it, pass a `template` to update: the name with an `@<tag>` or `@<revision>` sets or switches the pin, the bare name clears it and follows latest again.
 
 ## Endpoints
 
@@ -290,7 +290,7 @@ A failed build carries its reason in `error.code`:
 </ParamField>
 
 <ParamField body="default_port" type="integer">
-  The port the bare instance URL (`https://{instanceId}.agent37.app`) routes to, and the port the platform probes at boot to decide the create succeeded. Your service must bind it on `0.0.0.0`, not only localhost. An integer 1 to 65535. Only `22022` ([SSH](/agents-api/ssh)) is rejected, because the platform injects its own SSH server there; every other port is yours, `8080` and `3000` included. Omitted, the bare URL falls back to `3737` (right for images built on [the Hermes base image](#build-on-the-hermes-base-image), whose gateway serves it) and no TCP boot probe runs. A private sandbox can listen on nothing and be driven by [exec](/agents-api/exec), but its main process must still stay running. Every other port needs no declaration: it is already reachable at `https://{instanceId}-{port}.agent37.app`. With [auto-sleep](/agents-api/instances#auto-sleep) on, a sandbox nothing ever requests only wakes by an explicit [`start`](/agents-api/instances#start).
+  The port the bare instance URL (`https://{instanceId}.agent37.app`) routes to, and the port the platform probes at boot to decide the create succeeded. Your service must bind it on `0.0.0.0`, not only localhost. An integer 1 to 65535. Only `22022` ([SSH](/agents-api/ssh)) is rejected, because the platform injects its own SSH server there; every other port is yours, `8080` and `3000` included. Omitted, the bare URL falls back to `3737` (right for images built on [the Hermes base image](#build-on-the-hermes-base-image), whose gateway serves it) and no TCP boot probe runs. A private sandbox can listen on nothing and be driven by [exec](/agents-api/exec), but its main process must still stay running. Every other port needs no declaration: it is already reachable at `https://{instanceId}-{port}.agent37.app`. With [auto-sleep](/agents-api/instance-auto-sleep) on, a sandbox nothing ever requests only wakes by an explicit [`start`](/agents-api/instances/start).
 </ParamField>
 
 <ParamField body="entrypoint" type="string[]">
@@ -362,7 +362,7 @@ curl -X POST https://api.agent37.com/v1/templates \
   }'
 ```
 
-Instances from this template boot `/app/start.sh`, which you put on the instance's disk with [exec](/agents-api/exec) or [SSH](/agents-api/ssh). Because the command belongs to the template rather than to a one-off call, it runs again on every start, restart, and wake from [auto-sleep](/agents-api/instances#auto-sleep).
+Instances from this template boot `/app/start.sh`, which you put on the instance's disk with [exec](/agents-api/exec) or [SSH](/agents-api/ssh). Because the command belongs to the template rather than to a one-off call, it runs again on every start, restart, and wake from [auto-sleep](/agents-api/instance-auto-sleep).
 
 Registration copies the image into private storage before it returns, so `POST` and `PATCH` are synchronous and can take up to a few minutes for a large image. A reference the platform cannot pull (private without `registry_auth`, or a wrong login), one that isn't `linux/amd64`, or one over the cap is rejected at registration with `400 invalid_request` or `400 image_too_large`, so a broken image never reaches instance create.
 
@@ -417,7 +417,7 @@ Workspace templates start at `revision: 1`. Compare that value with an instance'
 
 ## Roll out a release to your fleet
 
-After an image update, list your instances and [update](/agents-api/instances#update) the ones still on an older revision. An instance's `template_revision` is what it has installed; the template's `revision` is the current release. Missing instance revisions read as `1`.
+After an image update, list your instances and [update](/agents-api/instances/update) the ones still on an older revision. An instance's `template_revision` is what it has installed; the template's `revision` is the current release. Missing instance revisions read as `1`.
 
 ```bash curl
 TEMPLATE=my-agent

@@ -41,7 +41,7 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/signed-url \
 
 Open the returned `url` in a browser and run `claude auth login` in the shell. The login persists on the instance volume, so it survives restarts and updates.
 
-**Set `CLAUDE_CODE_OAUTH_TOKEN`.** The way to go when your app provisions instances headlessly. Generate the token on your own machine with `claude setup-token`, then pass it as [instance env](/agents-api/instances#environment-variables) on the create call:
+**Set `CLAUDE_CODE_OAUTH_TOKEN`.** The way to go when your app provisions instances headlessly. Generate the token on your own machine with `claude setup-token`, then pass it as [instance env](/agents-api/instance-environment) on the create call:
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances \

@@ -1,0 +1,135 @@
+---
+title: "The instance object"
+description: "Fields returned by create, get, list, edit, and fork operations."
+---
+
+Create, get, edit, and fork return an instance object. List wraps these objects in `{ "data": [...] }`. Hosting API timestamps are epoch seconds.
+
+```json Example
+{
+  "id": "ab12cd34ef",
+  "status": "running",
+  "status_reason": null,
+  "template": "agent37-hermes",
+  "template_revision": null,
+  "image_ref": "ghcr.io/agent37-platform/hermes:2026.10.05a",
+  "image_digest": "sha256:d3f6f28fae8128274b15256a3f17ecf6b2cc5e209db886def17f0595900a1045",
+  "type": "default",
+  "resources": { "cpu": 2, "memory": 4, "disk": 4 },
+  "url": "https://ab12cd34ef.agent37.app",
+  "domain_urls": [],
+  "public_ports": [
+    { "port": 8443, "url": "https://3f9a1c0b7d2e4f6a8b1c.agent37.app", "domain_urls": [], "prefix": null, "label": "telegram", "created": 1781222400 }
+  ],
+  "user": "u_882",
+  "name": null,
+  "metadata": null,
+  "auto_sleep": false,
+  "idle_timeout_seconds": 900,
+  "past_due": false,
+  "created": 1781222400
+}
+```
+
+## Fields
+
+<ResponseField name="id" type="string">
+  A bare 10-character lowercase alphanumeric id, no prefix. It doubles as the DNS label in the instance's URL.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  The lifecycle state. `running` means the instance's computer is up; poll `GET /v1/health` before the first message. Around a wake or a start the field can trail reality by a few seconds: the response to your own request, or the instance's [health endpoint](/agents-api/health), is the authority. See the [statuses table](/agents-api/instances/object#statuses) below.
+</ResponseField>
+
+<ResponseField name="status_reason" type="object | null">
+  Why the most recent lifecycle operation failed, as `{ code, message, detail?, operation, at }`, or `null` when there is no failure reason. `detail`, when present, carries the raw failure output, including the tail of your container's console log when the container exited or never opened its port; use it to see your own application's startup error. The failing request's own `502` already carries the same `message` and `detail` (see [errors](/agents-api/errors)), so this field is for reading the reason later, not for discovering it. `at` is an epoch-second timestamp.
+</ResponseField>
+
+<ResponseField name="template" type="string">
+  The template the instance was built from, including its [version pin](/agents-api/templates#pin-a-template-version) when it has one (`agent37-hermes@<tag>`, `my-agent@2`).
+</ResponseField>
+
+<ResponseField name="template_revision" type="integer | null">
+  The workspace template revision this instance has installed. Compare it with the template's current `revision` to detect an available update. It changes only when the instance is created or [updated](/agents-api/instances/update), and is `null` for system templates and for instances created before revisions existed (an update stamps it).
+</ResponseField>
+
+<ResponseField name="image_ref" type="string | null">
+  The public source reference for a system template or registry-born workspace template. `null` for an image published by a [cloud build](/agents-api/templates#build-an-image-in-the-cloud). This never exposes Agent37's internal private-mirror path.
+</ResponseField>
+
+<ResponseField name="image_digest" type="string | null">
+  The immutable `sha256:...` digest of the image the instance runs. Use this, not a mutable `image_ref` tag, as the exact image identity. `null` only on older instances that predate digest pinning.
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  `default` or `performance`. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
+</ResponseField>
+
+<ResponseField name="resources" type="object">
+  The shape: `cpu` (vCPUs), `memory` and `disk` (GB).
+</ResponseField>
+
+<ResponseField name="url" type="string">
+  The bare instance URL, `https://{instanceId}.agent37.app`, where the agent's chat API lives (it routes to the template's `default_port`, `3737` unless declared otherwise). Every other port is reachable at `https://{instanceId}-{port}.agent37.app`, derivable with no declaration needed. Open any port in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). See [Instance and preview URLs](/agents-api/urls).
+</ResponseField>
+
+<ResponseField name="domain_urls" type="string[]">
+  The instance URL mirrored under each of your workspace's active [custom domains](/agents-api/domains); empty until a domain is active.
+</ResponseField>
+
+<ResponseField name="public_ports" type="object[]">
+  The instance's [public ports](/agents-api/public-ports), each `{ port, url, domain_urls, prefix, label, created }`: permanent unauthenticated URLs. `agent37-hermes` and `agent37-openclaw` instances start with one on `8443`, labelled `telegram`, for [Telegram webhooks](/agents-api/public-ports); otherwise the list is empty unless you created some.
+</ResponseField>
+
+<ResponseField name="user" type="string | null">
+  Your attribution tag, echoed back.
+</ResponseField>
+
+<ResponseField name="name" type="string | null">
+  Your label, echoed back.
+</ResponseField>
+
+<ResponseField name="metadata" type="object | null">
+  Your key/value pairs, echoed back.
+</ResponseField>
+
+<ResponseField name="auto_sleep" type="boolean">
+  Whether the instance sleeps on idle. Set at create or by `PATCH`. See [Auto-sleep](/agents-api/instance-auto-sleep).
+</ResponseField>
+
+<ResponseField name="idle_timeout_seconds" type="integer">
+  How long the instance must be idle before it sleeps, in seconds. Defaults to `900`.
+</ResponseField>
+
+<ResponseField name="slept_at" type="integer | null">
+  Present only while `status` is `sleeping` or `waking`: when the instance fell asleep, in epoch seconds. It does not signal that the checkpoint has finished: `status` flips to `sleeping` before the checkpoint is written, and during the write this field can be `null` or still carry an earlier timestamp. Instances that have been asleep for a long stretch may be rebuilt from cold storage on wake, which takes about two minutes (see [Auto-sleep](/agents-api/instance-auto-sleep)).
+</ResponseField>
+
+<ResponseField name="past_due" type="boolean">
+  `true` when the workspace balance went negative and the instance was suspended. Top up to clear it; the next request to the instance's URL wakes it. See [Billing](/agents-api/billing#past-due-and-suspension).
+</ResponseField>
+
+<ResponseField name="created" type="integer">
+  Creation time in epoch seconds.
+</ResponseField>
+
+## Statuses
+
+| Status | Meaning |
+| --- | --- |
+| `provisioning` | Being created. You only observe this if a create is in flight. |
+| `running` | Up. Poll `GET /v1/health` before the first message. |
+| `stopping` | A stop is in progress. |
+| `stopped` | Halted until an explicit `start`. Only an explicit `stop` produces this state; the platform never stops an instance on its own. Data intact, disk reserved, compute released. Bills disk only. |
+| `starting` | A start is in progress. |
+| `restarting` | A restart is in progress. |
+| `updating` | An update, resize, or [restore](/agents-api/instances/restore) is in progress. |
+| `sleeping` | Checkpointed on idle ([auto-sleep](/agents-api/instance-auto-sleep)), or force-slept for non-payment (with `past_due: true`). Any request to its URLs, an explicit `start`, an `exec`, or an `update` wakes it; while the checkpoint is still being written, `stop`, `start`, `exec`, and `update` return `409 try_again`. A sleeper moved to cold storage can be woken or deleted but not stopped. Bills disk only. |
+| `waking` | A wake is in progress. Every `start`, `exec`, or `update` wake shows it, as does a URL wake that has to move the instance to another host or pull it back from cold storage: a few seconds after a checkpoint restore, about two minutes on a rebuild. The held request completes when it finishes. Bills disk only. |
+| `failed` | A create or lifecycle action failed. |
+| `deleting` | A delete is in progress. |
+| `deleted` | Gone. The id reads as `404` from here on. |
+
+<Note>
+  `past_due` is a flag, not a status: a suspended instance shows it alongside `sleeping` (or `stopped`, if it already was). Top up the wallet to clear it; see [Billing](/agents-api/billing#past-due-and-suspension).
+</Note>

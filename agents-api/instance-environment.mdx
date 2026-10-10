@@ -1,0 +1,26 @@
+---
+title: "Environment variables"
+description: "Set container environment variables when you create an instance."
+---
+
+`env` puts your own variables in the container. They are stored with the instance and reapplied every time the container is rebuilt, so a restart, an update, or a wake from sleep keeps them.
+
+```bash
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "agent37-hermes",
+    "env": {
+      "AGENT37_LLM_PROXY_URL": "https://openrouter.ai/api",
+      "AGENT37_MANAGED_TOKEN": "sk-or-v1-...",
+      "AGENT37_STARTER_MODEL_ID": "anthropic/claude-sonnet-5"
+    }
+  }'
+```
+
+Your variables layer over the [managed services](/agents-api/managed-services) the platform injects, so the three names above are how you point a catalog agent at your own OpenAI-compatible provider instead of the managed one. Any endpoint works, OpenRouter included; the URL is normalized to end in `/v1`. Spend then goes to that provider, not your Agent37 wallet, and the instance's [budget](/agents-api/budgets) no longer applies to model calls. For a fuller setup with your own per-user metering, see [Bring your own model](/agents-api/byo-model).
+
+Six names are set by the platform and rejected with `400 invalid_request` rather than silently ignored, because they tell the image which instance it is: `AGENT37_INSTANCE_ID`, `AGENT37_RUNTIME_IMAGE_REF`, `AGENT37_AGENT_TYPE`, `AGENT37_GATEWAY_PORT`, `OPENCLAW_GATEWAY_PORT`, and `OPENCLAW_CONTROL_UI_INSTANCE_ORIGIN`.
+
+`env` is write-only: it is not returned by `GET /v1/instances/{id}`, and it cannot be edited after create. To change a variable, create a new instance.

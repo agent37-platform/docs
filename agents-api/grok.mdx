@@ -15,7 +15,7 @@ My key is in AGENT37_API_KEY.
 
 ## Create the instance
 
-One call to the hosting API at `https://api.agent37.com`, with your xAI API key as [instance env](/agents-api/instances#environment-variables):
+One call to the hosting API at `https://api.agent37.com`, with your xAI API key as [instance env](/agents-api/instance-environment):
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances \
@@ -69,8 +69,8 @@ Each published version is a git tag in that repo, `b2b-grok/<tag>`, matching `ag
 
 | Symptom | Fix |
 | --- | --- |
-| A turn fails with `auth_error` | No xAI credential is present yet: set `XAI_API_KEY` in the instance env (recreate, or [update](/agents-api/instances#update) with new env), or run `grok login --device-code` in the terminal. |
+| A turn fails with `auth_error` | No xAI credential is present yet: set `XAI_API_KEY` in the instance env (recreate, or [update](/agents-api/instances/update) with new env), or run `grok login --device-code` in the terminal. |
 | `GET /v1/health?agent=grok` reports `"healthy": false` | Same cause: the harness reports unhealthy until a key or login is present. `ok: true` alone only means the gateway is up. |
 | A first turn on a `session_id` you chose is rejected with `400 validation_error` (`param: session_id`) | Grok owns its session ids: a client cannot bring an unknown `session_id` on the first turn. Omit it to start a session, then reuse the id the response returns. Sessions you start in the terminal appear in `GET /v1/sessions?agent=grok` on their own. |
 | `PATCH /v1/sessions/{id}` returns `405 rename_unsupported` | Grok stores no editable session title, so rename is not available on this harness. |
-| A turn returns `503 agent_unavailable` | The Grok binary is not present on this instance, so a turn that has to create or resolve a session cannot run. Unlike Hermes (which returns `200` with `status: "failed"`), Grok answers `503`. Recreate or [update](/agents-api/instances#update) the instance to a template revision that ships Grok. |
+| A turn returns `503 agent_unavailable` | The Grok binary is not present on this instance, so a turn that has to create or resolve a session cannot run. Unlike Hermes (which returns `200` with `status: "failed"`), Grok answers `503`. Recreate or [update](/agents-api/instances/update) the instance to a template revision that ships Grok. |

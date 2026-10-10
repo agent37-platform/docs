@@ -1,49 +1,16 @@
 ---
 title: "Run commands"
 description: "Run any shell command inside an instance from your backend, the escape hatch for anything the API does not wrap."
+api: "POST https://api.agent37.com/v1/instances/{id}/exec"
+playground: "simple"
+authMethod: "bearer"
 ---
 
-`POST /v1/instances/{id}/exec` runs a shell command inside the instance, straight from your backend. It is the escape hatch for anything the API does not wrap as its own call.
+Run a shell command on your instance and read its output.
 
-The command runs through `sh -c` as the image's default user (or as `root`, with `user`), on the same box the agent works on, so it sees the agent's files, tools, and credentials.
+<span id="example" />
 
-## Request
-
-<ParamField body="command" type="string" required>
-  The shell command to run inside the instance. It is passed to `sh -c`, so pipes, redirects, and `&&` chains all work. It must not contain a null byte, which no shell can carry: one returns `400 invalid_request`.
-</ParamField>
-<ParamField body="user" type="string">
-  Who runs the command. Omit it to run as the image's default user; pass `"root"` to run as root, for example to install system packages with `apt-get`. Any other value returns `400 invalid_request`.
-</ParamField>
-
-<Note>
-  A `running` instance runs the command right away. A `sleeping` instance is woken first, the same way a request to one of its URLs or an explicit [start](/agents-api/instances#start) wakes it, so the first call after a sleep takes about 10 seconds longer in the common case, and a couple of minutes when the wake has to rebuild the instance (it then boots fresh: files on disk are kept, processes and in-memory state are not). The wake can fail the way a start can: `409 try_again` means a sleep checkpoint was being written (tens of seconds on a large instance, retry with backoff), `502 provisioning_failed` means the wake failed, `409 capacity_unavailable` means a rebuild found no host with room, and `402 insufficient_balance` means the instance is suspended for non-payment. Exec does not wait for a wake another request started: an instance that is already `waking` returns `400 invalid_request`, as does any other status that is not `running` or `sleeping` (a deleted instance returns `404 not_found`). If the platform cannot reach the instance at all, you get `502 provisioning_failed`. Every exec counts as [activity](/agents-api/instances#auto-sleep), so an instance you drive only through exec stays up while commands keep coming.
-</Note>
-
-## Response
-
-A command that runs but exits nonzero is a normal result: you get `200` with its `exit_code`, `stdout`, and `stderr`. Errors are reserved for the platform, not your command.
-
-<ResponseField name="exit_code" type="integer">
-  The command's exit code. Nonzero is still a `200`; read this to branch.
-</ResponseField>
-<ResponseField name="stdout" type="string">
-  Standard output, capped at 512 KB. See `truncated`.
-</ResponseField>
-<ResponseField name="stderr" type="string">
-  Standard error, with its own separate 512 KB cap.
-</ResponseField>
-<ResponseField name="truncated" type="boolean">
-  `true` when either stream spilled past its 512 KB cap. The middle of the output is cut and a truncation marker is left in its place.
-</ResponseField>
-
-<Note>
-  `exit_code` values 125, 126, and 127 may come from the container runtime rather than your command, for example 127 when the binary is not found. The call waits up to 13 minutes (780 seconds) for the command, a wake from sleep included, then fails with `502 provisioning_failed`. The command itself is not stopped by that: it keeps running inside the instance, so a blind retry starts a second copy. For longer jobs, start the command in the background with its output sent to a file, `nohup ./job.sh > job.log 2>&1 &`, and poll with a second exec. The redirect is required: a background command that still writes to the call's own output holds the call open until it exits.
-</Note>
-
-## Example
-
-<CodeGroup>
+<RequestExample>
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
   -H "Authorization: Bearer sk_live_..." \
@@ -79,7 +46,11 @@ const result = await resp.json();
 console.log(result.exit_code, result.stdout);
 ```
 
-```json response
+
+</RequestExample>
+
+<ResponseExample>
+```json 200
 {
   "exit_code": 0,
   "stdout": "v24.2.0\n",
@@ -87,7 +58,47 @@ console.log(result.exit_code, result.stdout);
   "truncated": false
 }
 ```
-</CodeGroup>
+</ResponseExample>
+
+`POST /v1/instances/{id}/exec` runs a shell command inside the instance, straight from your backend. It is the escape hatch for anything the API does not wrap as its own call.
+
+The command runs through `sh -c` as the image's default user (or as `root`, with `user`), on the same box the agent works on, so it sees the agent's files, tools, and credentials.
+
+## Request
+
+<ParamField body="command" type="string" required>
+  The shell command to run inside the instance. It is passed to `sh -c`, so pipes, redirects, and `&&` chains all work. It must not contain a null byte, which no shell can carry: one returns `400 invalid_request`.
+</ParamField>
+<ParamField body="user" type="string">
+  Who runs the command. Omit it to run as the image's default user; pass `"root"` to run as root, for example to install system packages with `apt-get`. Any other value returns `400 invalid_request`.
+</ParamField>
+
+<Note>
+  A `running` instance runs the command right away. A `sleeping` instance is woken first, the same way a request to one of its URLs or an explicit [start](/agents-api/instances/start) wakes it, so the first call after a sleep takes about 10 seconds longer in the common case, and a couple of minutes when the wake has to rebuild the instance (it then boots fresh: files on disk are kept, processes and in-memory state are not). The wake can fail the way a start can: `409 try_again` means a sleep checkpoint was being written (tens of seconds on a large instance, retry with backoff), `502 provisioning_failed` means the wake failed, `409 capacity_unavailable` means a rebuild found no host with room, and `402 insufficient_balance` means the instance is suspended for non-payment. Exec does not wait for a wake another request started: an instance that is already `waking` returns `400 invalid_request`, as does any other status that is not `running` or `sleeping` (a deleted instance returns `404 not_found`). If the platform cannot reach the instance at all, you get `502 provisioning_failed`. Every exec counts as [activity](/agents-api/instance-auto-sleep), so an instance you drive only through exec stays up while commands keep coming.
+</Note>
+
+## Response
+
+A command that runs but exits nonzero is a normal result: you get `200` with its `exit_code`, `stdout`, and `stderr`. Errors are reserved for the platform, not your command.
+
+<ResponseField name="exit_code" type="integer">
+  The command's exit code. Nonzero is still a `200`; read this to branch.
+</ResponseField>
+<ResponseField name="stdout" type="string">
+  Standard output, capped at 512 KB. See `truncated`.
+</ResponseField>
+<ResponseField name="stderr" type="string">
+  Standard error, with its own separate 512 KB cap.
+</ResponseField>
+<ResponseField name="truncated" type="boolean">
+  `true` when either stream spilled past its 512 KB cap. The middle of the output is cut and a truncation marker is left in its place.
+</ResponseField>
+
+<Note>
+  `exit_code` values 125, 126, and 127 may come from the container runtime rather than your command, for example 127 when the binary is not found. The call waits up to 13 minutes (780 seconds) for the command, a wake from sleep included, then fails with `502 provisioning_failed`. The command itself is not stopped by that: it keeps running inside the instance, so a blind retry starts a second copy. For longer jobs, start the command in the background with its output sent to a file, `nohup ./job.sh > job.log 2>&1 &`, and poll with a second exec. The redirect is required: a background command that still writes to the call's own output holds the call open until it exits.
+</Note>
+
+
 
 ## Build on exec
 

@@ -15,7 +15,7 @@ My key is in AGENT37_API_KEY.
 
 ## Create the instance
 
-One call to the hosting API at `https://api.agent37.com`, with the n8n owner password you choose as [instance env](/agents-api/instances#environment-variables):
+One call to the hosting API at `https://api.agent37.com`, with the n8n owner password you choose as [instance env](/agents-api/instance-environment):
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances \
@@ -41,7 +41,7 @@ The `201` response carries the instance id and, in `public_ports`, the editor's 
 
 Open that URL in a browser and sign in with the owner email and password. There is no sign-up page: the owner account is created on the first boot, so nobody who finds the URL before you can claim the instance. From then on it is an ordinary n8n owner account: change the password or email in n8n's settings, and invite teammates from inside n8n. The URL needs no Agent37 credential, because n8n's own login guards it.
 
-To pick your own hostname, declare a `public_ports` entry for port `5678` yourself (say a different `prefix`): the template uses yours and adds no default. Other declared ports are kept alongside the default. Unlike the other system templates there is no gateway on `3737` and no terminal or file browser port; [SSH](/agents-api/ssh) still works, log in as `node`. The template offers the same three [shapes](/agents-api/instances#shapes-and-pricing) as every other; 2 vCPU / 4 GB is fine for a single-user n8n. Pin a release with `agent37-n8n@<tag>`, like any [system template](/agents-api/templates#pin-a-template-version).
+To pick your own hostname, declare a `public_ports` entry for port `5678` yourself (say a different `prefix`): the template uses yours and adds no default. Other declared ports are kept alongside the default. Unlike the other system templates there is no gateway on `3737` and no terminal or file browser port; [SSH](/agents-api/ssh) still works, log in as `node`. The template offers the same three [shapes](/agents-api/instance-sizing) as every other; 2 vCPU / 4 GB is fine for a single-user n8n. Pin a release with `agent37-n8n@<tag>`, like any [system template](/agents-api/templates#pin-a-template-version).
 
 ## Webhooks and OAuth
 
@@ -53,15 +53,15 @@ On every boot the image seeds an n8n credential named **Agent37 managed model**,
 
 ## What persists
 
-Everything n8n stores (workflows, credentials, execution history, its encryption key) lives in its SQLite database on the instance's persistent disk. It survives stop, start, restart, resize, and [image updates](/agents-api/instances#update). No external database is needed.
+Everything n8n stores (workflows, credentials, execution history, its encryption key) lives in its SQLite database on the instance's persistent disk. It survives stop, start, restart, resize, and [image updates](/agents-api/instances/update). No external database is needed.
 
 ## Auto-sleep and schedules
 
-`auto_sleep` is off by default. With it on, n8n's Schedule triggers do not fire while the instance sleeps; an incoming webhook does wake it, after a cold-start delay. Leave [auto-sleep](/agents-api/instances#auto-sleep) off for scheduled workflows.
+`auto_sleep` is off by default. With it on, n8n's Schedule triggers do not fire while the instance sleeps; an incoming webhook does wake it, after a cold-start delay. Leave [auto-sleep](/agents-api/instance-auto-sleep) off for scheduled workflows.
 
 ## Settings
 
-Pass any `N8N_*` variable n8n documents as [instance env](/agents-api/instances#environment-variables). The image sets `N8N_EDITOR_BASE_URL` and `N8N_WEBHOOK_URL` from the public port automatically, so those need no setting.
+Pass any `N8N_*` variable n8n documents as [instance env](/agents-api/instance-environment). The image sets `N8N_EDITOR_BASE_URL` and `N8N_WEBHOOK_URL` from the public port automatically, so those need no setting.
 
 ## Image source
 

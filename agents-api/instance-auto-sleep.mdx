@@ -1,0 +1,20 @@
+---
+title: "Auto-sleep"
+description: "Keep an instance available while paying disk-only rates when it is idle."
+---
+
+An instance with `auto_sleep: true` does not have to be up to be available. Once no bytes have moved through any of its URLs for `idle_timeout_seconds` (default 900, from five minutes to a day), the platform checkpoints it and `status` becomes `sleeping`: CPU and memory are released, the disk stays reserved, and billing drops to the disk rate alone (see [Billing](/agents-api/billing)). The status flips at the start of the checkpoint, not the end; writing it takes tens of seconds on a large instance, and `stop`, `start`, and `exec` return `409 try_again` until it is done. Activity is data flow in either direction on any of the instance's URLs, or a command run through [exec](/agents-api/exec); a connection that is open but silent does not count, and API reads like `GET /v1/instances/{id}` never reset the timer.
+
+Sleeping carries no price premium: awake minutes bill the ordinary compute rate, the same as an always-on instance, and asleep time bills disk alone. A mostly-idle instance therefore costs a fraction of the always-on price: a 2 vCPU / 4 GB instance awake an hour a day costs about \$0.54 per month, versus \$4.76 always-on. It is worth turning on for anything that is idle most of the day.
+
+Waking is transparent. Any request to any of the instance's URLs wakes it: the request is held while the instance restores, then forwarded. The restore itself takes a few seconds. An explicit [`POST /v1/instances/{id}/start`](/agents-api/instances/start), a command sent through [exec](/agents-api/exec), or an [`update`](/agents-api/instances/update) wakes it too, returning in 5 to 15 seconds in the common case; for a private sandbox with no ports, which receives no requests, those are the only wake paths. If the checkpoint cannot be restored, or the instance was moved to another host or to cold storage after a long idle stretch, the wake rebuilds the instance instead: it takes about two minutes and boots fresh, so processes and in-memory state from before the sleep are gone while files on disk are kept. A wake that boots fresh returns `running` while the agent inside is still starting; poll `GET /v1/health` for `"healthy": true` before sending work. In-memory state usually survives a wake, but it is not guaranteed: treat anything that must outlive a sleep as a file.
+
+While asleep:
+
+- The instance object reports `status: "sleeping"` from the moment the checkpoint starts, and `slept_at`, for example `"slept_at": 1781222400`.
+- [Signed URLs](/agents-api/urls#browser-access-with-signed-urls) can still be minted, and opening one is exactly the kind of request that wakes the instance.
+- `stop` works, and means "stay down until I `start`" (see [Stop](/agents-api/instances/stop)). While the checkpoint is being written it returns `409 try_again`, for tens of seconds on a large instance; retry with backoff. A sleeper already moved to cold storage returns `400 invalid_request` (parked in cold storage): wake it with `start` or any request to its URL, or delete it.
+- `update` wakes the instance and then updates it, leaving it `running` (see [Update](/agents-api/instances/update)). It validates the requested template before the wake, so an update it rejects leaves the instance asleep.
+- `restart`, `resize`, and `restore` return `400`: wake the instance first, with any request to its URL or an explicit [`start`](/agents-api/instances/start).
+
+Both fields are set at create and editable any time with `PATCH /v1/instances/{id}`, no restart needed. Instances default to `auto_sleep: false` and never sleep unless you opt them in.

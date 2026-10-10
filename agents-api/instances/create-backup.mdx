@@ -1,0 +1,65 @@
+---
+title: "Create a backup"
+description: "Back up an instance without pausing it."
+api: "POST https://api.agent37.com/v1/instances/{id}/backups"
+playground: "simple"
+authMethod: "bearer"
+---
+
+<RequestExample>
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/backups \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/backups",
+    headers={"Authorization": "Bearer sk_live_..."},
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node
+const response = await fetch("https://api.agent37.com/v1/instances/ab12cd34ef/backups", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer sk_live_...",
+  },
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201
+{
+  "id": "9f3c1a7e2b4d6f8091a2",
+  "kind": "manual",
+  "created": 1789135331,
+  "size_bytes": 412337102
+}
+```
+</ResponseExample>
+
+Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.com`.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The instance id, returned when you create an instance.
+</ParamField>
+
+## Behavior and errors
+
+`POST /v1/instances/{id}/backups` (no body) backs the instance up now and returns the record with `201`. The backup is taken live, without pausing the instance, so like the nightly ones it is crash-consistent: a database mid-write may need its own recovery when restored. The call returns when the backup finishes, minutes on a multi-GB instance, and a client that gives up does not cancel it: the backup lands and shows up in the list.
+
+One on-demand backup per instance every 15 minutes; a second call inside the window returns `429 rate_limited` with a `Retry-After` header. The window opens on the attempt, not on the result, so a failed backup still holds it, leaving your previous on-demand backup in place. Running, stopped and sleeping instances can be backed up; one parked in cold storage after a long idle stretch returns `400 invalid_request` until you [`start`](/agents-api/instances/start) it, since its data already sits in backup storage.
+
+A backup is never refused for being smaller than the last one. If you empty the instance by mistake, restore one of the earlier nights from the list; the rotation gives you a week.
+
+See [Backups](/agents-api/instance-backups) for retention and what is saved.

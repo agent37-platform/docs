@@ -9,11 +9,19 @@ Every guide in this section ends with something running, and almost every one co
 - **Fork a finished app** when you want to ship fast: point it at your `sk_live_` key, rebrand, deploy.
 - **Build it yourself** when you want the API pattern: the guides walk through the exact calls.
 
-The table runs simplest first: start with a chat UI, then a full product, then swap in your own model and integrations, then change the agent itself.
+Start with the sandbox capability or application you need. Agent hosting and chat apps are examples of what a template can add to an instance.
 
 | I want to… | Guide | Code |
 | --- | --- | --- |
-| Start simple: a chat UI on one always-on agent, replies streamed token by token | [Build a chat app](/agents-api/chat-app) | [hermes-chat](https://github.com/agent37-platform/examples/tree/main/hermes-chat) |
+| Create a sandbox, run a command, and access a service | [Quickstart](/index) | None |
+| Run my own tools, services, or harness in a custom Docker image | [Build a custom image](/agents-api/custom-image) | [custom-agent-image](https://github.com/agent37-platform/custom-agent-image) |
+| Move the **Docker containers** I already run on my own servers, and stop paying for idle machines | [Move from Docker](/agents-api/migrate-from-docker) | None |
+| Host **Claude Code** on its own always-on instance, signed in to my own Anthropic account | [Host Claude Code](/agents-api/claude-code) | None |
+| Host **Codex** on its own always-on instance, signed in to my own OpenAI account | [Host Codex](/agents-api/codex) | None |
+| Connect an **OpenAI Agents API** session to a persistent sandbox, with OpenAI running the agent and Agent37 running its commands | [OpenAI Agents API on Agent37](/agents-api/openai-agents) | None |
+| Run my **Cursor Cloud Agents** on an always-on machine I control, with Cursor running the agent and Agent37 running its commands and keeping the checkout | [Cursor Self-Hosted Machines on Agent37](/agents-api/cursor) | None |
+| Send my first message through an agent template | [Send your first agent message](/agents-api/agent-quickstart) | None |
+| A chat UI on one always-on agent, replies streamed token by token | [Build a chat app](/agents-api/chat-app) | [hermes-chat](https://github.com/agent37-platform/examples/tree/main/hermes-chat) |
 | Let users ask the agent for a **website** and get a live public URL back | [Build a website builder](/agents-api/site-builder) | [site-builder](https://github.com/agent37-platform/examples/tree/main/site-builder) |
 | Give every user a personal agent like OpenAI's **Dots**: it owns ongoing jobs, keeps its own schedule, messages them first, and lets them watch and take over its computer | [Build your own Dots](/agents-api/dots) | [dots](https://github.com/agent37-platform/examples/tree/main/dots) |
 | Build an assistant users **text on iMessage**, like Instinct: its own line, inbox, and calls, plus reminders that text them first | [Build your own Instinct](/agents-api/instinct) | [instinct](https://github.com/agent37-platform/examples/tree/main/instinct) |
@@ -23,18 +31,12 @@ The table runs simplest first: start with a chat UI, then a full product, then s
 | Let my users message their agent from **Telegram, WhatsApp, Slack or Discord**, connected from my own UI | [Messaging channels](/agents-api/messaging) | [starter-kit](https://github.com/agent37-platform/starter-kit) |
 | Run agents on **my own model keys** instead of the managed LLM: my models, a token per agent, my spend caps | [Use your own model](/agents-api/byo-model) | [hermes-byo-model](https://github.com/agent37-platform/hermes-byo-model) |
 | Run integrations on **my own Composio**: my API key, my users' connected accounts, my metering | [Use your own Composio](/agents-api/composio) | [hermes-openclaw-composio](https://github.com/agent37-platform/hermes-openclaw-composio) |
-| Host **Claude Code** on its own always-on instance, signed in to my own Anthropic account | [Host Claude Code](/agents-api/claude-code) | None |
 | Run the tools of my **Claude Managed Agents** sessions on an always-on instance I control, while Anthropic runs the agent loop | [Self-host Claude Managed Agents](/agents-api/claude-managed-agents) | None |
 | Run Claude Code on **my own OpenRouter key**: override the Anthropic base URL, pick the model per role | [Bring your own model](/agents-api/claude-code#bring-your-own-model) | [claude-code-byo-model](https://github.com/agent37-platform/examples/tree/main/claude-code-byo-model) |
-| Host **Codex** on its own always-on instance, signed in to my own OpenAI account | [Host Codex](/agents-api/codex) | None |
-| Connect an **OpenAI Agents API** session to a persistent sandbox, with OpenAI running the agent and Agent37 running its commands | [OpenAI Agents API on Agent37](/agents-api/openai-agents) | None |
-| Run my **Cursor Cloud Agents** on an always-on machine I control, with Cursor running the agent and Agent37 running its commands and keeping the checkout | [Cursor Self-Hosted Machines on Agent37](/agents-api/cursor) | None |
 | Host **Grok** on its own always-on instance, on my own xAI API key | [Host Grok](/agents-api/grok) | None |
 | Host **OpenCode** on its own always-on instance: works out of the box on the managed model, no account needed | [Host OpenCode](/agents-api/opencode) | None |
 | Host **Pi**, the minimal open-source harness, on its own always-on instance: the managed model out of the box, or my own provider key or Claude/ChatGPT/Copilot subscription | [Host Pi](/agents-api/pi) | None |
 | Host **n8n**, the workflow automation tool, on its own always-on instance: visual editor, webhooks, AI nodes on the managed model | [Host n8n](/agents-api/n8n) | None |
-| Give the agent my own tools and skills: a custom Docker image | [Build a custom image](/agents-api/custom-image) | [custom-agent-image](https://github.com/agent37-platform/custom-agent-image) |
-| Move the **Docker containers** I already run on my own servers, and stop paying for idle machines | [Move from Docker](/agents-api/migrate-from-docker) | None |
 | Run an agent we have no template for, in my own image, on the managed LLM and Composio | [Managed services in your image](/agents-api/managed-services) | [pi-agent-image](https://github.com/agent37-platform/pi-agent-image) |
 | Give Hermes a public URL for webhook deliveries | [Hermes webhooks](/agents-api/hermes-webhooks) | None |
 | Let each user **text their agent on iMessage**, with its own email address and phone calls | [Text your agent on iMessage](/agents-api/imessage) | [instinct](https://github.com/agent37-platform/examples/tree/main/instinct) |

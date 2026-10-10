@@ -57,7 +57,7 @@ Usage on `agent37/default` is managed: it meters against your Agent37 wallet lik
 
 Pi is the one template with three ways in. Any of them sits alongside the managed model rather than replacing it, so a turn that omits `model` still runs managed.
 
-**A provider key on create.** Set that provider's API key as [instance env](/agents-api/instances#environment-variables) and Pi reads it natively at boot:
+**A provider key on create.** Set that provider's API key as [instance env](/agents-api/instance-environment) and Pi reads it natively at boot:
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances \
@@ -98,7 +98,7 @@ Each published version is a git tag in that repo, `b2b-pi/<tag>`, matching `agen
 | Symptom | Fix |
 | --- | --- |
 | A turn fails with `model_error` | The `model` was not a `provider/model` id Pi could resolve, or Pi has no credential for that provider. Send an id from `GET /v1/models?agent=pi`, or omit `model` to run on `agent37/default`. |
-| A model you set a key for is missing from `GET /v1/models?agent=pi` | Pi lists a provider's models only once that provider's credential resolves. Confirm the key is set as instance [env](/agents-api/instances#environment-variables) under the name Pi expects (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, ...); a key added after create needs the instance [restarted](/agents-api/instances) to take effect. |
+| A model you set a key for is missing from `GET /v1/models?agent=pi` | Pi lists a provider's models only once that provider's credential resolves. Confirm the key is set as instance [env](/agents-api/instance-environment) under the name Pi expects (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, ...); a key added after create needs the instance [restarted](/agents-api/instances) to take effect. |
 | A first turn on a `session_id` you chose is rejected with `400 validation_error` (`param: session_id`) | Session ids are issued for you: a client cannot bring one Pi has not seen. Omit `session_id` to start a thread, then reuse the id the response returns. Sessions you start in the terminal appear in `GET /v1/sessions?agent=pi` on their own. |
-| A turn returns `503 agent_unavailable` | The Pi binary is not present on this instance, so a turn that has to create or resolve a session cannot run. Recreate or [update](/agents-api/instances#update) the instance to a template revision that ships Pi. |
+| A turn returns `503 agent_unavailable` | The Pi binary is not present on this instance, so a turn that has to create or resolve a session cannot run. Recreate or [update](/agents-api/instances/update) the instance to a template revision that ships Pi. |
 | The model picker in the terminal shows your own provider, not the managed one | Pi's startup model is set to the managed model only when you have not chosen one yourself. A choice you made in the terminal is kept across restarts, on purpose. Pass `model` on the turn, or pick `agent37/default` again in Pi. |

@@ -91,7 +91,7 @@ console.log(result.series.cpu_cores.at(-1), result.limits.cpu_cores);
 
 ## Reading the numbers
 
-- **Memory near its limit**: an agent that keeps climbing toward `limits.memory_bytes` will eventually be killed and restarted (that shows up in [logs](/agents-api/logs) as a rising `restart_count` and a `"critical"` memory verdict). [Resize](/agents-api/instances#resize) before it gets there.
+- **Memory near its limit**: an agent that keeps climbing toward `limits.memory_bytes` will eventually be killed and restarted (that shows up in [logs](/agents-api/logs) as a rising `restart_count` and a `"critical"` memory verdict). [Resize](/agents-api/instances/resize) before it gets there.
 - **CPU pinned at the limit**: sustained `cpu_cores` at `limits.cpu_cores` means the agent is throttled and everything it does is slower. Resize, or give it less concurrent work.
 - **Disk trending up**: disk is the one series that never resets on restart. A steady climb is usually accumulated artifacts or caches; clean up over [exec](/agents-api/exec), or resize for more disk.
 

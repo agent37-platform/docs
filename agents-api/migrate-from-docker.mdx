@@ -56,7 +56,7 @@ The build runs on Agent37's infrastructure and streams its log to your terminal 
 | `docker logs web` | [`GET /v1/instances/{id}/logs`](/agents-api/logs) |
 | `docker stats web` | [`GET /v1/instances/{id}/metrics`](/agents-api/metrics) |
 | `docker stop` / `start` / `rm` | `POST .../stop`, `POST .../start`, `DELETE /v1/instances/{id}` |
-| `docker pull web:v2` and recreate | Rebuild the template, then [`POST .../update`](/agents-api/instances#update). It resets the operating system layer to the new image and keeps `/home/node`. |
+| `docker pull web:v2` and recreate | Rebuild the template, then [`POST .../update`](/agents-api/instances/update). It resets the operating system layer to the new image and keeps `/home/node`. |
 
 A `docker-compose.yml` maps the same way, service by service. Services that call each other over HTTP each become an instance; route those calls through your own server, which holds the key, or give the called service a public port with its own authentication in front. Point the app at a managed database, or run the database in the same instance as its app with its data under `/home/node`; your instances reach anything on the public internet.
 
@@ -64,7 +64,7 @@ A `docker-compose.yml` maps the same way, service by service. Services that call
 
 A rented server bills every hour it exists. Most containers on it do nothing for most of those hours: a per-user session waits for the user, a worker waits for a job, a preview waits for someone to open it.
 
-An instance created with `auto_sleep: true` sleeps once it has been idle for `idle_timeout_seconds` and wakes on the next request: a few seconds for a restore, about two minutes when the instance has to be rebuilt. Idle means no traffic through the instance's URLs or exec, so set `idle_timeout_seconds` to the longest gap you expect between requests. Awake minutes bill the compute rate; asleep minutes bill disk alone. A 2 vCPU / 4 GB instance awake an hour a day costs about \$0.54 per month, against \$4.76 always-on. Either price includes the URL, TLS, restarts, and the API to manage it. See [Billing](/agents-api/billing) and [Auto-sleep](/agents-api/instances#auto-sleep).
+An instance created with `auto_sleep: true` sleeps once it has been idle for `idle_timeout_seconds` and wakes on the next request: a few seconds for a restore, about two minutes when the instance has to be rebuilt. Idle means no traffic through the instance's URLs or exec, so set `idle_timeout_seconds` to the longest gap you expect between requests. Awake minutes bill the compute rate; asleep minutes bill disk alone. A 2 vCPU / 4 GB instance awake an hour a day costs about \$0.54 per month, against \$4.76 always-on. Either price includes the URL, TLS, restarts, and the API to manage it. See [Billing](/agents-api/billing) and [Auto-sleep](/agents-api/instance-auto-sleep).
 
 One team kept an 8 vCPU / 16 GB server up around the clock for up to 13 coding-session containers, whether or not anyone was in a session. As instances with auto-sleep, each session bills compute only while its user is working in it.
 

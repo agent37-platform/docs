@@ -1,0 +1,128 @@
+---
+title: "Create an instance"
+description: "Create a persistent sandbox from a template. All request fields are optional."
+api: "POST https://api.agent37.com/v1/instances"
+playground: "simple"
+authMethod: "bearer"
+---
+
+<RequestExample>
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://api.agent37.com/v1/instances",
+    headers={"Authorization": "Bearer sk_live_..."},
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node
+const response = await fetch("https://api.agent37.com/v1/instances", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer sk_live_...",
+  },
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 (excerpt)
+{
+  "id": "ab12cd34ef",
+  "status": "running",
+  "url": "https://ab12cd34ef.agent37.app"
+}
+```
+</ResponseExample>
+
+Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.com`.
+
+## Request body
+
+<ParamField body="template" type="string" default="agent37-hermes">
+  A system or workspace [template name](/agents-api/templates). Defaults to `agent37-hermes`. Add `@<version>` to pin a published release. See [Template selection](#template-selection) for harness requirements and version rules.
+</ParamField>
+
+<ParamField body="resources" type="object">
+  The instance shape, for example `{ "cpu": 2, "memory": 4, "disk": 6 }`. Omitted, it uses the smallest shape, 2 vCPU / 4 GB. See [Instance sizing](/agents-api/instance-sizing) for the four available shapes. Free workspaces (before your first top-up) run the 2 vCPU / 4 GB shape; the larger 4/8, 8/16, and 16/32 shapes return `403 tier_limit` until you top up. Disk is any whole number of GB within the shape's range, and defaults to 4, 6, 12, or 24 GB by shape when omitted. Any other combination returns `400 invalid_request` listing the valid shapes.
+</ParamField>
+
+<ParamField body="type" type="string" default="default">
+  `default` is used when you omit `type`, and for most harnesses it is all you need. `performance` runs the instance on dedicated cores, for heavy work such as computer use, at 4x the default compute rate. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
+
+  `burstable` is an experimental instance type for low average CPU and RAM usage, starting at \$1/month. [Apply here](https://cal.com/vishnukool/30min) to enable it for your workspace.
+</ParamField>
+
+<ParamField body="user" type="string">
+  An opaque tag for your own attribution, typically your end user's id. Stored, never interpreted, echoed back on the instance object.
+</ParamField>
+
+<ParamField body="name" type="string">
+  A label for the instance.
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Your own key/value pairs. Stored, never interpreted.
+</ParamField>
+
+<ParamField body="env" type="object">
+  Environment variables for the container, as string key/value pairs. Set once at create and replayed on every restart, update, and wake. Up to 64 entries and 64 KB in total; keys are uppercase letters, digits, and underscores starting with a letter; values are strings of up to 4096 characters. See [Environment variables](/agents-api/instance-environment).
+</ParamField>
+
+<ParamField body="budget" type="object">
+  Caps on this instance's managed usage (managed LLM, Brave search, and Composio calls), in micros (millionths of a dollar): `monthly_cap_micros` resets each UTC month, `credit_micros` adds one-time headroom that persists until spent. Both default to `0`, so managed calls are refused until you raise one. These are ceilings, not money; spend still draws the workspace wallet. See [Budgets](/agents-api/budgets).
+</ParamField>
+
+<ParamField body="auto_sleep" type="boolean" default="false">
+  Opt the instance into [auto-sleep](/agents-api/instance-auto-sleep): once no bytes have moved through its URLs for `idle_timeout_seconds`, it is checkpointed to `sleeping` and bills disk alone until a request wakes it. Awake minutes bill the ordinary compute rate.
+</ParamField>
+
+<ParamField body="idle_timeout_seconds" type="integer" default="900">
+  How long the instance must be idle before it sleeps, in seconds. An integer from `300` to `86400` (five minutes to one day). Only meaningful with `auto_sleep: true`.
+</ParamField>
+
+<ParamField body="public_ports" type="object[]">
+  Ports to expose at permanent unauthenticated URLs, each `{ port, prefix? }`, for webhooks and other callers that can't send a credential. See [Public ports](/agents-api/public-ports), or follow the end-to-end [Hermes webhook setup](/agents-api/hermes-webhooks) for port `8644`.
+</ParamField>
+
+## Defaults
+
+`POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-hermes`) on the smallest shape, 2 vCPU / 4 GB.
+
+## Funding and readiness
+
+Creating an instance requires one day of compute at its running rate in your workspace wallet, but debits nothing: the balance check is the create gate (below it, the create fails with `402 insufficient_balance` and nothing is provisioned), and the meter only starts when the instance first reaches `running`. How many instances the workspace can hold, sleeping and stopped ones included, is set by your [instance limit](/agents-api/billing#instance-limits), which rises as you top up. See [Billing](/agents-api/billing).
+
+For agent templates, set a [managed-service budget](/agents-api/budgets) before using the managed model. The default budget is zero; shell commands do not need managed-model spending.
+
+Poll [`GET /v1/health`](/agents-api/health) on the returned `url` until `healthy` is `true`, then [send a message](/agents-api/chat). `running` means the computer is up; the agent can still be booting. Follow [Send your first agent message](/agents-api/agent-quickstart) for the complete agent setup. For shell commands and services, start with the [Quickstart](/index).
+
+## Response
+
+`201` with the full [instance object](/agents-api/instances/object). The example response shows only `id`, `status`, and `url`.
+
+## Template selection
+
+A template name. `agent37-hermes` (full Hermes, with a headless browser) is the default; `agent37-openclaw` (OpenClaw, with a headless browser), `agent37-claude-code` ([Claude Code](/agents-api/claude-code), which needs your own Anthropic account connected before chat turns work), `agent37-codex` ([Codex](/agents-api/codex), which needs your own OpenAI account connected before chat turns work), `agent37-grok` ([Grok](/agents-api/grok), which needs your own xAI API key set before chat turns work), `agent37-opencode` ([OpenCode](/agents-api/opencode), which runs on the managed model out of the box), `agent37-pi` ([Pi](/agents-api/pi), the minimal harness, also on the managed model out of the box), and `agent37-n8n` ([n8n](/agents-api/n8n), a workflow automation web app with no chat API; its editor gets a public URL on create) are the other system templates. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Any name takes an optional `@<version>` to [pin a published release](/agents-api/templates#pin-a-template-version): a tag on system templates (`agent37-hermes@<tag>`), a revision number on workspace templates (`my-agent@2`). Pin when your creates must be reproducible; the bare name follows the latest release. Unknown names and unpublished versions return `400 invalid_request`. Direct image references are rejected with `400`: register a template first, then pass its name.
+
+## Capacity and limit errors
+
+| Error | When |
+| --- | --- |
+| `402 insufficient_balance` | Create when the wallet holds less than one day of the instance's running rate, or start of a past-due instance while the balance is negative. |
+| `409 instance_limit_reached` | Create when the workspace is at its instance cap, which counts every instance that is not deleted or `failed`, sleeping and stopped ones included: one instance on the free credit, 10 once topped up, 50 once top-ups total \$100, 200 once they total \$250 (email vishnu@agent37.com to raise it further). |
+| `403 tier_limit` | Create or resize asks for a shape larger than your plan includes. Free workspaces run any template on the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8, 8/16, and 16/32 shapes. |
+| `503 no_capacity` | Create when no host has capacity for the requested shape right now. |
+| `409 capacity_unavailable` | Start or resize when no host in the fleet can fit the instance right now; the platform first tries to move it to a host with room. |
+
+See [Errors](/agents-api/errors) for the full catalog and the error envelope.

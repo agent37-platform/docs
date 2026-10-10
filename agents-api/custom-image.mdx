@@ -270,7 +270,7 @@ Want this as a finished app rather than a config file? [Use your own model](/age
 
 Your image freezes its base; rebuilding is how it picks up platform updates. Each template revision is an immutable snapshot, so a new build takes effect only after the template changes: re-run the [cloud build](#build-it-in-the-cloud) under the same name, or publish a **new registry tag** and [PATCH `image_ref`](/agents-api/templates#update-a-template). Every successful build and every changed `image_ref` increments the template's automatic `revision`; a re-build counts even when its digest matches the previous image. PATCHing the same `image_ref` string deliberately reuses the existing snapshot and revision.
 
-Existing instances keep their installed `template_revision`. [Update each instance](/agents-api/instances#update) to recreate it from the template's current revision. Anything on the persistent volume (`~/.hermes/skills`, `~/.hermes/config.yaml`, the agent's files) survives that update untouched, so a changed skill needs the same [exec](/agents-api/exec) write again, not a rebuild.
+Existing instances keep their installed `template_revision`. [Update each instance](/agents-api/instances/update) to recreate it from the template's current revision. Anything on the persistent volume (`~/.hermes/skills`, `~/.hermes/config.yaml`, the agent's files) survives that update untouched, so a changed skill needs the same [exec](/agents-api/exec) write again, not a rebuild.
 
 ## Troubleshooting
 
