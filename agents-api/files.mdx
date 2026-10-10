@@ -40,7 +40,7 @@ List responses and every write return the same `FileEntry` shape, so the `path` 
 
 `GET /v1/files` lists one directory level. Omit `path` to list the agent's workspace; pass an absolute path or a `~/` path to list anywhere the key can reach. Entries are sorted directories first, then by name case-insensitively.
 
-<ParamField query="path" type="string">
+<ParamField query="path" type="string" post={["optional"]}>
   The directory to list. Optional; defaults to the agent's workspace, `/home/node`. Accepts absolute and `~/` paths. A path that exists but is not a directory returns `400 not_a_directory`.
 </ParamField>
 
@@ -144,7 +144,7 @@ console.log(await response.json());
   The file to read. Accepts absolute and `~/` paths. A missing or empty `path`, or a path that is not a regular file, returns `400 validation_error`; no file at the path returns `404 file_not_found`.
 </ParamField>
 
-<ParamField query="disposition" type="string" default="attachment">
+<ParamField query="disposition" type="string" default="attachment" post={["optional"]}>
   `attachment` sends `Content-Disposition: attachment` so a browser downloads the file. `inline` sends `Content-Disposition: inline` so a browser renders it (useful for previews).
 </ParamField>
 
@@ -212,7 +212,7 @@ await fs.writeFile(
 
 `GET /v1/files/archive?path=…` streams a whole directory as a gzipped tar (`.tar.gz`), the one call to pull a tree instead of walking it file by file. The archive is built on the fly and streamed, so any size works and the 512 KB [exec](/agents-api/exec) output cap does not apply. It unpacks to a single top-level folder named after the directory you packed.
 
-<ParamField query="path" type="string">
+<ParamField query="path" type="string" post={["optional"]}>
   The directory to archive. Optional; defaults to the agent's workspace, `/home/node`. Accepts absolute and `~/` paths. No directory at the path returns `404 file_not_found`; a path that exists but is not a directory returns `400 not_a_directory`.
 </ParamField>
 
@@ -281,11 +281,11 @@ Expand it with `tar -xzf reports.tar.gz`. There is no folder-upload counterpart:
   Where to write. Accepts absolute and `~/` paths; parent directories are created as needed. A missing or empty `path` returns `400 validation_error`.
 </ParamField>
 
-<ParamField query="overwrite" type="boolean" default="true">
+<ParamField query="overwrite" type="boolean" default="true" post={["optional"]}>
   `true` replaces an existing file. `false` makes the write fail with `409 file_exists` if a file is already at `path`.
 </ParamField>
 
-<ParamField header="X-Expected-Mtime" type="number">
+<ParamField header="X-Expected-Mtime" type="number" post={["optional"]}>
   Optional optimistic-concurrency guard, epoch milliseconds. Send the `modified` you read back exactly as returned, fractional part included: a rounded value never matches. When the file exists and its `modified` differs from this value, the write fails with `412 modified`, meaning someone changed it since you read it. Ignored when the file does not exist (the write is treated as a create).
 </ParamField>
 

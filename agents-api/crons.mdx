@@ -105,23 +105,23 @@ console.log(await response.json());
   A five-field cron expression: minute, hour, day of month, month, day of week. `0 9 * * 1-5` is 9am on weekdays; `*/15 * * * *` is every fifteen minutes; `* * * * *` is every minute. Ranges, lists, steps, and three-letter day and month names all work. There is no seconds field: a six-field expression is rejected.
 </ParamField>
 
-<ParamField body="agent" type="string">
+<ParamField body="agent" type="string" post={["optional"]}>
   Which harness runs the firing, for an image that ships more than one: `hermes`, `openclaw`, `claude-code`, `codex`, `opencode`, `grok` or `pi`. Omit it and the firing goes to the template's own agent, which is what a single-harness image wants. Naming a harness the image does not ship means the turn never starts: the run is recorded as `skipped` with `wake_failed`.
 </ParamField>
 
-<ParamField body="profile" type="string">
+<ParamField body="profile" type="string" post={["optional"]}>
   Which [profile](/agents-api/sessions#profiles) the firing runs in, for an instance that hosts several distinct agents: the same `profile` as on [`POST /v1/responses`](/agents-api/chat). Omit it, or send `default`, for the agent's own setup. Supported on `hermes` today: a `profile` with any other harness is `400 invalid_request`, and so is a name that is not lowercase letters, digits, `-` or `_`, or an instance whose image is older than profiles ([update it](/agents-api/instances/update) first). Whether the instance has the profile is checked when the cron fires: one it does not have means the turn never starts, and the run is recorded as `skipped` with `wake_failed`.
 </ParamField>
 
-<ParamField body="timezone" type="string" default="UTC">
+<ParamField body="timezone" type="string" default="UTC" post={["optional"]}>
   An IANA timezone name, for example `America/New_York`. The schedule is read in this zone, so "9am" stays 9am across daylight saving.
 </ParamField>
 
-<ParamField body="name" type="string">
+<ParamField body="name" type="string" post={["optional"]}>
   A label for your own UI. Up to 80 characters.
 </ParamField>
 
-<ParamField body="enabled" type="boolean" default="true">
+<ParamField body="enabled" type="boolean" default="true" post={["optional"]}>
   `false` creates it paused. A paused cron has `next_run: null` and never fires.
 </ParamField>
 
