@@ -69,6 +69,6 @@ Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.co
 
 Restore is destructive and takes no safety copy: back up first if you may want the current state back. `backup` is the only accepted field; any other returns `400`. The instance must be `running` or `stopped`: a sleeping one has to be woken first, one parked in cold storage started first, and anything mid-transition or `failed` returns `400`.
 
-The call returns when the copy is done, up to 12 minutes. A client timeout does not stop it: the instance stays `updating` and a second restore returns `400` until the first finishes, so poll [`GET /v1/instances/{id}`](/agents-api/instances/list) instead of retrying. A restore that fails returns `502 provisioning_failed` and leaves the instance `stopped`, or `running` if it never took the container down, with the reason in `status_reason`. Every backup is still there, so you can try again.
+The call returns when the copy is done, up to 12 minutes. A client timeout does not stop it: the instance stays `updating` and a second restore returns `400` until the first finishes, so poll [`GET /v1/instances/{id}`](/agents-api/instances/get) instead of retrying. A restore that fails returns `502 provisioning_failed` and leaves the instance `stopped`, or `running` if it never took the container down, with the reason in `status_reason`. Every backup is still there, so you can try again.
 
 See [Backups](/agents-api/instance-backups) for retention and what is saved.
