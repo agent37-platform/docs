@@ -97,7 +97,7 @@ curl --fail-with-body -sS "https://$INSTANCE_ID-8000.agent37.app" \
 If the server is still starting, retry the preview request. To open the service in a browser, create a [signed URL](/agents-api/urls#browser-access-with-signed-urls). Use a [public port](/agents-api/public-ports) when a caller cannot send credentials.
 
 <Note>
-  The Hosting API uses `Authorization: Bearer`. Instance and preview URLs use `X-Agent37-Key`, leaving `Authorization` available to the software you run. Keep your workspace key on your backend.
+  The Sandbox API uses `Authorization: Bearer`. Instance and preview URLs use `X-Agent37-Key`, leaving `Authorization` available to the software you run. Keep your workspace key on your backend.
 </Note>
 
 ## Clean up

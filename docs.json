@@ -107,7 +107,7 @@
             "pages": ["agents-api/overview"]
           },
           {
-            "group": "Hosting API",
+            "group": "Sandbox API",
             "pages": [
               {
                 "group": "Instances",

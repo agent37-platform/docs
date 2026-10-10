@@ -8,7 +8,7 @@ Every instance with a default port is reachable at `https://{instanceId}.agent37
 An instance needs no public IP address. Every port it listens on has its own HTTPS URL, and the platform edge checks your key. A [signed URL](#browser-access-with-signed-urls) opens a port in a browser, a [public port](/agents-api/public-ports) serves one of your own ports without any key, and a [custom domain](/agents-api/domains) serves all of them under your own domain. [SSH](/agents-api/ssh) takes the same path: the stream travels over a WebSocket to the instance's SSH port.
 
 <Info>
-  Instance and preview URLs reach the software listening inside your sandbox. Agent templates expose the Agent API on their default port; your own services expose their own routes. Authenticate with the same `sk_live_` key as the Hosting API, sent as the `X-Agent37-Key` header. See [Core concepts](/agents-api/concepts).
+  Instance and preview URLs reach the software listening inside your sandbox. Agent templates expose the Agent API on their default port; your own services expose their own routes. Authenticate with the same `sk_live_` key as the Sandbox API, sent as the `X-Agent37-Key` header. See [Core concepts](/agents-api/concepts).
 </Info>
 
 ## Every port has a URL
@@ -113,7 +113,7 @@ There is a third option for callers that can't send either, webhooks most common
 
 ### API key header (programmatic)
 
-Every request to an instance URL can carry the same workspace API key as the hosting API, sent raw in the `X-Agent37-Key` header:
+Every request to an instance URL can carry the same workspace API key as the Sandbox API, sent raw in the `X-Agent37-Key` header:
 
 ```
 X-Agent37-Key: sk_live_...
@@ -127,7 +127,7 @@ The key travels in a header. To open a preview URL like the dashboard, terminal,
 
 ### Browser access with signed URLs
 
-A signed URL is a time-boxed link a browser can open with no header, usually a preview URL. Mint one for any exposed port on the hosting API:
+A signed URL is a time-boxed link a browser can open with no header, usually a preview URL. Mint one for any exposed port on the Sandbox API:
 
 <CodeGroup>
 ```bash curl wrap
@@ -224,7 +224,7 @@ Rename the header on every request that targets an instance URL: the bare instan
     -d '{ "input": "Research the top 3 EV makers, write a memo." }'
 ```
 
-Leave the hosting API as it is. `https://api.agent37.com` keeps `Authorization: Bearer sk_live_...` and always will. One key, two planes: talking to us is `Authorization`, talking to your instance is `X-Agent37-Key`.
+Leave the Sandbox API as it is. `https://api.agent37.com` keeps `Authorization: Bearer sk_live_...` and always will. One key, two planes: talking to us is `Authorization`, talking to your instance is `X-Agent37-Key`.
 
 This is a straight swap, not a staged rollout: the old form keeps working until it is removed, so rename the header and ship. If a request does carry both, `X-Agent37-Key` is the one consulted, and an invalid value there is a `401` with no fallback to `Authorization`.
 
@@ -294,4 +294,4 @@ One interaction to watch with [auto-sleep](/agents-api/instance-auto-sleep): idl
 
 ## Private sandboxes
 
-A [template](/agents-api/templates) whose image listens on nothing still runs fine: with `default_port` omitted, boot is not probed, and every URL simply answers a transport error because nothing serves. Drive the instance from the hosting API with [exec](/agents-api/exec), which runs shell commands inside it without touching any port.
+A [template](/agents-api/templates) whose image listens on nothing still runs fine: with `default_port` omitted, boot is not probed, and every URL simply answers a transport error because nothing serves. Drive the instance from the Sandbox API with [exec](/agents-api/exec), which runs shell commands inside it without touching any port.

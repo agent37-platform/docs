@@ -7,7 +7,7 @@ A session is one conversation on an instance. An instance holds many sessions, o
 
 The gateway keeps no session index of its own. The agent harness owns both the transcript and the list (Hermes' session store, OpenClaw's history), and the gateway projects them on read. So a list or read always reflects the live state of that harness, projected into one shape so you never branch on the harness.
 
-Everything on this page lives on the instance URL, not the hosting API: the base is `https://{instanceId}.agent37.app`, with the same `sk_live_` key sent as the `X-Agent37-Key` header. The platform edge authenticates the key and checks the instance belongs to your workspace, then the gateway answers. See [Instance and preview URLs](/agents-api/urls).
+Everything on this page lives on the instance URL, not the Sandbox API: the base is `https://{instanceId}.agent37.app`, with the same `sk_live_` key sent as the `X-Agent37-Key` header. The platform edge authenticates the key and checks the instance belongs to your workspace, then the gateway answers. See [Instance and preview URLs](/agents-api/urls).
 
 ## Endpoints
 

@@ -6,10 +6,12 @@ description: "Stable, machine-readable error codes on both planes: branch on the
 Every error uses a standard HTTP status code and returns a stable, machine-readable code in a JSON `error` field: an object with a `code` on both API catalogs, a flat string on transport failures between you and the gateway. Branch on the code, never on `message` or the HTTP status alone. There are two catalogs because there are two planes, plus a short list of transport errors.
 
 <Info>
-  Both planes take the same `sk_live_` key, as `Authorization: Bearer` on the hosting API and as `X-Agent37-Key` on instance URLs, but their error envelopes differ: the Agent API adds optional `param`, `hint`, and `response_id` fields. See [Core concepts](/agents-api/concepts) for the two planes.
+  Both planes take the same `sk_live_` key, as `Authorization: Bearer` on the Sandbox API and as `X-Agent37-Key` on instance URLs, but their error envelopes differ: the Agent API adds optional `param`, `hint`, and `response_id` fields. See [Core concepts](/agents-api/concepts) for the two planes.
 </Info>
 
-## Hosting API errors
+<span id="hosting-api-errors" />
+
+## Sandbox API errors
 
 Errors from `https://api.agent37.com/v1/*` always carry `code` and `message`, plus `detail` on the one error that has raw output worth showing: a failed create's `provisioning_failed` includes the tail of your container's console log, so a container that crashed on boot returns its own startup error. There is no `param` or `hint` on this plane.
 
@@ -32,7 +34,9 @@ Errors from `https://api.agent37.com/v1/*` always carry `code` and `message`, pl
   Optional. Raw failure output, present on a `provisioning_failed` wherever the platform got a verdict back from your container or its host: a failed create, and a failed lifecycle action (`start`, `restart`, `update`, `resize`, `restore`, or a host move). It is the last lines of your container's console log (host paths and IPs redacted, truncated to the final 2,000 characters). The console log is appended across boots, so lines from an earlier boot can appear above the failing boot's lines; read from the bottom. On those responses `error.message` is the classified reason too, and both persist on the instance as [`status_reason`](/agents-api/instances/object), so the error body alone is enough to act on.
 </ResponseField>
 
-### Hosting API codes
+<span id="hosting-api-codes" />
+
+### Sandbox API codes
 
 | Code | HTTP | When |
 | --- | --- | --- |
@@ -212,10 +216,10 @@ if (!res.ok || body.status === "failed") {
 ```
 </CodeGroup>
 
-The same grouping works on the Hosting API: `insufficient_balance` sends your user to the billing dashboard, `no_capacity` is retryable, and `invalid_request` means fix the request before retrying.
+The same grouping works on the Sandbox API: `insufficient_balance` sends your user to the billing dashboard, `no_capacity` is retryable, and `invalid_request` means fix the request before retrying.
 
 <Tip>
-  `no_capacity` (503, hosting) and `rate_limited` (429, agent) are safe to retry with backoff. So are `try_again` (409, hosting) and a `provisioning_failed` create: creates debit nothing (the meter only starts once the instance runs), so retrying never double-bills.
+  `no_capacity` (503, Sandbox API) and `rate_limited` (429, Agent API) are safe to retry with backoff. So are `try_again` (409, Sandbox API) and a `provisioning_failed` create: creates debit nothing (the meter only starts once the instance runs), so retrying never double-bills.
 </Tip>
 
 ## Codes worth a closer look
