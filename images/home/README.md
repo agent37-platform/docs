@@ -4,7 +4,7 @@ Conceptual illustrations for the Agent37 Cloud documentation homepage. The cards
 
 | Asset | Subject |
 | --- | --- |
-| `quickstart.webp` | An agent working with a terminal and files inside a sandbox, with a shield representing isolation. Generated with imagegen and exported at 1440 × 960. |
+| `quickstart.webp` | An open sandbox box filled with sand, with a terminal prompt and shield on its walls representing code execution and isolation. Generated with imagegen and exported at 1440 × 960. |
 | `templates.svg` | Hermes, OpenClaw, and Claude Code with their official brand marks, alongside a slot for your own image. This is an illustrative subset, not the complete catalog. |
 | `api-reference.svg` | `POST /v1/instances` and a fragment of its `201 Created` response. |
 | `agent-docs.svg` | The documentation index passed to a coding agent. |
