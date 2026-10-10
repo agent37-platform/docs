@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="480" viewBox="0 0 720 480" fill="none">
+  <title>Choose Hermes, OpenClaw, Codex, or your own image</title>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1.5" fill="#D9C8B7"/></pattern>
+  </defs>
+  <rect width="720" height="480" fill="#F2E6D9"/>
+  <rect width="720" height="480" fill="url(#grid)"/>
+  <rect x="67" y="65" width="586" height="350" rx="16" fill="#E0CDBB"/>
+  <rect x="55" y="53" width="286" height="170" rx="14" fill="#FFF9F0" stroke="#BB694D" stroke-width="3"/>
+  <rect x="365" y="53" width="286" height="170" rx="14" fill="#FFF9F0" stroke="#D9C6B4" stroke-width="2"/>
+  <rect x="55" y="247" width="286" height="170" rx="14" fill="#FFF9F0" stroke="#D9C6B4" stroke-width="2"/>
+  <rect x="365" y="247" width="286" height="170" rx="14" fill="#F8EFE4" stroke="#B9A38F" stroke-width="2" stroke-dasharray="7 6"/>
+  <rect x="79" y="77" width="53" height="46" rx="9" fill="#DA9274"/>
+  <path d="M92 90L102 100L92 110M109 111H120" stroke="#482F26" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="302" cy="94" r="14" fill="#BC6B4F"/>
+  <path d="M295 94L300 99L309 89" stroke="#FFF9F0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="79" y="176" fill="#43342B" font-family="sans-serif" font-size="36" font-weight="600">Hermes</text>
+  <rect x="389" y="77" width="53" height="46" rx="9" fill="#D5C7B9"/>
+  <path d="M402 90L412 100L402 110M419 111H430" stroke="#5A493D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="389" y="176" fill="#43342B" font-family="sans-serif" font-size="36" font-weight="600">OpenClaw</text>
+  <rect x="79" y="271" width="53" height="46" rx="9" fill="#C9D2BF"/>
+  <path d="M92 284L102 294L92 304M109 305H120" stroke="#42553A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="79" y="370" fill="#43342B" font-family="sans-serif" font-size="36" font-weight="600">Codex</text>
+  <path d="M415 279V309M400 294H430" stroke="#9E7054" stroke-width="4" stroke-linecap="round"/>
+  <text x="389" y="370" fill="#705744" font-family="sans-serif" font-size="34" font-weight="600">Your image</text>
+</svg>

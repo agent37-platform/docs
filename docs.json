@@ -21,6 +21,7 @@
             "pages": [
               "index",
               "quickstart",
+              "for-agents",
               "agents-api/concepts"
             ]
           },
@@ -106,6 +107,10 @@
       {
         "tab": "API reference",
         "groups": [
+          {
+            "group": "Reference",
+            "pages": ["agents-api/overview"]
+          },
           {
             "group": "Hosting API",
             "pages": [

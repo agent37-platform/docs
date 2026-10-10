@@ -10,17 +10,22 @@ hideFooterPagination: true
 
 <span id="create-and-run" />
 
-<Columns cols={3}>
-  <Card title="Create your first sandbox" img="/images/home/sandbox.webp" href="/quickstart" cta="Start building" arrow={false}>
-    Create an instance, run a command, and open a service over HTTPS.
+<div className="docs-home-start">
+<Columns cols={4}>
+  <Card title="Quickstart" img="/images/home/quickstart.svg" href="/quickstart" cta="Start building" arrow={false}>
+    Create a sandbox, run your first command, and open a service over HTTPS.
   </Card>
-  <Card title="Choose your environment" img="/images/home/templates.webp" href="/agents-api/templates" cta="Explore templates" arrow={false}>
-    Start with an agent harness or run your own Docker image.
+  <Card title="Templates" img="/images/home/templates.svg" href="/agents-api/templates#system-catalog" cta="Browse templates" arrow={false}>
+    Hermes, OpenClaw, Codex, and more. Or bring your own Docker image.
   </Card>
-  <Card title="Go straight to the API" img="/images/home/api.webp" href="/agents-api/instances/create" cta="Create an instance" arrow={false}>
-    Copy a request. See its response. Find the parameters you need.
+  <Card title="REST API reference" img="/images/home/api-reference.svg" href="/agents-api/overview" cta="Explore the API" arrow={false}>
+    Full REST API reference, with request examples, responses, and parameters.
+  </Card>
+  <Card title="For coding agents" img="/images/home/agent-docs.svg" href="/for-agents" cta="Get the starter prompt" arrow={false}>
+    Give your coding agent the docs and a starter prompt to build with Agent37.
   </Card>
 </Columns>
+</div>
 
 ## Your sandbox, from the ground up
 
@@ -30,16 +35,16 @@ An **instance** is your persistent Linux computer. A **template** chooses what r
   <Card title="Run commands" icon="terminal-2" href="/agents-api/exec" horizontal>
     Execute code, install tools, and start processes.
   </Card>
-  <Card title="Keep your workspace" icon="database" href="/agents-api/instance-lifecycle" horizontal>
+  <Card title="Keep your workspace" icon="folder" href="/agents-api/instance-lifecycle" horizontal>
     Stop and restart your instance while keeping its files.
   </Card>
-  <Card title="Reach any port" icon="world" href="/agents-api/urls" horizontal>
+  <Card title="Reach any port" icon="route" href="/agents-api/urls" horizontal>
     Connect to services over HTTPS or open a signed preview URL.
   </Card>
   <Card title="Bring your own image" icon="package" href="/agents-api/custom-image" horizontal>
     Build from a Dockerfile or import an image from your registry.
   </Card>
-  <Card title="Back up and restore" icon="copy" href="/agents-api/instance-backups" horizontal>
+  <Card title="Back up and restore" icon="history" href="/agents-api/instance-backups" horizontal>
     Save your instance's data and restore an earlier version.
   </Card>
   <Card title="Sleep and resume" icon="moon" href="/agents-api/instance-auto-sleep" horizontal>
@@ -69,8 +74,8 @@ Start with a working pattern, then make it your own. [Browse all examples](/agen
   <Card title="Using an agent template?" icon="messages" href="/agents-api/agent-quickstart" cta="Send your first message" arrow={false}>
     Hermes, OpenClaw, and other harness templates add conversations and tools to your sandbox. Start with a message, then build a chat app if you need one.
   </Card>
-  <Card title="Building with a coding agent?" icon="file-text" href="https://www.agent37.com/docs/llms.txt" cta="Open the documentation index" arrow={false}>
-    Give your agent the documentation index so it can find the API contracts and examples for your task.
+  <Card title="Understand the platform" icon="stack" href="/agents-api/concepts" cta="Read core concepts" arrow={false}>
+    Learn how instances, templates, and port URLs fit together before building your application.
   </Card>
 </Columns>
 
