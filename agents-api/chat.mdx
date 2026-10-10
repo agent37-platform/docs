@@ -1,9 +1,66 @@
 ---
 title: "Send a message"
-description: "The core call: POST /v1/responses on your instance URL runs a turn through your agent, streams or returns the result, and continues the thread."
+description: "Run a turn through an agent template, stream or return its result, and continue the conversation."
+api: "POST https://{instanceId}.agent37.app/v1/responses"
+playground: "simple"
+authMethod: "key"
 ---
 
-`POST /v1/responses` is the core call. You make it against your instance, not against `api.agent37.com`: every instance serves its own chat API at `https://{instanceId}.agent37.app`, the `url` of the default port in the create response. This page uses `https://ab12cd34ef.agent37.app`. Authenticate with the same `sk_live_` key you use on the hosting API, sent as the `X-Agent37-Key` header.
+Send a message or task to the agent on your instance. Omit `session_id` to start a conversation.
+
+<span id="example" />
+
+<RequestExample>
+```bash curl
+curl https://ab12cd34ef.agent37.app/v1/responses \
+  -H "X-Agent37-Key: sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "Say hello in one sentence."
+  }'
+```
+
+```python python
+import requests
+
+r = requests.post(
+    "https://ab12cd34ef.agent37.app/v1/responses",
+    headers={
+        "X-Agent37-Key": "sk_live_...",
+        "Content-Type": "application/json",
+    },
+    json={"input": "Say hello in one sentence."},
+).json()
+```
+
+```javascript node
+const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
+  method: "POST",
+  headers: {
+    "X-Agent37-Key": "sk_live_...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    input: "Say hello in one sentence.",
+  }),
+})).json();
+```
+
+
+</RequestExample>
+
+<ResponseExample>
+```json 200 (excerpt)
+{
+  "id": "c91d2a7e84f04b6f9a3d5e1c0b87f4a2",
+  "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+  "status": "completed",
+  "output_text": "Hello!"
+}
+```
+</ResponseExample>
+
+`POST /v1/responses` runs a turn on templates that include the Agent API. You make it against your instance, not against `api.agent37.com`: agent templates serve their chat API at `https://{instanceId}.agent37.app`, the `url` of the default port in the create response. This page uses `https://ab12cd34ef.agent37.app`. Authenticate with the same `sk_live_` key you use on the hosting API, sent as the `X-Agent37-Key` header.
 
 The call is agentic by default: the agent can browse, run code, use a terminal, read and write files, call connected tools, and reason across many steps before answering.
 
@@ -36,7 +93,7 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </ParamField>
 
 <ParamField body="reasoning_effort" type="string">
-  How hard the model thinks: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. `max` is the strongest plain thinking level; `ultra` is the harness's own Ultra mode, top thinking plus its agentic orchestration (on OpenClaw it also turns on proactive subagent orchestration). It applies to this turn only on both harnesses. Omit it and Hermes uses the instance's configured effort, while OpenClaw uses the session's own thinking level. On OpenClaw the values map one to one onto its thinking levels, with `none` sent as `off`. `max` and `ultra` need gateway `0.10.0`: older instances reject them with `validation_error` until [updated](/agents-api/instances#update).
+  How hard the model thinks: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. `max` is the strongest plain thinking level; `ultra` is the harness's own Ultra mode, top thinking plus its agentic orchestration (on OpenClaw it also turns on proactive subagent orchestration). It applies to this turn only on both harnesses. Omit it and Hermes uses the instance's configured effort, while OpenClaw uses the session's own thinking level. On OpenClaw the values map one to one onto its thinking levels, with `none` sent as `off`. `max` and `ultra` need gateway `0.10.0`: older instances reject them with `validation_error` until [updated](/agents-api/instances/update).
 
   Codex and OpenCode advertise their levels per model, and a level a model does not accept is run at the nearest level below it rather than failing the turn. The response's `reasoning_effort` reports the level applied, so read that rather than assuming the request was honoured.
 </ParamField>
@@ -62,6 +119,8 @@ Request bodies are capped at 2 MB; anything larger returns `413 payload_too_larg
 </Note>
 
 ## Response
+
+The example shows selected fields. The complete response fields are listed below.
 
 The response object. Ids are 32-character hex strings; timestamps from the gateway are epoch milliseconds.
 
@@ -131,45 +190,15 @@ The response object. Ids are 32-character hex strings; timestamps from the gatew
   On a non-streaming call the gateway sends the `200` and headers as soon as the turn starts, then keeps the connection alive with a whitespace tick every 25 seconds while the agent works. There is no time limit on a turn; the connection stays open until the agent is done. The JSON body arrives when the turn finishes, prefixed by that whitespace. Leading whitespace is valid JSON, so standard parsers handle it unchanged. Don't treat the early headers as the response being ready. On a sleeping instance no headers arrive at all until the wake completes, so give the request a first-byte timeout of at least three minutes; past the edge's three-minute wake budget the request gets `503 wake_timeout` instead.
 </Note>
 
-## Example
 
-<CodeGroup>
-```bash curl
-curl https://ab12cd34ef.agent37.app/v1/responses \
-  -H "X-Agent37-Key: sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "input": "Research the top 3 EV makers, write a memo."
-  }'
-```
 
-```python python
-import requests
+<Tip>
+  Set `stream: true` to receive Server-Sent Events as the agent reasons, calls tools, and writes its answer. The terminal event carries the final `output_text`, `usage`, and `context`. See [Streaming](/agents-api/streaming).
+</Tip>
 
-r = requests.post(
-    "https://ab12cd34ef.agent37.app/v1/responses",
-    headers={
-        "X-Agent37-Key": "sk_live_...",
-        "Content-Type": "application/json",
-    },
-    json={"input": "Research the top 3 EV makers, write a memo."},
-).json()
-```
+## Complete response example
 
-```javascript node
-const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
-  method: "POST",
-  headers: {
-    "X-Agent37-Key": "sk_live_...",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    input: "Research the top 3 EV makers, write a memo.",
-  }),
-})).json();
-```
-
-```json response
+```json
 {
   "id": "c91d2a7e84f04b6f9a3d5e1c0b87f4a2",
   "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
@@ -178,7 +207,7 @@ const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
   "model": null,
   "provider": null,
   "reasoning_effort": "high",
-  "output_text": "Memo: the top 3 EV makers...",
+  "output_text": "Hello!",
   "usage": { "input_tokens": 1840, "output_tokens": 920, "cost_usd": 0.0137 },
   "context": { "used_tokens": 22600, "window_tokens": 256000 },
   "error": null,
@@ -186,11 +215,6 @@ const r = await (await fetch("https://ab12cd34ef.agent37.app/v1/responses", {
   "created": 1781136000000
 }
 ```
-</CodeGroup>
-
-<Tip>
-  Set `stream: true` to receive Server-Sent Events as the agent reasons, calls tools, and writes its answer. The terminal event carries the final `output_text`, `usage`, and `context`. See [Streaming](/agents-api/streaming).
-</Tip>
 
 ## Continue a conversation
 
@@ -283,7 +307,7 @@ The agent asks by ending its turn: the response comes back `completed` with the 
 
 ### When the agent delegates to subagents
 
-On Hermes, subagents run inside the turn: the response stays `in_progress` until they finish, and the agent's final answer, their results included, arrives in that same response. A delegation can run for minutes with nothing on the stream but `:keepalive` comments between the `delegate_task` tool call's `started` and `completed` events, so keep the connection open or [reattach](#follow-up-on-a-response). Cancelling the turn stops the subagents too. This needs gateway `0.15.1`: older instances end the turn as soon as the subagents are dispatched and hand their results to the agent at the start of your next message, until [updated](/agents-api/instances#update).
+On Hermes, subagents run inside the turn: the response stays `in_progress` until they finish, and the agent's final answer, their results included, arrives in that same response. A delegation can run for minutes with nothing on the stream but `:keepalive` comments between the `delegate_task` tool call's `started` and `completed` events, so keep the connection open or [reattach](#follow-up-on-a-response). Cancelling the turn stops the subagents too. This needs gateway `0.15.1`: older instances end the turn as soon as the subagents are dispatched and hand their results to the agent at the start of your next message, until [updated](/agents-api/instances/update).
 
 ## Follow up on a response
 

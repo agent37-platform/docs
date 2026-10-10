@@ -1,28 +1,28 @@
 ---
 title: "Core concepts"
-description: "The two planes, the resource model, and the money model behind every Agent37 Cloud call."
+description: "Instances, templates, networking, and the APIs you use to build on Agent37 Cloud."
 ---
 
-Agent37 Cloud is two APIs that share one key, and three resources that nest.
+Agent37 Cloud runs persistent sandboxes called **instances**. A **template** chooses the software installed inside one. The Hosting API manages the computer, and authenticated HTTPS URLs let you reach the services it runs. Agent templates also include an Agent API for conversations and tools.
 
 ## Two planes, one key
 
 | Plane | Base URL | What it serves |
 | --- | --- | --- |
 | **Hosting API** | `https://api.agent37.com/v1` | Manages the fleet: [instances](/agents-api/instances), [templates](/agents-api/templates), [budgets](/agents-api/budgets), [exec](/agents-api/exec). |
-| **Agent API** | `https://{instanceId}.agent37.app` | The agent itself. Every instance serves its own API: `POST /v1/responses` for [chat](/agents-api/chat), plus `/v1/sessions`, `/v1/files`, `/v1/models`, `/v1/health`, and `/v1/version`. |
+| **Agent API** | `https://{instanceId}.agent37.app` | An API included in agent templates: `POST /v1/responses` for [chat](/agents-api/chat), plus `/v1/sessions`, `/v1/files`, `/v1/models`, `/v1/health`, and `/v1/version`. |
 
-Both planes take the same `sk_live_` key, in two different headers. The hosting API takes `Authorization: Bearer sk_live_...`. Instance URLs take the raw key as `X-Agent37-Key: sk_live_...`, which leaves `Authorization` free for your own app running inside the instance. Mint keys in the [dashboard](https://www.agent37.com/dashboard/cloud/api-keys); each key is scoped to one workspace. On the hosting API the key selects your workspace. On an instance URL, the platform edge authenticates the key, verifies the instance belongs to your workspace, and forwards the request to the gateway running inside the instance.
+Both planes take the same `sk_live_` key, in two different headers. The hosting API takes `Authorization: Bearer sk_live_...`. Instance URLs take the raw key as `X-Agent37-Key: sk_live_...`, which leaves `Authorization` free for your own app running inside the instance. Mint keys in the [dashboard](https://www.agent37.com/dashboard/cloud/api-keys); each key is scoped to one workspace. On the hosting API the key selects your workspace. On an instance URL, the platform edge authenticates the key, verifies the instance belongs to your workspace, and forwards the request to the service listening on the requested port. On an agent template's default port, that service is the agent gateway.
 
 A key can carry an **IP allowlist**: up to 20 IPs or CIDR ranges (IPv4 and IPv6), edited per key in the [dashboard](https://www.agent37.com/dashboard/cloud/api-keys). A restricted key only works from those addresses, on both planes; anywhere else it gets `403 ip_not_allowed` with the observed IP in the message. An empty list means the key works from any IP. [Signed URLs](/agents-api/urls) and [public ports](/agents-api/public-ports) carry their own authorization and are not affected, so a browser link keeps working wherever it is opened.
 
-So you create an instance with one call to `api.agent37.com`, then talk to it at its own hostname:
+Create and manage a sandbox through the Hosting API, regardless of which template it runs:
 
 ```bash
-curl https://ab12cd34ef.agent37.app/v1/responses \
-  -H "X-Agent37-Key: sk_live_..." \
+curl https://api.agent37.com/v1/instances/ab12cd34ef/exec \
+  -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
-  -d '{ "input": "Research the top 3 EV makers, write a memo." }'
+  -d '{"command": "uname -s"}'
 ```
 
 <Note>
@@ -33,19 +33,8 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
 
 | Concept | What it is |
 | --- | --- |
-| **Instance** | An isolated, persistent computer that runs your agent. Built from a [template](/agents-api/templates). Lives until you delete it, metered per minute for what it holds: the full rate while running, disk alone while stopped or sleeping. One instance runs one container: if you run several today, each becomes its own instance. Create one per end user. Runs on dedicated servers in the United States. |
-| **Session** | One conversation on an instance. A message starts one; reuse its `session_id` to continue. An instance can hold many. |
-| **Response** | One agentic turn: your input, the agent's work, its reply. Stream it live, or reconnect to its stream by id. |
-
-<Info>
-  **The agent is not the model.** The *template* installs the agent software, the *gateway* inside the instance runs your sessions on it (Hermes, OpenClaw, Claude Code, Codex, Grok, and OpenCode are the live agents today), and the *model* is the LLM the agent thinks with, set as `model` on a turn (plus `provider` on Hermes; see [Models](/agents-api/models) for how each harness applies it).
-</Info>
-
-### How they fit together
-
-- Create an **instance** once per end user with `POST /v1/instances` on the hosting API. It keeps files, connected accounts, and memory across every session. An instance does not have to run around the clock: create it with `auto_sleep: true` and the platform checkpoints it to `sleeping` once it has been idle past its `idle_timeout_seconds`, billing disk alone while it sleeps; any request to its URL wakes it transparently (a few seconds for a restore, about two minutes when the instance has to be rebuilt). See [Auto-sleep](/agents-api/instances#auto-sleep).
-- Start a **session** by sending a message to the instance's own URL: `POST https://{instanceId}.agent37.app/v1/responses`. Omit `session_id` and the gateway mints a new session; the reply carries the `session_id` you reuse to continue the thread. See [Sessions](/agents-api/sessions).
-- Each message produces a **response**. Stream it live with `stream: true` (see [Streaming](/agents-api/streaming)), or reconnect a dropped stream with `GET /v1/responses/{id}/stream`.
+| **Instance** | An isolated, persistent computer for code, services, or an agent harness. Built from a [template](/agents-api/templates). Lives until you delete it, metered per minute for what it holds: the full rate while running, disk alone while stopped or sleeping. One instance runs one container: if you run several today, each becomes its own instance. Create one per user or workload. Runs on dedicated servers in the United States. |
+| **Template** | The image an instance runs, with an optional default port. Choose a system template or register your own Docker image. |
 
 ## Every port has a derivable URL
 
@@ -56,6 +45,25 @@ Nothing about ports is declared per instance:
 - A port can also get a permanent unauthenticated URL; see [Public ports](/agents-api/public-ports).
 
 See [Instance and preview URLs](/agents-api/urls) for how routing and authentication work, and [Templates](/agents-api/templates) for `default_port` on your own images.
+
+## Agent template resources
+
+These resources belong to the Agent API supplied by agent templates. A custom image or a web app such as n8n does not acquire a chat API just by running in a sandbox.
+
+| Concept | What it is |
+| --- | --- |
+| **Session** | One conversation on an instance. A message starts one; reuse its `session_id` to continue. An instance can hold many. |
+| **Response** | One agentic turn: your input, the agent's work, its reply. Stream it live, or reconnect to its stream by id. |
+
+<Info>
+  **The agent is not the model.** The *template* installs the agent software, the *gateway* inside the instance runs your sessions on it (Hermes, OpenClaw, Claude Code, Codex, Grok, OpenCode, and Pi are the live agents today), and the *model* is the LLM the agent thinks with, set as `model` on a turn (plus `provider` on Hermes; see [Models](/agents-api/models) for how each harness applies it).
+</Info>
+
+### How they fit together
+
+- Create an **instance** for a user or workload with `POST /v1/instances` on the hosting API. It keeps files, connected accounts, and memory across every session. An instance does not have to run around the clock: create it with `auto_sleep: true` and the platform checkpoints it to `sleeping` once it has been idle past its `idle_timeout_seconds`, billing disk alone while it sleeps; any request to its URL wakes it transparently (a few seconds for a restore, about two minutes when the instance has to be rebuilt). See [Auto-sleep](/agents-api/instance-auto-sleep).
+- On an agent template, start a **session** by sending a message to the instance's own URL: `POST https://{instanceId}.agent37.app/v1/responses`. Omit `session_id` and the gateway mints a new session; the reply carries the `session_id` you reuse to continue the thread. See [Sessions](/agents-api/sessions).
+- Each message produces a **response**. Stream it live with `stream: true` (see [Streaming](/agents-api/streaming)), or reconnect a dropped stream with `GET /v1/responses/{id}/stream`.
 
 ## One wallet, per-instance caps
 
@@ -79,19 +87,16 @@ An instance's `status` is one of `provisioning`, `running`, `stopping`, `stopped
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="White-label dashboard" icon="rocket" href="/agents-api/white-label">
-    Fork a finished multi-tenant dashboard and rebrand it, the fastest way to ship.
+  <Card title="Create an instance" icon="server" href="/agents-api/instances/create">
+    Start a persistent sandbox with one request.
   </Card>
-  <Card title="Instances" icon="server" href="/agents-api/instances">
-    Create, size, and manage the agent's computer.
+  <Card title="Bring your own image" icon="package" href="/agents-api/custom-image">
+    Choose the tools and services your sandbox runs.
   </Card>
-  <Card title="Send a message" icon="send" href="/agents-api/chat">
-    The core call and its response shape.
+  <Card title="Instance and preview URLs" icon="link" href="/agents-api/urls">
+    Reach any service over authenticated HTTPS.
   </Card>
-  <Card title="Templates" icon="template" href="/agents-api/templates">
-    Pick a catalog agent or bring your own image.
-  </Card>
-  <Card title="Budgets" icon="wallet" href="/agents-api/budgets">
-    Cap each instance's managed spend.
+  <Card title="Use an agent template" icon="message" href="/agents-api/agent-quickstart">
+    Add conversations with a hosted harness.
   </Card>
 </CardGroup>

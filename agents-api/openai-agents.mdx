@@ -96,7 +96,7 @@ jq -n '{
 export INSTANCE_ID=$(jq -er '.id' instance.json)
 ```
 
-Save the mapping from `OPENAI_SESSION_ID` to `INSTANCE_ID`. Each OpenAI session needs its own executor; use a dedicated instance per session to keep files and credentials separate. Leave [auto-sleep](/agents-api/instances#auto-sleep) off because the executor's outbound connection does not keep an instance awake.
+Save the mapping from `OPENAI_SESSION_ID` to `INSTANCE_ID`. Each OpenAI session needs its own executor; use a dedicated instance per session to keep files and credentials separate. Leave [auto-sleep](/agents-api/instance-auto-sleep) off because the executor's outbound connection does not keep an instance awake.
 
 ## 4. Connect the executor
 

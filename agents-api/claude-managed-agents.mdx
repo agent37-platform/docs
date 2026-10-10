@@ -83,7 +83,7 @@ The build runs on Agent37's infrastructure and streams its log to your terminal.
 
 ## 3. Start the worker
 
-Create an instance from the template, with the environment id and key as [instance env](/agents-api/instances#environment-variables):
+Create an instance from the template, with the environment id and key as [instance env](/agents-api/instance-environment):
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances \
@@ -98,7 +98,7 @@ curl -X POST https://api.agent37.com/v1/instances \
   }"
 ```
 
-The instance is `running` within seconds, and the worker starts polling. Leave [auto-sleep](/agents-api/instances#auto-sleep) off: the worker's outbound polling does not count as activity, so a sleeping instance stops claiming sessions.
+The instance is `running` within seconds, and the worker starts polling. Leave [auto-sleep](/agents-api/instance-auto-sleep) off: the worker's outbound polling does not count as activity, so a sleeping instance stops claiming sessions.
 
 Confirm the worker is connected. `workers_polling` should read `1`:
 
@@ -176,13 +176,13 @@ Anthropic doesn't mount files or GitHub repositories into a self-hosted sandbox,
 ## Scale out
 
 - **More sessions at once.** A worker holds one session until a minute after its turn ends (the `--max-idle` flag, default `1m`), so the next message in a conversation continues without going back to the queue. Other sessions wait their turn. To run several at once, create more instances from the same template with the same env: every worker on an environment polls one queue, and each session goes to the first free worker. A later message on a session that was let go queues again and runs on whichever worker is free.
-- **Heavier tools.** [Resize](/agents-api/instances#resize) the instance for more CPU, memory, or disk.
+- **Heavier tools.** [Resize](/agents-api/instances/resize) the instance for more CPU, memory, or disk.
 - **Separate customers.** Sessions on one instance share its disk. When customers must not see each other's files, give each one its own self-hosted environment and instance.
 - **Memory stores.** The `ant` worker doesn't mount [memory stores](https://platform.claude.com/docs/en/managed-agents/memory). If your sessions attach them, replace the `ENTRYPOINT` with the Python, TypeScript, or Go SDK's `EnvironmentWorker`; see [Use memory stores](https://platform.claude.com/docs/en/managed-agents/self-hosted-sandboxes#use-memory-stores).
 
 ## Cost
 
-The default 2 vCPU / 4 GB instance costs \$4.76 a month running around the clock, metered per minute from your Agent37 wallet; larger shapes are on [Instances](/agents-api/instances#shapes-and-pricing). Model usage bills to your Claude account, not to Agent37.
+The default 2 vCPU / 4 GB instance costs \$4.76 a month running around the clock, metered per minute from your Agent37 wallet; larger shapes are on [Instances](/agents-api/instance-sizing). Model usage bills to your Claude account, not to Agent37.
 
 ## Troubleshooting
 

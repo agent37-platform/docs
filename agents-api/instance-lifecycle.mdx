@@ -1,0 +1,33 @@
+---
+title: "Instance lifecycle"
+description: "Understand persistence, lifecycle changes, and boot hooks."
+---
+
+Five calls control whether the instance's computer is running, which image it runs, and how big it is. Each is a `POST` to a subpath; `stop`, `start`, and `restart` take no body, `update` takes an optional `template` version, and `resize` takes the new size. They acknowledge the new state only, returning `{ id, status }` (`update` adds nullable `image_ref`, `image_digest`, and `template_revision`; `resize` adds `resources`); `GET` the instance for its full representation. `start` and `resize` answer `202` instead of `200` when they moved the instance to another host and the move is still finishing (`status` still `starting`/`updating`); poll `GET` until it reads `running`.
+
+The whole disk persists, like a VM. Files anywhere on the filesystem, installed packages, edited config, connected accounts: all of it survives `stop`, `start`, `restart`, and `resize`, and rides along if the platform ever moves the instance between hosts. The one exception is `update`, which resets the operating system layer to the fresh image while keeping your data (`/home/node` and `/home/linuxbrew`); a [boot hook](/agents-api/instance-lifecycle#boot-hooks) can put back what it resets. Writes outside those two directories share a 10 GB operating-system layer separate from the instance's billed disk. In-memory state is lost whenever the container is recreated; anything that must outlive a restart belongs in a file.
+
+## Boot hooks
+
+Two scripts in the instance's home run on their own as it boots, so you can put back what an `update` resets or a recreate loses. Every system template except `agent37-n8n` has them, and so does an image built on our [base images](/agents-api/templates#build-on-the-hermes-base-image) that keeps the base `ENTRYPOINT`. The first boot creates both, holding only comments, so they do nothing until you add commands.
+
+| Script | When it runs |
+| --- | --- |
+| `~/.agent37/hooks/post-image-update.sh` | On a boot whose image differs from the one the script last completed on: the first boot, and the boot after an `update` that changes the image or moves the instance onto another template. It gets up to 15 minutes; if it fails or times out, it runs again on the next boot. |
+| `~/.agent37/hooks/post-restart.sh` | On every boot, including after `start`, `restart`, `update`, `resize`, `restore`, and a wake that boots fresh. A wake that restores a sleep checkpoint is not a boot, so it does not run. It gets up to 5 minutes; a failure is logged and the boot carries on. |
+
+Both run as the image's default user (`node` on system templates), not root, with the instance's env vars; when both run, `post-image-update.sh` goes first. Their output lands in the instance's [logs](/agents-api/logs). The chat API is already up while they run, so a turn can arrive before a hook finishes. Saving a script does not run it: do the install once now over [exec](/agents-api/exec), and the hook repeats it after every image change. Anything that needs root, such as `apt-get`, cannot go in a hook; rerun it over exec as `root` after the update.
+
+An `update` of a running instance that keeps the same image still resets everything outside `/home/node` and `/home/linuxbrew`, but it is not an image change, so `post-image-update.sh` does not run. To keep something in place across every update, put a guarded line in `post-restart.sh` that checks on each boot and reinstalls only what is missing. For example, a Python package in Hermes's own environment:
+
+```bash curl
+cat > post-restart.sh <<'EOF'
+#!/usr/bin/env bash
+set -e
+"$HERMES_PYTHON" -c 'import some_package' 2>/dev/null || uv pip install --python "$HERMES_PYTHON" some-package
+EOF
+
+curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=~/.agent37/hooks/post-restart.sh" \
+  -H "X-Agent37-Key: sk_live_..." \
+  --data-binary @post-restart.sh
+```

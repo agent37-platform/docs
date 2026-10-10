@@ -1,618 +1,119 @@
 ---
 title: "Instances"
-description: "Create, size, and manage the persistent computer that runs your agent."
+sidebarTitle: "Overview"
+description: "Create, inspect, and manage persistent sandboxes."
 ---
 
-An instance is a persistent, isolated computer running your agent. Create one per end user. The call is synchronous: when `status` is `running`, the instance's computer is up and the agent inside finishes booting moments later. Poll `GET /v1/health` on the instance URL until it answers `"healthy": true` (`ok` alone only means the gateway is up; see [Health & version](/agents-api/health)), then message it at `https://{id}.agent37.app/v1/responses` (see [Send a message](/agents-api/chat) and [Instance and preview URLs](/agents-api/urls)).
+An instance is a persistent, isolated computer for code, services, or agent harnesses. Choose a template, run commands, and reach services on its ports.
 
-Creating an instance requires one day of compute at its running rate in your workspace wallet, but debits nothing: the balance check is the create gate (below it, the create fails with `402 insufficient_balance` and nothing is provisioned), and the meter only starts when the instance first reaches `running`. How many instances the workspace can hold, sleeping and stopped ones included, is set by your [instance limit](/agents-api/billing#instance-limits), which rises as you top up. See [Billing](/agents-api/billing).
-
-## Create an instance
-
-`POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-hermes`) on the smallest shape, 2 vCPU / 4 GB.
-
-<ParamField body="template" type="string" default="agent37-hermes">
-  A template name. `agent37-hermes` (full Hermes, with a headless browser) is the default; `agent37-openclaw` (OpenClaw, with a headless browser), `agent37-claude-code` ([Claude Code](/agents-api/claude-code), which needs your own Anthropic account connected before chat turns work), `agent37-codex` ([Codex](/agents-api/codex), which needs your own OpenAI account connected before chat turns work), `agent37-grok` ([Grok](/agents-api/grok), which needs your own xAI API key set before chat turns work), `agent37-opencode` ([OpenCode](/agents-api/opencode), which runs on the managed model out of the box), `agent37-pi` ([Pi](/agents-api/pi), the minimal harness, also on the managed model out of the box), and `agent37-n8n` ([n8n](/agents-api/n8n), a workflow automation web app with no chat API; its editor gets a public URL on create) are the other system templates. You can also pass one of your own [workspace templates](/agents-api/templates) by name. Any name takes an optional `@<version>` to [pin a published release](/agents-api/templates#pin-a-template-version): a tag on system templates (`agent37-hermes@2026.07.02b`), a revision number on workspace templates (`my-agent@2`). Pin when your creates must be reproducible; the bare name follows the latest release. Unknown names and unpublished versions return `400 invalid_request`. Direct image references are rejected with `400`: register a template first, then pass its name.
-</ParamField>
-
-<ParamField body="resources" type="object">
-  The instance shape, for example `{ "cpu": 2, "memory": 4, "disk": 6 }`. Omitted, it uses the smallest shape, 2 vCPU / 4 GB. Every template offers the same four shapes below. Free workspaces (before your first top-up) run the 2 vCPU / 4 GB shape; the larger 4/8, 8/16, and 16/32 shapes return `403 tier_limit` until you top up. Disk is any whole number of GB within the shape's range, and defaults to 4, 6, 12, or 24 GB by shape when omitted. Any other combination returns `400 invalid_request` listing the valid shapes.
-</ParamField>
-
-<ParamField body="type" type="string" default="default">
-  `default` is used when you omit `type`, and for most harnesses it is all you need. `performance` runs the instance on dedicated cores, for heavy work such as computer use, at 4x the default compute rate. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
-
-  `burstable` is an experimental instance type for low average CPU and RAM usage, starting at \$1/month. [Apply here](https://cal.com/vishnukool/30min) to enable it for your workspace.
-</ParamField>
-
-<ParamField body="user" type="string">
-  An opaque tag for your own attribution, typically your end user's id. Stored, never interpreted, echoed back on the instance object.
-</ParamField>
-
-<ParamField body="name" type="string">
-  A label for the instance.
-</ParamField>
-
-<ParamField body="metadata" type="object">
-  Your own key/value pairs. Stored, never interpreted.
-</ParamField>
-
-<ParamField body="env" type="object">
-  Environment variables for the container, as string key/value pairs. Set once at create and replayed on every restart, update, and wake. Up to 64 entries and 64 KB in total; keys are uppercase letters, digits, and underscores starting with a letter; values are strings of up to 4096 characters. See [Environment variables](#environment-variables).
-</ParamField>
-
-<ParamField body="budget" type="object">
-  Caps on this instance's managed usage (managed LLM, Brave search, and Composio calls), in micros (millionths of a dollar): `monthly_cap_micros` resets each UTC month, `credit_micros` adds one-time headroom that persists until spent. Both default to `0`, so managed calls are refused until you raise one. These are ceilings, not money; spend still draws the workspace wallet. See [Budgets](/agents-api/budgets).
-</ParamField>
-
-<ParamField body="auto_sleep" type="boolean" default="false">
-  Opt the instance into [auto-sleep](#auto-sleep): once no bytes have moved through its URLs for `idle_timeout_seconds`, it is checkpointed to `sleeping` and bills disk alone until a request wakes it. Awake minutes bill the ordinary compute rate.
-</ParamField>
-
-<ParamField body="idle_timeout_seconds" type="integer" default="900">
-  How long the instance must be idle before it sleeps, in seconds. An integer from `300` to `86400` (five minutes to one day). Only meaningful with `auto_sleep: true`.
-</ParamField>
-
-<ParamField body="public_ports" type="object[]">
-  Ports to expose at permanent unauthenticated URLs, each `{ port, prefix? }`, for webhooks and other callers that can't send a credential. See [Public ports](/agents-api/public-ports), or follow the end-to-end [Hermes webhook setup](/agents-api/hermes-webhooks) for port `8644`.
-</ParamField>
-
-### Shapes and pricing
-
-| cpu | memory | disk | Price at the default disk |
-| --- | --- | --- | --- |
-| 2 | 4 GB | 2-12 GB | \$4.76 per month (the default) |
-| 4 | 8 GB | 2-20 GB | \$9.34 per month |
-| 8 | 16 GB | 2-40 GB | \$18.68 per month |
-| 16 | 32 GB | 2-80 GB | \$37.36 per month |
-
-Disk bills at \$0.09 per GB per month, included in the prices above at the default disk. Those are the prices of the `default` [instance type](/agents-api/billing#default-and-performance-instances). The monthly price is the rate; the wallet is metered per minute, and only for what the instance holds: running time bills the full rate, and stopped or sleeping time bills the disk alone. Deleting an instance settles its final minutes and billing ends. See [Billing](/agents-api/billing).
-
-[`burstable` instances](/agents-api/billing#burstable-instances) start at \$1/month for low average CPU and RAM usage and require workspace enablement.
-
-### Example
-
-The `credit_micros` of `1000000` gives the instance \$1 of managed-spend headroom so its first chat works out of the box.
-
-<CodeGroup>
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "template": "agent37-hermes",
-    "user": "u_882",
-    "budget": { "credit_micros": 1000000 }
-  }'
-```
-
-```python python
-import requests
-
-resp = requests.post(
-    "https://api.agent37.com/v1/instances",
-    headers={"Authorization": "Bearer sk_live_..."},
-    json={
-        "template": "agent37-hermes",
-        "user": "u_882",
-        "budget": {"credit_micros": 1000000},
-    },
-)
-instance = resp.json()
-print(instance["id"], instance["status"])
-```
-
-```javascript node
-const res = await fetch("https://api.agent37.com/v1/instances", {
-  method: "POST",
-  headers: {
-    Authorization: "Bearer sk_live_...",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    template: "agent37-hermes",
-    user: "u_882",
-    budget: { credit_micros: 1000000 },
-  }),
-});
-const instance = await res.json();
-```
-
-```json response
-{
-  "id": "ab12cd34ef",
-  "status": "running",
-  "status_reason": null,
-  "template": "agent37-hermes",
-  "template_revision": null,
-  "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
-  "image_digest": "sha256:4f8d0d9e9f3b3a5a9f4488fb33274de9f7b7450c6cf6d3573e68fd231d7c8891",
-  "type": "default",
-  "resources": { "cpu": 2, "memory": 4, "disk": 6 },
-  "url": "https://ab12cd34ef.agent37.app",
-  "domain_urls": [],
-  "public_ports": [
-    { "port": 8443, "url": "https://3f9a1c0b7d2e4f6a8b1c.agent37.app", "domain_urls": [], "prefix": null, "label": "telegram", "created": 1781222400 }
-  ],
-  "user": "u_882",
-  "name": null,
-  "metadata": null,
-  "auto_sleep": false,
-  "idle_timeout_seconds": 900,
-  "past_due": false,
-  "created": 1781222400
-}
-```
-</CodeGroup>
-
-## Environment variables
-
-`env` puts your own variables in the container. They are stored with the instance and reapplied every time the container is rebuilt, so a restart, an update, or a wake from sleep keeps them.
-
-```bash
-curl -X POST https://api.agent37.com/v1/instances \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "template": "agent37-hermes",
-    "env": {
-      "AGENT37_LLM_PROXY_URL": "https://openrouter.ai/api",
-      "AGENT37_MANAGED_TOKEN": "sk-or-v1-...",
-      "AGENT37_STARTER_MODEL_ID": "anthropic/claude-sonnet-5"
-    }
-  }'
-```
-
-Your variables layer over the [managed services](/agents-api/managed-services) the platform injects, so the three names above are how you point a catalog agent at your own OpenAI-compatible provider instead of the managed one. Any endpoint works, OpenRouter included; the URL is normalized to end in `/v1`. Spend then goes to that provider, not your Agent37 wallet, and the instance's [budget](/agents-api/budgets) no longer applies to model calls. For a fuller setup with your own per-user metering, see [Bring your own model](/agents-api/byo-model).
-
-Six names are set by the platform and rejected with `400 invalid_request` rather than silently ignored, because they tell the image which instance it is: `AGENT37_INSTANCE_ID`, `AGENT37_RUNTIME_IMAGE_REF`, `AGENT37_AGENT_TYPE`, `AGENT37_GATEWAY_PORT`, `OPENCLAW_GATEWAY_PORT`, and `OPENCLAW_CONTROL_UI_INSTANCE_ORIGIN`.
-
-`env` is write-only: it is not returned by `GET /v1/instances/{id}`, and it cannot be edited after create. To change a variable, create a new instance.
-
-## The instance object
-
-<ResponseField name="id" type="string">
-  A bare 10-character lowercase alphanumeric id, no prefix. It doubles as the DNS label in the instance's URL.
-</ResponseField>
-
-<ResponseField name="status" type="string">
-  The lifecycle state. `running` means the instance's computer is up; poll `GET /v1/health` before the first message. Around a wake or a start the field can trail reality by a few seconds: the response to your own request, or the instance's [health endpoint](/agents-api/health), is the authority. See the [statuses table](#statuses) below.
-</ResponseField>
-
-<ResponseField name="status_reason" type="object | null">
-  Why the most recent lifecycle operation failed, as `{ code, message, detail?, operation, at }`, or `null` when there is no failure reason. `detail`, when present, carries the raw failure output, including the tail of your container's console log when the container exited or never opened its port; use it to see your own application's startup error. The failing request's own `502` already carries the same `message` and `detail` (see [errors](/agents-api/errors)), so this field is for reading the reason later, not for discovering it. `at` is an epoch-second timestamp.
-</ResponseField>
-
-<ResponseField name="template" type="string">
-  The template the instance was built from, including its [version pin](/agents-api/templates#pin-a-template-version) when it has one (`agent37-hermes@2026.07.02b`, `my-agent@2`).
-</ResponseField>
-
-<ResponseField name="template_revision" type="integer | null">
-  The workspace template revision this instance has installed. Compare it with the template's current `revision` to detect an available update. It changes only when the instance is created or [updated](#update), and is `null` for system templates and for instances created before revisions existed (an update stamps it).
-</ResponseField>
-
-<ResponseField name="image_ref" type="string | null">
-  The public source reference for a system template or registry-born workspace template. `null` for an image published by a [cloud build](/agents-api/templates#build-an-image-in-the-cloud). This never exposes Agent37's internal private-mirror path.
-</ResponseField>
-
-<ResponseField name="image_digest" type="string | null">
-  The immutable `sha256:...` digest of the image the instance runs. Use this, not a mutable `image_ref` tag, as the exact image identity. `null` only on older instances that predate digest pinning.
-</ResponseField>
-
-<ResponseField name="type" type="string">
-  `default` or `performance`. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
-</ResponseField>
-
-<ResponseField name="resources" type="object">
-  The shape: `cpu` (vCPUs), `memory` and `disk` (GB).
-</ResponseField>
-
-<ResponseField name="url" type="string">
-  The bare instance URL, `https://{instanceId}.agent37.app`, where the agent's chat API lives (it routes to the template's `default_port`, `3737` unless declared otherwise). Every other port is reachable at `https://{instanceId}-{port}.agent37.app`, derivable with no declaration needed. Open any port in a browser with a [signed URL](/agents-api/urls#browser-access-with-signed-urls). See [Instance and preview URLs](/agents-api/urls).
-</ResponseField>
-
-<ResponseField name="domain_urls" type="string[]">
-  The instance URL mirrored under each of your workspace's active [custom domains](/agents-api/domains); empty until a domain is active.
-</ResponseField>
-
-<ResponseField name="public_ports" type="object[]">
-  The instance's [public ports](/agents-api/public-ports), each `{ port, url, domain_urls, prefix, label, created }`: permanent unauthenticated URLs. `agent37-hermes` and `agent37-openclaw` instances start with one on `8443`, labelled `telegram`, for [Telegram webhooks](/agents-api/public-ports); otherwise the list is empty unless you created some.
-</ResponseField>
-
-<ResponseField name="user" type="string | null">
-  Your attribution tag, echoed back.
-</ResponseField>
-
-<ResponseField name="name" type="string | null">
-  Your label, echoed back.
-</ResponseField>
-
-<ResponseField name="metadata" type="object | null">
-  Your key/value pairs, echoed back.
-</ResponseField>
-
-<ResponseField name="auto_sleep" type="boolean">
-  Whether the instance sleeps on idle. Set at create or by `PATCH`. See [Auto-sleep](#auto-sleep).
-</ResponseField>
-
-<ResponseField name="idle_timeout_seconds" type="integer">
-  How long the instance must be idle before it sleeps, in seconds. Defaults to `900`.
-</ResponseField>
-
-<ResponseField name="slept_at" type="integer | null">
-  Present only while `status` is `sleeping` or `waking`: when the instance fell asleep, in epoch seconds. It does not signal that the checkpoint has finished: `status` flips to `sleeping` before the checkpoint is written, and during the write this field can be `null` or still carry an earlier timestamp. Instances that have been asleep for a long stretch may be rebuilt from cold storage on wake, which takes about two minutes (see [Auto-sleep](#auto-sleep)).
-</ResponseField>
-
-<ResponseField name="past_due" type="boolean">
-  `true` when the workspace balance went negative and the instance was suspended. Top up to clear it; the next request to the instance's URL wakes it. See [Billing](/agents-api/billing#past-due-and-suspension).
-</ResponseField>
-
-<ResponseField name="created" type="integer">
-  Creation time in epoch seconds.
-</ResponseField>
+<CardGroup cols={2}>
+  <Card title="Create an instance" icon="plus" href="/agents-api/instances/create">Start with a copyable request.</Card>
+  <Card title="Run commands" icon="code" href="/agents-api/exec">Execute code on your sandbox.</Card>
+</CardGroup>
 
 ## Endpoints
 
 | Method | Path | Returns |
 | --- | --- | --- |
-| `POST` | `/v1/instances` | `201` with the full instance object |
-| `GET` | `/v1/instances` | `200` `{ "data": [...] }`, newest first, each the full instance object |
-| `GET` | `/v1/instances/{id}` | `200` with the full instance object |
-| `PATCH` | `/v1/instances/{id}` | `200` with the full instance object |
-| `DELETE` | `/v1/instances/{id}` | `200` `{ "id": "...", "deleted": true }` |
-| `POST` | `/v1/instances/{id}/stop` | `200` `{ id, status }` ack |
-| `POST` | `/v1/instances/{id}/start` | `200` `{ id, status }` ack |
-| `POST` | `/v1/instances/{id}/restart` | `200` `{ id, status }` ack |
-| `POST` | `/v1/instances/{id}/update` | `200` `{ id, status, image_ref, image_digest, template_revision }` ack |
-| `POST` | `/v1/instances/{id}/resize` | `200` `{ id, status, resources }` ack |
-| `POST` | `/v1/instances/{id}/fork` | `201` with the new instance's full object |
-| `GET` | `/v1/instances/{id}/backups` | `200` `{ "data": [...] }`, newest first, each a [backup record](#list-backups) |
-| `POST` | `/v1/instances/{id}/backups` | `201` with the backup record |
-| `POST` | `/v1/instances/{id}/restore` | `200` `{ id, status }` ack |
+| `POST` | [`/v1/instances`](/agents-api/instances/create) | `201` with the full instance object |
+| `GET` | [`/v1/instances`](/agents-api/instances/list) | `200` `{ "data": [...] }`, newest first, each the full instance object |
+| `GET` | [`/v1/instances/{id}`](/agents-api/instances/get) | `200` with the full instance object |
+| `PATCH` | [`/v1/instances/{id}`](/agents-api/instances/edit) | `200` with the full instance object |
+| `DELETE` | [`/v1/instances/{id}`](/agents-api/instances/delete) | `200` `{ "id": "...", "deleted": true }` |
+| `POST` | [`/v1/instances/{id}/stop`](/agents-api/instances/stop) | `200` `{ id, status }` ack |
+| `POST` | [`/v1/instances/{id}/start`](/agents-api/instances/start) | `200` `{ id, status }` ack |
+| `POST` | [`/v1/instances/{id}/restart`](/agents-api/instances/restart) | `200` `{ id, status }` ack |
+| `POST` | [`/v1/instances/{id}/update`](/agents-api/instances/update) | `200` `{ id, status, image_ref, image_digest, template_revision }` ack |
+| `POST` | [`/v1/instances/{id}/resize`](/agents-api/instances/resize) | `200` `{ id, status, resources }` ack |
+| `POST` | [`/v1/instances/{id}/fork`](/agents-api/instances/fork) | `201` with the new instance's full object |
+| `GET` | [`/v1/instances/{id}/backups`](/agents-api/instances/list-backups) | `200` `{ "data": [...] }`, newest first, each a [backup record](/agents-api/instances/list-backups) |
+| `POST` | [`/v1/instances/{id}/backups`](/agents-api/instances/create-backup) | `201` with the backup record |
+| `POST` | [`/v1/instances/{id}/restore`](/agents-api/instances/restore) | `200` `{ id, status }` ack |
+
+## Create an instance
+
+See [Create an instance](/agents-api/instances/create).
+
+### Shapes and pricing
+
+See [Shapes and pricing](/agents-api/instance-sizing).
+
+### Example
+
+See [Example](/agents-api/instances/create).
+
+## Environment variables
+
+See [Environment variables](/agents-api/instance-environment).
+
+## The instance object
+
+See [The instance object](/agents-api/instances/object).
 
 ## List, get, delete
 
-`GET /v1/instances` returns `{ "data": [ ... ] }`, newest first, each element the full instance object. `GET /v1/instances/{id}` returns one. Unknown, deleted, or other-workspace ids uniformly return `404 not_found`.
-
-`DELETE /v1/instances/{id}` returns `{ "id": "ab12cd34ef", "deleted": true }`. It acts once: a repeat delete returns `404`. Delete settles the final metered window and billing ends; nothing is ever prepaid, so there is nothing to refund.
-
-```bash curl
-curl -X DELETE https://api.agent37.com/v1/instances/ab12cd34ef \
-  -H "Authorization: Bearer sk_live_..."
-# -> { "id": "ab12cd34ef", "deleted": true }
-```
-
-<Warning>
-  Delete is destructive: the instance's files, memory, sessions, and backups are gone, and no API call brings them back. A backup belongs to the instance, not to your workspace, and [restore](#restore) only ever writes back in place, so [download](/agents-api/files#download-a-folder) anything you want to keep first. A copy of the instance's data stays in backup storage for seven days after the delete and is then purged, so allow for that window in any promise to erase your own users' data. To pause work while keeping everything, `stop` it instead. A stopped instance bills its disk alone; delete is what ends billing entirely.
-</Warning>
+[List instances](/agents-api/instances/list), [get an instance](/agents-api/instances/get), or [delete an instance](/agents-api/instances/delete).
 
 ## Edit name, metadata, and auto-sleep
 
-`PATCH /v1/instances/{id}` edits the instance's `name`, `user` tag, and `metadata` after creation, plus its [auto-sleep](#auto-sleep) settings. These are the same fields you can set at create, and they are the only things this call changes: it never touches the running container. It returns `200` with the full instance object, the same shape as `GET`.
-
-The patch is partial: only the keys you send change, the rest are left alone. Send a string to set a label field, or `null` (or `""`) to clear it. You must send at least one of `name`, `user`, `metadata`, `auto_sleep`, or `idle_timeout_seconds`; an empty body returns `400 invalid_request`.
-
-<ParamField body="name" type="string | null">
-  A label for the instance, up to 60 characters. `null` or `""` clears it.
-</ParamField>
-
-<ParamField body="user" type="string | null">
-  Your attribution tag, up to 200 characters. `null` or `""` clears it.
-</ParamField>
-
-<ParamField body="metadata" type="object | null">
-  Your key/value pairs, up to 4 KB serialized. The object replaces the stored one, it is not merged. `null` or `{}` clears it.
-</ParamField>
-
-<ParamField body="auto_sleep" type="boolean">
-  Turn [auto-sleep](#auto-sleep) on or off. Takes effect within about half a minute, with no restart and no recreate.
-</ParamField>
-
-<ParamField body="idle_timeout_seconds" type="integer">
-  The new idle timeout: an integer from `300` to `86400` seconds.
-</ParamField>
-
-Edits never bill and never recreate the container, and they work in any state except `deleted`. Unknown, deleted, or other-workspace ids return `404 not_found`.
-
-<CodeGroup>
-```bash curl
-curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{ "name": "Production agent", "user": "u_882", "metadata": { "plan": "pro" } }'
-```
-
-```python python
-import requests
-
-resp = requests.patch(
-    "https://api.agent37.com/v1/instances/ab12cd34ef",
-    headers={"Authorization": "Bearer sk_live_..."},
-    json={"name": "Production agent", "user": "u_882", "metadata": {"plan": "pro"}},
-)
-instance = resp.json()
-```
-
-```javascript node
-const res = await fetch("https://api.agent37.com/v1/instances/ab12cd34ef", {
-  method: "PATCH",
-  headers: {
-    Authorization: "Bearer sk_live_...",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    name: "Production agent",
-    user: "u_882",
-    metadata: { plan: "pro" },
-  }),
-});
-const instance = await res.json();
-```
-
-```json response
-{
-  "id": "ab12cd34ef",
-  "status": "running",
-  "status_reason": null,
-  "template": "agent37-hermes",
-  "template_revision": null,
-  "image_ref": "ghcr.io/agent37-platform/hermes:2026.07.02b",
-  "image_digest": "sha256:4f8d0d9e9f3b3a5a9f4488fb33274de9f7b7450c6cf6d3573e68fd231d7c8891",
-  "resources": { "cpu": 2, "memory": 4, "disk": 6 },
-  "url": "https://ab12cd34ef.agent37.app",
-  "domain_urls": [],
-  "public_ports": [
-    { "port": 8443, "url": "https://3f9a1c0b7d2e4f6a8b1c.agent37.app", "domain_urls": [], "prefix": null, "label": "telegram", "created": 1781222400 }
-  ],
-  "user": "u_882",
-  "name": "Production agent",
-  "metadata": { "plan": "pro" },
-  "auto_sleep": false,
-  "idle_timeout_seconds": 900,
-  "past_due": false,
-  "created": 1781222400
-}
-```
-</CodeGroup>
+See [Edit name, metadata, and auto-sleep](/agents-api/instances/edit).
 
 ## Lifecycle
 
-Five calls control whether the instance's computer is running, which image it runs, and how big it is. Each is a `POST` to a subpath; `stop`, `start`, and `restart` take no body, `update` takes an optional `template` version, and `resize` takes the new size. They acknowledge the new state only, returning `{ id, status }` (`update` adds nullable `image_ref`, `image_digest`, and `template_revision`; `resize` adds `resources`); `GET` the instance for its full representation. `start` and `resize` answer `202` instead of `200` when they moved the instance to another host and the move is still finishing (`status` still `starting`/`updating`); poll `GET` until it reads `running`.
-
-The whole disk persists, like a VM. Files anywhere on the filesystem, installed packages, edited config, connected accounts: all of it survives `stop`, `start`, `restart`, and `resize`, and rides along if the platform ever moves the instance between hosts. The one exception is `update`, which resets the operating system layer to the fresh image while keeping your data (`/home/node` and `/home/linuxbrew`); a [boot hook](#boot-hooks) can put back what it resets. Writes outside those two directories share a 10 GB operating-system layer separate from the instance's billed disk. In-memory state is lost whenever the container is recreated; anything that must outlive a restart belongs in a file.
+See [Lifecycle](/agents-api/instance-lifecycle).
 
 ### Stop
 
-`POST /v1/instances/{id}/stop` halts the container. The agent stops doing work (no cron, no heartbeats, no responses) and `status` becomes `stopped`. The data stays intact, CPU and memory are released back to the host, and the disk stays reserved on that host.
-
-Stop also works on a `sleeping` instance, and the difference is intent: a sleeper wakes on any request, a stopped instance stays down until an explicit `start`. Stopping a sleeper discards its checkpoint (the data stays) and its URLs stop waking it. There are two exceptions. While the sleep checkpoint is being written, stop returns `409 try_again`; the window is tens of seconds on a large instance, so retry with backoff. A sleeper that has been moved to cold storage after a long idle stretch cannot be stopped: stop returns `400 invalid_request` saying the instance is parked in cold storage. Wake it first, with [`start`](#start) or any request to its URL, or delete it.
-
-Stopping an already stopped instance returns the same ack again; any other state returns `400`.
-
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/stop \
-  -H "Authorization: Bearer sk_live_..."
-# -> { "id": "ab12cd34ef", "status": "stopped" }
-```
+See [Stop](/agents-api/instances/stop).
 
 ### Start
 
-`POST /v1/instances/{id}/start` brings a `stopped` instance back up, recreating the container from the image it already ran. It normally returns to its host in seconds; if that host no longer has room for the instance's CPU and memory, the platform moves the instance to one that does, which takes about a couple of minutes per 10 GB of data. A move that runs longer than the request returns `202` with the instance still `starting`, and the platform finishes it on its own: poll `GET /v1/instances/{id}` until it reads `running`. Only when no host has room at all does it return `409 capacity_unavailable`, changing nothing. If the instance is `past_due` (suspended for non-payment), start returns `402 insufficient_balance` until the workspace is funded; topping up clears the flag on its own, and start (or any request to the instance's URLs) then boots it fresh. Starting an already running instance returns the same ack again.
-
-Start also wakes a `sleeping` instance, with the same effect as a request to one of its URLs, and returns in 5 to 15 seconds in the common case. For a [private sandbox with no ports](/agents-api/templates#register-a-workspace-template) there is no URL to request, so start is its only wake path. It is also the explicit way back for a sleeper that has been moved to cold storage: that wake takes about two minutes and boots the instance fresh (files kept, processes and in-memory state gone). While the sleep checkpoint is being written it returns `409 try_again`; the window is tens of seconds on a large instance, so retry with backoff.
-
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/start \
-  -H "Authorization: Bearer sk_live_..."
-# -> { "id": "ab12cd34ef", "status": "running" }
-```
+See [Start](/agents-api/instances/start).
 
 ### Restart
 
-`POST /v1/instances/{id}/restart` recreates the container from the image already on the host (no download) and returns it to `running`. Use it to recover a wedged agent or pick up changed settings. Same image, same data. On `agent37-hermes` it is also how a [Hermes profile](https://github.com/NousResearch/hermes-agent) switch takes effect: run `hermes profile use <name>` in the instance (over [exec](/agents-api/exec) or the terminal), then restart; the instance boots its gateway, dashboard, and chat API in that profile's home, and `hermes profile use default` plus a restart switches back. The instance must be `running`; use `start` to bring a `stopped` one back up. Concurrent restarts of the same instance do not stack: one proceeds and the rest return `409 try_again`. A restart that fails returns `502 provisioning_failed` and leaves the instance `running` when its container is still up or its host could not be reached, with the reason in `status_reason`, so you can simply retry; it reads `failed` only when the container is confirmed down.
-
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
-  -H "Authorization: Bearer sk_live_..."
-# -> { "id": "ab12cd34ef", "status": "running" }
-```
+See [Restart](/agents-api/instances/restart).
 
 ### Update
 
-`POST /v1/instances/{id}/update` pulls the template's image, resets the operating system layer to it, and preserves the data in `/home/node` and `/home/linuxbrew`. It is the one lifecycle call that discards changes outside those directories, which also makes it the clean-slate repair tool: use it to move an instance onto a newer version after a release (or after you point a workspace template at a new tag), or to recover a failed/stuck instance (read its [logs](/agents-api/logs) first to see why it failed). A `running` or recoverable non-stopped instance is recreated and returns `running`; a `stopped` instance pulls the image pointer now and stays `stopped`, then uses that image the next time it starts.
-
-The body is optional. Without one, update re-resolves the instance's stored template: a workspace instance installs the template's current image and `revision`, an unpinned system instance moves to the template's current image, and a [version-pinned](/agents-api/templates#pin-a-template-version) instance stays on its pin. The one accepted field, `template`, takes any template name: the same template with an `@<version>`, a published tag on a system template or a published revision number on a workspace template, pins that release (this works on an unpinned instance too, and pinning an earlier workspace revision is the rollback), the bare name clears the pin to follow latest, and a *different* template migrates the instance onto it. A template migration keeps the instance's id, URLs, public ports, and data, and the recreated container adopts the new template's image, default port, and agent type; the instance keeps its shape, which every template offers. Any other field returns `400`. The ack carries the resulting `status`, the applied `template` when one was passed, `image_ref`, `image_digest`, and `template_revision`. A `sleeping` instance is woken first and then updated, so it comes back `running`; while its checkpoint is still being written the call returns `409 try_again`, so retry with backoff. A bad image reference on the template surfaces here as a `502 provisioning_failed`.
-
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
-  -H "Authorization: Bearer sk_live_..."
-# -> { "id": "ab12cd34ef", "status": "running", "image_ref": "ghcr.io/acme/my-agent:v2", "image_digest": "sha256:9b2e...c41f", "template_revision": 2 }
-
-# Set or move a version pin (or pass the bare name to clear it): a system tag,
-# or a workspace revision like '{ "template": "my-agent@1" }' to roll back:
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{ "template": "agent37-hermes@<tag>" }'
-
-# Migrate the instance onto a different template (data kept, container recreated from the new image):
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/update \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{ "template": "my-custom-agent" }'
-# -> { "id": "ab12cd34ef", "status": "running", "template": "my-custom-agent", "image_ref": "ghcr.io/acme/my-agent:v2", "image_digest": "sha256:9b2e...c41f", "template_revision": 1 }
-```
+See [Update](/agents-api/instances/update).
 
 ### Resize
 
-`POST /v1/instances/{id}/resize` changes a running instance's size, keeping its id and URLs. The body uses the same vocabulary as create's `resources`, and omitted fields keep their current value, so `{ "disk": 10 }` grows disk alone and `{ "cpu": 4, "memory": 8 }` moves to another shape (disk carries over unchanged). `cpu` and `memory` go in either direction, so the call that scales an instance up for a burst is the one that scales it back down afterwards. `disk` only ever grows: a smaller one returns `400`, since the quota sits on a tree that already holds the data. At least one dimension has to change, or the call returns `400`. The ack carries the new `resources`, and the meter bills at the new rate from the moment of the resize (see [Billing](/agents-api/billing)).
-
-A smaller shape takes effect the moment the container is recreated, so leave room for what the agent actually uses: an instance that goes past its memory limit is killed whole, not just the process that asked for the memory. [Metrics](/agents-api/metrics) show its real working set, which is the number to size against.
-
-When its current host has room, the container is recreated in place with the new limits, like `restart`: the disk, instance id, and URLs are kept, in-memory state is lost, and the instance is back in seconds. A shrink always fits where the instance already is, so it always takes that path. When the host cannot fit an increase, the platform moves the instance to one that can: it stops, its data is copied over, and it boots on the new host, so it is down for the copy (about a couple of minutes per 10 GB) and no writes are lost. A move that runs longer than the request returns `202` with the instance still `updating`, and the platform finishes it on its own: poll `GET /v1/instances/{id}` until it reads `running`. Only when no host has room at all does it return `409 capacity_unavailable`, changing nothing.
-
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{ "cpu": 4, "memory": 8 }'
-# -> { "id": "ab12cd34ef", "status": "running", "resources": { "cpu": 4, "memory": 8, "disk": 6 } }
-
-# ...and back down when the burst is over. The 6 GB disk stays.
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/resize \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{ "cpu": 2, "memory": 4 }'
-# -> { "id": "ab12cd34ef", "status": "running", "resources": { "cpu": 2, "memory": 4, "disk": 6 } }
-```
+See [Resize](/agents-api/instances/resize).
 
 ### Boot hooks
 
-Two scripts in the instance's home run on their own as it boots, so you can put back what an `update` resets or a recreate loses. Every system template except `agent37-n8n` has them, and so does an image built on our [base images](/agents-api/templates#build-on-the-hermes-base-image) that keeps the base `ENTRYPOINT`. The first boot creates both, holding only comments, so they do nothing until you add commands.
-
-| Script | When it runs |
-| --- | --- |
-| `~/.agent37/hooks/post-image-update.sh` | On a boot whose image differs from the one the script last completed on: the first boot, and the boot after an `update` that changes the image or moves the instance onto another template. It gets up to 15 minutes; if it fails or times out, it runs again on the next boot. |
-| `~/.agent37/hooks/post-restart.sh` | On every boot, including after `start`, `restart`, `update`, `resize`, `restore`, and a wake that boots fresh. A wake that restores a sleep checkpoint is not a boot, so it does not run. It gets up to 5 minutes; a failure is logged and the boot carries on. |
-
-Both run as the image's default user (`node` on system templates), not root, with the instance's env vars; when both run, `post-image-update.sh` goes first. Their output lands in the instance's [logs](/agents-api/logs). The chat API is already up while they run, so a turn can arrive before a hook finishes. Saving a script does not run it: do the install once now over [exec](/agents-api/exec), and the hook repeats it after every image change. Anything that needs root, such as `apt-get`, cannot go in a hook; rerun it over exec as `root` after the update.
-
-An `update` of a running instance that keeps the same image still resets everything outside `/home/node` and `/home/linuxbrew`, but it is not an image change, so `post-image-update.sh` does not run. To keep something in place across every update, put a guarded line in `post-restart.sh` that checks on each boot and reinstalls only what is missing. For example, a Python package in Hermes's own environment:
-
-```bash curl
-cat > post-restart.sh <<'EOF'
-#!/usr/bin/env bash
-set -e
-"$HERMES_PYTHON" -c 'import some_package' 2>/dev/null || uv pip install --python "$HERMES_PYTHON" some-package
-EOF
-
-curl -X PUT "https://ab12cd34ef.agent37.app/v1/files/content?path=~/.agent37/hooks/post-restart.sh" \
-  -H "X-Agent37-Key: sk_live_..." \
-  --data-binary @post-restart.sh
-```
+See [Boot hooks](/agents-api/instance-lifecycle#boot-hooks).
 
 ## Backups
 
-Every instance's data (`/home/node` and `/home/linuxbrew`) is backed up nightly into seven rotating slots, so the last seven nights are available as restore points. You can also take a backup on demand, into a separate slot that only your next on-demand backup replaces. A new instance has none until its first nightly pass, so take one on demand if you need a restore point before then. Backups and restores are free.
+See [Backups](/agents-api/instance-backups).
 
 ### List backups
 
-`GET /v1/instances/{id}/backups` returns every restore point, newest first: up to seven `automatic` backups and one `manual`.
-
-```bash curl
-curl https://api.agent37.com/v1/instances/ab12cd34ef/backups \
-  -H "Authorization: Bearer sk_live_..."
-# -> { "data": [
-#      { "id": "9f3c1a7e2b4d6f8091a2", "kind": "manual", "created": 1789135331, "size_bytes": 412337102 },
-#      { "id": "3ab0c4d5e6f708192a3b", "kind": "automatic", "created": 1789084800, "size_bytes": 401220981 }
-#    ] }
-```
-
-A backup's `id` names that one copy. When a slot is overwritten, by the nightly rotation or by your next on-demand backup, its old id leaves the list and a restore of it returns `404 not_found`. `created` is when the backup was taken (unix seconds); `size_bytes` is the compressed size. Backups of a tree that has not changed hold the same bytes, so they share one id and list once: an idle or stopped instance can show a single record after seven nights.
+See [List backups](/agents-api/instances/list-backups).
 
 ### Back up now
 
-`POST /v1/instances/{id}/backups` (no body) backs the instance up now and returns the record with `201`. The backup is taken live, without pausing the instance, so like the nightly ones it is crash-consistent: a database mid-write may need its own recovery when restored. The call returns when the backup finishes, minutes on a multi-GB instance, and a client that gives up does not cancel it: the backup lands and shows up in the list.
-
-One on-demand backup per instance every 15 minutes; a second call inside the window returns `429 rate_limited` with a `Retry-After` header. The window opens on the attempt, not on the result, so a failed backup still holds it, leaving your previous on-demand backup in place. Running, stopped and sleeping instances can be backed up; one parked in cold storage after a long idle stretch returns `400 invalid_request` until you [`start`](#start) it, since its data already sits in backup storage.
-
-A backup is never refused for being smaller than the last one. If you empty the instance by mistake, restore one of the earlier nights from the list; the rotation gives you a week.
-
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/backups \
-  -H "Authorization: Bearer sk_live_..."
-# -> { "id": "9f3c1a7e2b4d6f8091a2", "kind": "manual", "created": 1789135331, "size_bytes": 412337102 }
-```
+See [Back up now](/agents-api/instances/create-backup).
 
 ### Restore
 
-`POST /v1/instances/{id}/restore` with `{ "backup": "<id>" }` rolls the instance back to that backup, in place: same id, URLs, and public ports. The data is replaced, not merged, so files written after the backup are gone. The container is recreated, so in-memory state is lost; a running instance comes back `running`, a stopped one stays `stopped`, and the instance reads `updating` in between. The operating-system layer comes back as it was at the backup when the instance still runs the same image, and fresh after an `update`, as `update` itself leaves it.
-
-Restore is destructive and takes no safety copy: back up first if you may want the current state back. `backup` is the only accepted field; any other returns `400`. The instance must be `running` or `stopped`: a sleeping one has to be woken first, one parked in cold storage started first, and anything mid-transition or `failed` returns `400`.
-
-The call returns when the copy is done, up to 12 minutes. A client timeout does not stop it: the instance stays `updating` and a second restore returns `400` until the first finishes, so poll [`GET /v1/instances/{id}`](#list-get-delete) instead of retrying. A restore that fails returns `502 provisioning_failed` and leaves the instance `stopped`, or `running` if it never took the container down, with the reason in `status_reason`. Every backup is still there, so you can try again.
-
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restore \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{ "backup": "3ab0c4d5e6f708192a3b" }'
-# -> { "id": "ab12cd34ef", "status": "running" }
-```
+See [Restore](/agents-api/instances/restore).
 
 ## Fork
 
-`POST /v1/instances/{id}/fork` copies an instance into a second instance: the same image and the same files, with its own id, URLs, starter credential, budget, and meter. The source keeps running throughout and is not touched. The body is optional and every field in it defaults to the source's, so a bare `POST` clones the instance as it stands.
-
-| Field | Default |
-| --- | --- |
-| `resources` | the source's shape |
-| `name`, `user`, `metadata` | the source's |
-| `auto_sleep`, `idle_timeout_seconds` | the source's |
-
-`resources` is the field that makes fork more than a copy: `cpu` and `memory` may move in either direction, so a fork can be smaller or larger than its source. `disk` can only match or grow, since the fork has to hold the same files, and a smaller one returns `400`. To change one instance's size and keep its id and URLs, [resize](#resize) it instead; fork when you want a second instance at the other size. The new instance is created under the same gates as any other, so it counts against your workspace's instance limit and needs a day of balance (see [Capacity and limit errors](#capacity-and-limit-errors)).
-
-What is copied is the source's disk, not its memory: processes running in the source do not carry over, and the fork boots fresh with the same files. The copy is taken at the moment of the call. From there the two instances are fully independent, each with its own disk, so a write in one is never visible in the other.
-
-The fork gets fresh URLs, and its [public ports](/agents-api/public-ports) are its template's defaults minted for its own id, never the source's: a slug is the credential for the port it opens, so it is not shared out by a copy. Anything the agent keeps in its own files does come across, including credentials you put there, which is what makes a fork a fork. If the source has a messaging channel connected, both instances will hold the same bot token, so disconnect it on one of them.
-
-A fork of a large instance can outrun its request. It then returns `202` with the new instance `provisioning` and the platform finishes it on its own: poll `GET /v1/instances/{id}` until it reads `running`. The source must be `running`, `stopped`, or `sleeping`; one parked in cold storage has to be started first.
-
-```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/fork \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{ "name": "burst-worker", "resources": { "cpu": 8, "memory": 16 } }'
-# -> { "id": "7f91ab02cd", "status": "running", "name": "burst-worker", ... }
-```
+See [Fork](/agents-api/instances/fork).
 
 ## Auto-sleep
 
-An instance with `auto_sleep: true` does not have to be up to be available. Once no bytes have moved through any of its URLs for `idle_timeout_seconds` (default 900, from five minutes to a day), the platform checkpoints it and `status` becomes `sleeping`: CPU and memory are released, the disk stays reserved, and billing drops to the disk rate alone (see [Billing](/agents-api/billing)). The status flips at the start of the checkpoint, not the end; writing it takes tens of seconds on a large instance, and `stop`, `start`, and `exec` return `409 try_again` until it is done. Activity is data flow in either direction on any of the instance's URLs, or a command run through [exec](/agents-api/exec); a connection that is open but silent does not count, and API reads like `GET /v1/instances/{id}` never reset the timer.
-
-Sleeping carries no price premium: awake minutes bill the ordinary compute rate, the same as an always-on instance, and asleep time bills disk alone. A mostly-idle instance therefore costs a fraction of the always-on price: a 2 vCPU / 4 GB instance awake an hour a day costs about \$0.54 per month, versus \$4.76 always-on. It is worth turning on for anything that is idle most of the day.
-
-Waking is transparent. Any request to any of the instance's URLs wakes it: the request is held while the instance restores, then forwarded. The restore itself takes a few seconds. An explicit [`POST /v1/instances/{id}/start`](#start), a command sent through [exec](/agents-api/exec), or an [`update`](#update) wakes it too, returning in 5 to 15 seconds in the common case; for a private sandbox with no ports, which receives no requests, those are the only wake paths. If the checkpoint cannot be restored, or the instance was moved to another host or to cold storage after a long idle stretch, the wake rebuilds the instance instead: it takes about two minutes and boots fresh, so processes and in-memory state from before the sleep are gone while files on disk are kept. A wake that boots fresh returns `running` while the agent inside is still starting; poll `GET /v1/health` for `"healthy": true` before sending work. In-memory state usually survives a wake, but it is not guaranteed: treat anything that must outlive a sleep as a file.
-
-While asleep:
-
-- The instance object reports `status: "sleeping"` from the moment the checkpoint starts, and `slept_at`, for example `"slept_at": 1781222400`.
-- [Signed URLs](/agents-api/urls#browser-access-with-signed-urls) can still be minted, and opening one is exactly the kind of request that wakes the instance.
-- `stop` works, and means "stay down until I `start`" (see [Stop](#stop)). While the checkpoint is being written it returns `409 try_again`, for tens of seconds on a large instance; retry with backoff. A sleeper already moved to cold storage returns `400 invalid_request` (parked in cold storage): wake it with `start` or any request to its URL, or delete it.
-- `update` wakes the instance and then updates it, leaving it `running` (see [Update](#update)). It validates the requested template before the wake, so an update it rejects leaves the instance asleep.
-- `restart`, `resize`, and `restore` return `400`: wake the instance first, with any request to its URL or an explicit [`start`](#start).
-
-Both fields are set at create and editable any time with `PATCH /v1/instances/{id}`, no restart needed. Instances default to `auto_sleep: false` and never sleep unless you opt them in.
+See [Auto-sleep](/agents-api/instance-auto-sleep).
 
 ## Statuses
 
-| Status | Meaning |
-| --- | --- |
-| `provisioning` | Being created. You only observe this if a create is in flight. |
-| `running` | Up. Poll `GET /v1/health` before the first message. |
-| `stopping` | A stop is in progress. |
-| `stopped` | Halted until an explicit `start`. Only an explicit `stop` produces this state; the platform never stops an instance on its own. Data intact, disk reserved, compute released. Bills disk only. |
-| `starting` | A start is in progress. |
-| `restarting` | A restart is in progress. |
-| `updating` | An update, resize, or [restore](#restore) is in progress. |
-| `sleeping` | Checkpointed on idle ([auto-sleep](#auto-sleep)), or force-slept for non-payment (with `past_due: true`). Any request to its URLs, an explicit `start`, an `exec`, or an `update` wakes it; while the checkpoint is still being written, `stop`, `start`, `exec`, and `update` return `409 try_again`. A sleeper moved to cold storage can be woken or deleted but not stopped. Bills disk only. |
-| `waking` | A wake is in progress. Every `start`, `exec`, or `update` wake shows it, as does a URL wake that has to move the instance to another host or pull it back from cold storage: a few seconds after a checkpoint restore, about two minutes on a rebuild. The held request completes when it finishes. Bills disk only. |
-| `failed` | A create or lifecycle action failed. |
-| `deleting` | A delete is in progress. |
-| `deleted` | Gone. The id reads as `404` from here on. |
-
-<Note>
-  `past_due` is a flag, not a status: a suspended instance shows it alongside `sleeping` (or `stopped`, if it already was). Top up the wallet to clear it; see [Billing](/agents-api/billing#past-due-and-suspension).
-</Note>
+See [Statuses](/agents-api/instances/object#statuses).
 
 ## Capacity and limit errors
 
-| Error | When |
-| --- | --- |
-| `402 insufficient_balance` | Create when the wallet holds less than one day of the instance's running rate, or start of a past-due instance while the balance is negative. |
-| `409 instance_limit_reached` | Create when the workspace is at its instance cap, which counts every instance that is not deleted or `failed`, sleeping and stopped ones included: one instance on the free credit, 10 once topped up, 50 once top-ups total \$100, 200 once they total \$250 (email vishnu@agent37.com to raise it further). |
-| `403 tier_limit` | Create or resize asks for a shape larger than your plan includes. Free workspaces run any template on the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8, 8/16, and 16/32 shapes. |
-| `503 no_capacity` | Create when no host has capacity for the requested shape right now. |
-| `409 capacity_unavailable` | Start or resize when no host in the fleet can fit the instance right now; the platform first tries to move it to a host with room. |
-
-See [Errors](/agents-api/errors) for the full catalog and the error envelope.
+See [Capacity and limit errors](/agents-api/instances/create#capacity-and-limit-errors).

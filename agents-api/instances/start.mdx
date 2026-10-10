@@ -1,0 +1,61 @@
+---
+title: "Start an instance"
+description: "Start a stopped instance or wake a sleeping one."
+api: "POST https://api.agent37.com/v1/instances/{id}/start"
+playground: "simple"
+authMethod: "bearer"
+---
+
+<RequestExample>
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/start \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/start",
+    headers={"Authorization": "Bearer sk_live_..."},
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node
+const response = await fetch("https://api.agent37.com/v1/instances/ab12cd34ef/start", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer sk_live_...",
+  },
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "id": "ab12cd34ef",
+  "status": "running"
+}
+```
+</ResponseExample>
+
+Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.com`.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The instance id, returned when you create an instance.
+</ParamField>
+
+## Behavior and errors
+
+`POST /v1/instances/{id}/start` brings a `stopped` instance back up, recreating the container from the image it already ran. It normally returns to its host in seconds; if that host no longer has room for the instance's CPU and memory, the platform moves the instance to one that does, which takes about a couple of minutes per 10 GB of data. A move that runs longer than the request returns `202` with the instance still `starting`, and the platform finishes it on its own: poll `GET /v1/instances/{id}` until it reads `running`. Only when no host has room at all does it return `409 capacity_unavailable`, changing nothing. If the instance is `past_due` (suspended for non-payment), start returns `402 insufficient_balance` until the workspace is funded; topping up clears the flag on its own, and start (or any request to the instance's URLs) then boots it fresh. Starting an already running instance returns the same ack again.
+
+Start also wakes a `sleeping` instance, with the same effect as a request to one of its URLs, and returns in 5 to 15 seconds in the common case. For a [private sandbox with no ports](/agents-api/templates#register-a-workspace-template) there is no URL to request, so start is its only wake path. It is also the explicit way back for a sleeper that has been moved to cold storage: that wake takes about two minutes and boots the instance fresh (files kept, processes and in-memory state gone). While the sleep checkpoint is being written it returns `409 try_again`; the window is tens of seconds on a large instance, so retry with backoff.
+
+See [Instance lifecycle](/agents-api/instance-lifecycle) for disk persistence and boot hooks. Retrieve the [instance object](/agents-api/instances/get) for its full representation.

@@ -45,7 +45,7 @@ A Bot is cheap because it is only words: your server keeps a brief per Bot and p
 
 <Steps>
   <Step title="Create the shared computer">
-    One [instance](/agents-api/instances#create-an-instance) per user, created when they start their computer. The sample asks for the roomier 4 vCPU / 8 GB shape, which a workspace unlocks with its first top-up (before that it answers `403 tier_limit`; leave `resources` out for 2 vCPU / 4 GB). Three fields matter: a `budget` so the managed LLM answers from the first message, `auto_sleep` so a computer nobody is using bills disk alone, and a random token in `env` that the agent later presents when it messages the user.
+    One [instance](/agents-api/instances/create) per user, created when they start their computer. The sample asks for the roomier 4 vCPU / 8 GB shape, which a workspace unlocks with its first top-up (before that it answers `403 tier_limit`; leave `resources` out for 2 vCPU / 4 GB). Three fields matter: a `budget` so the managed LLM answers from the first message, `auto_sleep` so a computer nobody is using bills disk alone, and a random token in `env` that the agent later presents when it messages the user.
 
     <CodeGroup>
     ```bash curl
@@ -92,7 +92,7 @@ A Bot is cheap because it is only words: your server keeps a brief per Bot and p
     ```
     </CodeGroup>
 
-    Every Bot shares this computer's CPU and memory, so the 4 vCPU / 8 GB shape (\$9.34 per month while awake) is the better fit once several Bots work at once; the smallest shape, 2 vCPU / 4 GB, works for trying it out (see [Shapes and pricing](/agents-api/instances#shapes-and-pricing)). `credit_micros: 2000000` is \$2 of managed-spend headroom shared by all the user's Bots (see [Budgets](/agents-api/budgets)). `env` is write-only and fixed at create, so keep only the token's hash on your side. The 30-minute idle window keeps the computer awake through a long routine; see [long requests](/agents-api/urls#long-requests) for why it should outlast your slowest turn.
+    Every Bot shares this computer's CPU and memory, so the 4 vCPU / 8 GB shape (\$9.34 per month while awake) is the better fit once several Bots work at once; the smallest shape, 2 vCPU / 4 GB, works for trying it out (see [Shapes and pricing](/agents-api/instance-sizing)). `credit_micros: 2000000` is \$2 of managed-spend headroom shared by all the user's Bots (see [Budgets](/agents-api/budgets)). `env` is write-only and fixed at create, so keep only the token's hash on your side. The 30-minute idle window keeps the computer awake through a long routine; see [long requests](/agents-api/urls#long-requests) for why it should outlast your slowest turn.
 
     The call returns `201` with `status: "running"` once the computer is up. Poll `GET /v1/health` on the instance URL until it answers `"healthy": true` before the first message (see [Health & version](/agents-api/health)).
   </Step>
@@ -462,7 +462,7 @@ In Grok Bot you can watch a Bot work on its computer, and take control when a si
 
     The user and the Bots share one browser, so a Bot picks up where the user left off: the page open after a takeover is the one it sees on its next turn.
 
-    Connect the view only while it is on screen. It streams continuously, close to 1 MB a minute even when nothing on the screen changes, and that traffic counts as activity, so an open view keeps an [auto-sleep](/agents-api/instances#auto-sleep) computer awake. The example closes it when the tab is hidden or the pane is closed, and opens it again when the user comes back; opening the socket wakes a sleeping computer.
+    Connect the view only while it is on screen. It streams continuously, close to 1 MB a minute even when nothing on the screen changes, and that traffic counts as activity, so an open view keeps an [auto-sleep](/agents-api/instance-auto-sleep) computer awake. The example closes it when the tab is hidden or the pane is closed, and opens it again when the user comes back; opening the socket wakes a sleeping computer.
   </Step>
 </Steps>
 

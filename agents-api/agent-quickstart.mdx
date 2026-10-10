@@ -1,0 +1,77 @@
+---
+title: "Send your first agent message"
+sidebarTitle: "First agent message"
+description: "Use the Agent API included in the Hermes template to start a conversation."
+---
+
+Agent templates add a chat API to your sandbox. This guide uses `agent37-hermes`; you can also [host another harness](/agents-api/templates). Your own images only serve the APIs you put in them.
+
+## Create an instance for the agent
+
+Get an [API key](https://www.agent37.com/dashboard/cloud/api-keys) and make sure your [workspace wallet](/agents-api/billing) is funded. These examples use curl and `jq`; see the [create endpoint](/agents-api/instances/create) for Python and Node.
+
+```bash
+export AGENT37_API_KEY="sk_live_..."
+
+INSTANCE=$(curl --fail-with-body -sS https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"template": "agent37-hermes", "budget": {"credit_micros": 1000000}}')
+export INSTANCE_ID=$(printf '%s' "$INSTANCE" | jq -er '.id')
+export INSTANCE_URL=$(printf '%s' "$INSTANCE" | jq -er '.url')
+```
+
+The budget permits up to \$1 of managed-service spending from your wallet. It does not add money to the wallet. Without a [budget](/agents-api/budgets), managed model calls are refused.
+
+## Wait for the agent
+
+Creation returns when the computer is running. The agent may still be starting. In Bash, poll [health](/agents-api/health) for up to three minutes; `healthy: true` means the harness is ready, while `ok` alone only means the gateway is answering.
+
+```bash
+wait_for_agent() {
+  local deadline=$((SECONDS + 180))
+  until curl --max-time 10 --fail -sS "$INSTANCE_URL/v1/health" \
+    -H "X-Agent37-Key: $AGENT37_API_KEY" | jq -e '.healthy == true' > /dev/null; do
+    if (( SECONDS >= deadline )); then
+      echo "Agent is not ready; check instance health and logs." >&2
+      return 1
+    fi
+    sleep 2
+  done
+}
+wait_for_agent
+```
+
+If the wait fails, check [logs](/agents-api/logs) before continuing. Other harnesses may need their own account or provider key connected before they become healthy; follow the guide for that template.
+
+## Send a message
+
+```bash
+curl --fail-with-body -sS "$INSTANCE_URL/v1/responses" \
+  -H "X-Agent37-Key: $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"input": "Say hello in one sentence."}'
+```
+
+The finished response includes these fields:
+
+```json Response excerpt
+{
+  "session_id": "7f3e0b6c52a949d2b1c4a8e9d0f31726",
+  "status": "completed",
+  "output_text": "Hello!"
+}
+```
+
+Read `status`: a failed turn can return HTTP `200` with `status: "failed"` and an `error`. Reuse `session_id` to continue the conversation, or set `stream: true` for live events. See [Send a message](/agents-api/chat) for the full contract and examples in curl, Python, and Node.
+
+## Clean up or build an app
+
+Delete a test instance when you finish; this permanently removes its data and ends billing:
+
+```bash
+curl --fail-with-body -sS -X DELETE "https://api.agent37.com/v1/instances/$INSTANCE_ID" \
+  -H "Authorization: Bearer $AGENT37_API_KEY"
+```
+
+To keep building, follow [Build a chat app](/agents-api/chat-app), [Streaming](/agents-api/streaming), or the [examples](/agents-api/examples).

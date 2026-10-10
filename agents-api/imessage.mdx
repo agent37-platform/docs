@@ -20,7 +20,7 @@ My keys are in AGENT37_API_KEY and INKBOX_ADMIN_KEY.
 
 ## Webhooks wake a sleeping agent, open connections do not
 
-An instance with [auto-sleep](/agents-api/instances#auto-sleep) sleeps when nothing moves through its URLs, and any request to one of its URLs wakes it. A messaging channel therefore has to arrive as a request to the instance, not over a connection the instance holds open: an outbound connection neither counts as activity nor survives the sleep.
+An instance with [auto-sleep](/agents-api/instance-auto-sleep) sleeps when nothing moves through its URLs, and any request to one of its URLs wakes it. A messaging channel therefore has to arrive as a request to the instance, not over a connection the instance holds open: an outbound connection neither counts as activity nor survives the sleep.
 
 The Inkbox plugin supports both. Left alone, it dials out to an Inkbox tunnel, which only works while the instance is awake. With `INKBOX_PUBLIC_URL` set, Inkbox instead POSTs every inbound email, text, and call event to `{INKBOX_PUBLIC_URL}/webhook`, signed with the identity's own key. Point that at a [public port](/agents-api/public-ports) on `8765`, where the plugin listens, and a text to a sleeping agent wakes it. The public URL is only reachability: the plugin checks each delivery's signature and ignores anything unsigned.
 

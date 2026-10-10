@@ -38,7 +38,7 @@ Each user's agent is one [instance](/agents-api/instances): a persistent compute
 
 <Steps>
   <Step title="Create the user's agent">
-    [`POST /v1/instances`](/agents-api/instances#create-an-instance) with four things beyond the usual: a monthly `budget` (the agent spends on its own schedule, so a cap that resets suits it better than one-time credit), `auto_sleep` so it bills disk alone between check-ins, a random callback token in `env`, and that token's SHA-256 in `metadata`.
+    [`POST /v1/instances`](/agents-api/instances/create) with four things beyond the usual: a monthly `budget` (the agent spends on its own schedule, so a cap that resets suits it better than one-time credit), `auto_sleep` so it bills disk alone between check-ins, a random callback token in `env`, and that token's SHA-256 in `metadata`.
 
     <CodeGroup>
     ```bash curl
@@ -444,7 +444,7 @@ Dots puts its computer beside the chat: you watch it work, and when a site needs
 
     You and the agent share one browser, so the page you leave open is the one it sees next. The example tells it so: the first message after a takeover carries a line of app context saying you used the computer and it should look at the browser before carrying on.
 
-    Connect the view only while it is on screen. It streams even when nothing on the screen changes, and that traffic counts as activity, so an open view keeps an [auto-sleep](/agents-api/instances#auto-sleep) instance awake. The example closes the socket when the tab is hidden or the pane is closed, and opening it again wakes the instance: from asleep, the screen was back in 4 to 18 seconds in testing.
+    Connect the view only while it is on screen. It streams even when nothing on the screen changes, and that traffic counts as activity, so an open view keeps an [auto-sleep](/agents-api/instance-auto-sleep) instance awake. The example closes the socket when the tab is hidden or the pane is closed, and opening it again wakes the instance: from asleep, the screen was back in 4 to 18 seconds in testing.
   </Step>
 </Steps>
 
@@ -454,11 +454,11 @@ Don't put the signed URL itself in an iframe on your site: it authenticates with
 
 ## Reset
 
-Reset is [`DELETE /v1/instances/{id}`](/agents-api/instances#list-get-delete) followed by a fresh create from onboarding. Delete is permanent: the computer, its files and memory, sessions, and crons go with it, and billing for it ends.
+Reset is [`DELETE /v1/instances/{id}`](/agents-api/instances/delete) followed by a fresh create from onboarding. Delete is permanent: the computer, its files and memory, sessions, and crons go with it, and billing for it ends.
 
 ## Worth knowing
 
-- **Cost per user.** The smallest shape is \$4.76 per month if it never sleeps. With [auto-sleep](/agents-api/instances#auto-sleep) it bills disk alone while asleep, and crons and your messages wake it, so an agent that works a few minutes at a time costs a fraction of that. Managed LLM, search, and app calls draw the wallet up to each instance's [budget](/agents-api/budgets).
+- **Cost per user.** The smallest shape is \$4.76 per month if it never sleeps. With [auto-sleep](/agents-api/instance-auto-sleep) it bills disk alone while asleep, and crons and your messages wake it, so an agent that works a few minutes at a time costs a fraction of that. Managed LLM, search, and app calls draw the wallet up to each instance's [budget](/agents-api/budgets).
 - **One user, one instance.** Your [instance limit](/agents-api/billing#instance-limits) is your user limit; it rises as you top up.
 - **There is no one-shot cron.** A follow-up is a cron pinned to one date and time (`40 21 29 9 *`). It fires again a year later and holds one of the instance's 50 cron slots until it is deleted, and asking the agent to delete it in the check-in is not reliable. The example deletes it itself: whenever it reads the schedule, a cron the agent pinned to one date whose `last_run` is set has fired, so it goes. `last_run` is set only by a scheduled firing, never by **Run now**. The persona has the agent start a yearly one's name with "Yearly" so it stays.
 - **A deleted cron takes its history with it.** Read `GET /v1/instances/{id}/crons/{cronId}/runs` and keep the runs before you delete a fired reminder, so **Completed** still shows it and opens its session.

@@ -152,7 +152,7 @@ You and the agent share one browser, so the page you leave open is the one it se
 ## Worth knowing
 
 - **The login survives.** Chromium keeps a persistent profile on the instance's home volume, so a sign-in you finish during a takeover stays signed in across restarts, updates, and sleep, and the agent's browser uses the same profile.
-- **[Auto-sleep](/agents-api/instances#auto-sleep) works.** The desktop and the visible Chromium survive the checkpoint and restore, with the page the agent left open. Connect the view only while it is on screen: it streams even when nothing changes, and that traffic counts as activity, so an open view keeps the instance awake.
+- **[Auto-sleep](/agents-api/instance-auto-sleep) works.** The desktop and the visible Chromium survive the checkpoint and restore, with the page the agent left open. Connect the view only while it is on screen: it streams even when nothing changes, and that traffic counts as activity, so an open view keeps the instance awake.
 - **Give it room.** The default 2 vCPU / 4 GB works; use 4 / 8 if the agent opens heavy pages.
 - **Ports.** `6901` serves noVNC. VNC (`5900`) and DevTools (`9222`) stay on loopback inside the instance.
 - **Screen size** is 1440x900. Add `ENV AGENT37_SCREEN_GEOMETRY=1920x1080x24` to the Dockerfile for another size.

@@ -1,0 +1,74 @@
+---
+title: "Restore a backup"
+description: "Replace an instance's data with a backup. Files written after that backup are lost."
+api: "POST https://api.agent37.com/v1/instances/{id}/restore"
+playground: "simple"
+authMethod: "bearer"
+---
+
+<RequestExample>
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restore \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"backup": "3ab0c4d5e6f708192a3b"}'
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/restore",
+    headers={"Authorization": "Bearer sk_live_..."},
+    json={'backup': '3ab0c4d5e6f708192a3b'},
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node
+const response = await fetch("https://api.agent37.com/v1/instances/ab12cd34ef/restore", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer sk_live_...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({"backup": "3ab0c4d5e6f708192a3b"}),
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "id": "ab12cd34ef",
+  "status": "running"
+}
+```
+</ResponseExample>
+
+Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.com`.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The instance id, returned when you create an instance.
+</ParamField>
+
+## Request body
+
+<ParamField body="backup" type="string" required>
+  A backup id from [List backups](/agents-api/instances/list-backups). Restore replaces the current data in place; back up first if you need to keep it.
+</ParamField>
+
+## Behavior and errors
+
+`POST /v1/instances/{id}/restore` with `{ "backup": "<id>" }` rolls the instance back to that backup, in place: same id, URLs, and public ports. The data is replaced, not merged, so files written after the backup are gone. The container is recreated, so in-memory state is lost; a running instance comes back `running`, a stopped one stays `stopped`, and the instance reads `updating` in between. The operating-system layer comes back as it was at the backup when the instance still runs the same image, and fresh after an `update`, as `update` itself leaves it.
+
+Restore is destructive and takes no safety copy: back up first if you may want the current state back. `backup` is the only accepted field; any other returns `400`. The instance must be `running` or `stopped`: a sleeping one has to be woken first, one parked in cold storage started first, and anything mid-transition or `failed` returns `400`.
+
+The call returns when the copy is done, up to 12 minutes. A client timeout does not stop it: the instance stays `updating` and a second restore returns `400` until the first finishes, so poll [`GET /v1/instances/{id}`](/agents-api/instances/get) instead of retrying. A restore that fails returns `502 provisioning_failed` and leaves the instance `stopped`, or `running` if it never took the container down, with the reason in `status_reason`. Every backup is still there, so you can try again.
+
+See [Backups](/agents-api/instance-backups) for retention and what is saved.

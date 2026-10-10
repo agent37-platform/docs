@@ -17,13 +17,13 @@ Two API planes, one `sk_live_` key, and the reference nav mirrors that split:
 - **Hosting API** (`https://api.agent37.com/v1`) manages instances: instances, templates, urls, public-ports, domains, exec, ssh, logs, metrics, budgets, integrations. Takes the key as `Authorization: Bearer sk_live_...`.
 - **Agent API** (`https://{instanceId}.agent37.app/v1`) talks to one instance's agent: chat (responses), streaming, sessions, models, files, health. Takes the same key raw, no Bearer prefix, as `X-Agent37-Key: sk_live_...`; `Authorization` passes through to the software inside the instance. Every sample on this plane must use `X-Agent37-Key`, never `Authorization: Bearer`.
 
-Two more nav groups sit above the reference, and they are not API pages:
+Navigation has two tabs, **Guides** and **API reference**:
 
-- **Get started** (`index`, `concepts`) is the front door.
-- **Build with Agent37** (`examples`, `white-label`, `composio`, `byo-model`, `chat-app`, `custom-image`, `managed-services`, `hermes-webhooks`) is task-shaped: what you can build, each page usually pointing at a forkable repo. `examples` is the table that indexes the rest, so a new guide here needs a row added there. Keep these framed around the use case; the mechanics belong in the reference pages they link to.
-- **Reference** holds `billing` and `errors`, which span both planes.
+- **Guides** starts with `index` and `concepts`, then sandbox management, images, agent templates, and application examples. The quickstart creates an instance, runs a command, and reaches a service. Chat is an optional capability of agent templates, introduced in `agent-quickstart`; do not make it a prerequisite for using a sandbox.
+- **Build with Agent37** is task-shaped: what you can build, usually pointing at a forkable repo. `examples` indexes those guides, so a new use-case guide needs a row there. Keep mechanics in the reference pages they link to.
+- **API reference** separates Hosting API, Agent API, and Shared reference (`billing`, `errors`, and the desktop protocol). Instance operations live in `agents-api/instances/`, one endpoint per page; `instances.mdx` retains the overview and old section anchors. Extended lifecycle, sizing, environment, auto-sleep, and backup explanations live in the `instance-*.mdx` guides.
 
-The API reference is **hand-authored MDX**; there is no OpenAPI spec to regenerate from. Endpoint pages use `<ParamField>`/`<ResponseField>` and show curl, Python, and Node examples. If a page is renamed or moved, add a redirect in `docs.json` so old URLs keep working (several exist already).
+The API reference is **hand-authored MDX**; there is no OpenAPI spec to regenerate from. Endpoint pages use `<ParamField>`/`<ResponseField>` and show curl, Python, and Node examples. Single-operation pages use `api` frontmatter with a full URL and put code blocks directly inside `<RequestExample>` and `<ResponseExample>` before the field reference; do not nest a `<CodeGroup>` inside either example component. If a page is renamed or moved, add a redirect in `docs.json` so old URLs keep working (several exist already). Keep old section anchors when splitting a resource page.
 
 ## Accuracy rules
 
@@ -45,10 +45,10 @@ Platform images publish weekly to GHCR (immutable dated tags like `2026.07.02b`,
 Use these exactly; consistent terms are what make `llms-full.txt` usable as a spec.
 
 - **Agent37 Cloud** is the product. **Workspace** is the account/billing unit; it owns API keys and one **wallet**.
-- **Instance** is an agent's always-on computer at `https://{instanceId}.agent37.app`. **Session** is one conversation on an instance. **Response** is one agentic turn within a session.
+- **Instance** is a persistent sandbox for code, services, or an agent harness. A **template** selects its software; the Agent API exists when that image includes the gateway. **Session** is one conversation on an agent instance. **Response** is one agentic turn within a session. Keep `instance` in API names and field descriptions even when explaining it as a sandbox.
 - **Agent** vs **model**: the agent is the software running on the instance (Hermes, OpenClaw, Claude Code, Codex, Grok, OpenCode, and Pi today); the model is the LLM chosen per turn (`model` + `provider`).
-- **Template** names the image an instance runs and can set its `default_port`; every other port URL is derivable and needs no declaration. **Gateway** serves the Agent API inside the instance.
-- **Instance URL** is an instance's base address, `https://{instanceId}.agent37.app` (the default port, where the agent's API lives). **Preview URL** is a non-default port's address, `https://{instanceId}-{port}.agent37.app`, where a service or UI on that port is reachable. **Signed URL** is a time-boxed, tokenized form of either, mintable via `POST /v1/instances/{id}/signed-url`, that a browser can open without a header.
+- **Template** names the image an instance runs and can set its `default_port`; every other port URL is derivable and needs no declaration. **Gateway** serves the Agent API inside agent templates.
+- **Instance URL** is an instance's base address, `https://{instanceId}.agent37.app`, routed to its default port (the gateway on agent templates). **Preview URL** is a non-default port's address, `https://{instanceId}-{port}.agent37.app`, where a service or UI on that port is reachable. **Signed URL** is a time-boxed, tokenized form of either, mintable via `POST /v1/instances/{id}/signed-url`, that a browser can open without a header.
 - Billing: **wallet** (workspace money), **budget** (per-instance managed-spend cap plus **top-up** headroom), **managed services** (LLM / search / Composio through built-in credentials), **micros** (USD × 1,000,000), **past due** (renewal failed; instance force-stopped until a funded start).
 - Conventions: instance ids are 10-char lowercase alphanumeric; session/response ids are 32-char hex; Hosting API timestamps are epoch **seconds**, Agent API timestamps epoch **milliseconds**; list endpoints wrap results in `{ "data": [...] }`, newest first.
 
