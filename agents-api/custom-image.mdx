@@ -165,7 +165,7 @@ curl -X POST https://api.agent37.com/v1/templates \
 Agent37 needs access only while it copies the image, and does not keep the login. The template and its instances no longer depend on the source registry after registration. A future image update needs a new tag, sent with `registry_auth` again if the registry is private.
 
 <Tip>
-  If your own image serves HTTP on port `8000`, declare it: pass `--default-port 8000` on the build, or include `"default_port": 8000` beside `name` and `image_ref`. The bare instance URL then routes to that port, and instance creation probes it at boot. Omit it for `hermes-base`, whose gateway uses the `3737` fallback, or for a long-running private sandbox with no HTTP service.
+  If your own image serves HTTP on port `8000`, declare it: pass `--default-port 8000` on the build, or include `"default_port": 8000` beside `name` and `image_ref`. The bare instance URL then routes to that port. Creation does not wait for it: use [health](/agents-api/health) to know when your service is answering. Omit it for `hermes-base`, whose gateway uses the `3737` fallback, or for a long-running private sandbox with no HTTP service.
 </Tip>
 
 ## 4. Create an instance

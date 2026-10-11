@@ -294,4 +294,4 @@ One interaction to watch with [auto-sleep](/agents-api/instance-auto-sleep): idl
 
 ## Private sandboxes
 
-A [template](/agents-api/templates) whose image listens on nothing still runs fine: with `default_port` omitted, boot is not probed, and every URL simply answers a transport error because nothing serves. Drive the instance from the Sandbox API with [exec](/agents-api/exec), which runs shell commands inside it without touching any port.
+A [template](/agents-api/templates) whose image listens on nothing still runs fine: no port is ever waited on at boot, so every URL simply answers a transport error because nothing serves. Drive the instance from the Sandbox API with [exec](/agents-api/exec), which runs shell commands inside it without touching any port.
