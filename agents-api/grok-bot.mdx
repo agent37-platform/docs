@@ -92,7 +92,7 @@ A Bot is cheap because it is only words: your server keeps a brief per Bot and p
     ```
     </CodeGroup>
 
-    Every Bot shares this computer's CPU and memory, so the 4 vCPU / 8 GB shape (\$9.34 per month while awake) is the better fit once several Bots work at once; the smallest shape, 2 vCPU / 4 GB, works for trying it out (see [Shapes and pricing](/agents-api/instance-sizing)). `credit_micros: 2000000` is \$2 of managed-spend headroom shared by all the user's Bots (see [Budgets](/agents-api/budgets)). `env` is write-only and fixed at create, so keep only the token's hash on your side. The 30-minute idle window keeps the computer awake through a long routine; see [long requests](/agents-api/urls#long-requests) for why it should outlast your slowest turn.
+    Every Bot shares this computer's CPU and memory, so the 4 vCPU / 8 GB shape (\$9.34 per month while awake) is the better fit once several Bots work at once; the smallest shape, 2 vCPU / 4 GB, works for trying it out (see [Shapes and pricing](/agents-api/instance-sizing)). `credit_micros: 2000000` is \$2 of managed-spend headroom shared by all the user's Bots (see [Budgets](/agents-api/budgets)). `env` is write-only, so keep only the token's hash on your side. The 30-minute idle window keeps the computer awake through a long routine; see [long requests](/agents-api/urls#long-requests) for why it should outlast your slowest turn.
 
     The call returns `201` with `status: "running"` once the computer is up. Poll `GET /v1/health` on the instance URL until it answers `"healthy": true` before the first message (see [Health & version](/agents-api/health)).
   </Step>

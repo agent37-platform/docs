@@ -85,7 +85,7 @@ The rest of the product is files too. The agent writes `~/muse/ideas.json`, `~/m
     ```
     </CodeGroup>
 
-    `monthly_cap_micros: 2000000` is a \$2 monthly allowance per user, the counterpart of Muse's weekly allowance; it resets each UTC month (see [Budgets](/agents-api/budgets)). `env` is write-only and fixed at create, so keep only the token's hash on your side. The idle window of 30 minutes keeps the agent awake through a conversation and a long task; see [long requests](/agents-api/urls#long-requests) for why the timeout should outlast your slowest turn.
+    `monthly_cap_micros: 2000000` is a \$2 monthly allowance per user, the counterpart of Muse's weekly allowance; it resets each UTC month (see [Budgets](/agents-api/budgets)). `env` is write-only, so keep only the token's hash on your side. The idle window of 30 minutes keeps the agent awake through a conversation and a long task; see [long requests](/agents-api/urls#long-requests) for why the timeout should outlast your slowest turn.
 
     The call returns `201` with `status: "running"` once the computer is up. Poll `GET /v1/health` on the instance URL until it answers `"healthy": true` before the first message (see [Health & version](/agents-api/health)).
   </Step>

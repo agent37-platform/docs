@@ -80,7 +80,7 @@ Each user's agent is one [instance](/agents-api/instances): a persistent compute
     ```
     </CodeGroup>
 
-    The call returns once the computer is up. Poll [`GET /v1/health`](/agents-api/health) on the instance URL until it answers `"healthy": true` before writing files or sending the first message. `env` is write-only and fixed at create, so the raw token lives only inside the instance; the hash in `metadata` is what your server reads back later. The idle timeout sits above the longest turn you expect, because a turn whose browser went away can be checkpointed mid-run once the instance goes idle.
+    The call returns once the computer is up. Poll [`GET /v1/health`](/agents-api/health) on the instance URL until it answers `"healthy": true` before writing files or sending the first message. `env` is write-only, so the raw token lives only inside the instance; the hash in `metadata` is what your server reads back later. The idle timeout sits above the longest turn you expect, because a turn whose browser went away can be checkpointed mid-run once the instance goes idle.
   </Step>
 
   <Step title="Give it a name and a job description">

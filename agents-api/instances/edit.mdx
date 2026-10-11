@@ -1,6 +1,6 @@
 ---
 title: "Edit an instance"
-description: "Change an instance's labels, metadata, or auto-sleep settings without restarting it."
+description: "Change an instance's labels, metadata, environment variables, or auto-sleep settings."
 api: "PATCH https://api.agent37.com/v1/instances/{id}"
 playground: "simple"
 authMethod: "bearer"
@@ -17,6 +17,10 @@ curl -X PATCH \
     "user": "u_882",
     "metadata": {
       "plan": "pro"
+    },
+    "env": {
+      "APP_GATEWAY_URL": "https://api.example.com",
+      "RETIRED_FLAG": null
     },
     "auto_sleep": true,
     "idle_timeout_seconds": 900
@@ -36,6 +40,10 @@ response = requests.patch(
         "user": "u_882",
         "metadata": {
             "plan": "pro",
+        },
+        "env": {
+            "APP_GATEWAY_URL": "https://api.example.com",
+            "RETIRED_FLAG": None,
         },
         "auto_sleep": True,
         "idle_timeout_seconds": 900,
@@ -59,6 +67,10 @@ const response = await fetch(
       user: "u_882",
       metadata: {
         plan: "pro",
+      },
+      env: {
+        APP_GATEWAY_URL: "https://api.example.com",
+        RETIRED_FLAG: null,
       },
       auto_sleep: true,
       idle_timeout_seconds: 900,
@@ -111,6 +123,10 @@ The examples include every editable field. Send only the fields you want to chan
   Your key/value pairs, up to 4 KB serialized. The object replaces the stored one, it is not merged. `null` or `{}` clears it.
 </ParamField>
 
+<ParamField body="env" type="object" post={["optional"]}>
+  [Environment variables](/agents-api/instance-environment) for the container. The keys you send are set, a `null` value unsets that one variable, and the rest of the stored environment is left alone. Stored only: the new values reach the container on its next start, restart, update, or wake. Write-only, so `env` is never returned.
+</ParamField>
+
 <ParamField body="auto_sleep" type="boolean" post={["optional"]}>
   Turn [auto-sleep](/agents-api/instance-auto-sleep) on or off. Takes effect within about half a minute, with no restart and no recreate.
 </ParamField>
@@ -127,6 +143,8 @@ The response contains the full [instance object](/agents-api/instances/object), 
 
 `PATCH /v1/instances/{id}` edits the instance's `name`, `user` tag, and `metadata` after creation, plus its [auto-sleep](/agents-api/instance-auto-sleep) settings. These are the same fields you can set at create, and they are the only things this call changes: it never touches the running container. It returns `200` with the full instance object, the same shape as `GET`.
 
-The patch is partial: only the keys you send change, the rest are left alone. Send a string to set a label field, or `null` (or `""`) to clear it. You must send at least one of `name`, `user`, `metadata`, `auto_sleep`, or `idle_timeout_seconds`; an empty body returns `400 invalid_request`.
+The patch is partial: only the keys you send change, the rest are left alone. Send a string to set a label field, or `null` (or `""`) to clear it. You must send at least one of `name`, `user`, `metadata`, `env`, `auto_sleep`, or `idle_timeout_seconds`; an empty body returns `400 invalid_request`.
 
 Edits never bill and never recreate the container, and they work in any state except `deleted`. Unknown, deleted, or other-workspace ids return `404 not_found`.
+
+`env` is the one field whose effect is not immediate. A container is handed its environment when it starts, so an edit changes what the *next* container build carries: restart the instance (or stop and start it, update it, or let it wake from sleep) for the new values to arrive. Processes already running keep the environment they started with. An edit that would push the merged environment past the limits on [Environment variables](/agents-api/instance-environment), or that names a platform-owned variable, returns `400 invalid_request` and changes nothing.

@@ -343,5 +343,6 @@ curl -X POST https://api.agent37.com/v1/instances \
 ```
 
 Set to `false`, the template leaves that server or plugin out, so the agent never sees those tools.
-The other services keep working, and `env` is fixed at create, so turning one back on means a new
-instance. Leaving all three on costs nothing until the agent calls one.
+The other services keep working, and turning one back on is an
+[env edit](/agents-api/instances/edit) plus a restart. Leaving all three on costs nothing until the
+agent calls one.

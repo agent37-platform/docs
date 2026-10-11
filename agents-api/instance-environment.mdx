@@ -1,6 +1,6 @@
 ---
 title: "Environment variables"
-description: "Set container environment variables when you create an instance."
+description: "Set container environment variables when you create an instance, and edit them later."
 ---
 
 `env` puts your own variables in the container. They are stored with the instance and reapplied every time the container is rebuilt, so a restart, an update, or a wake from sleep keeps them.
@@ -23,4 +23,19 @@ Your variables layer over the [managed services](/agents-api/managed-services) t
 
 Six names are set by the platform and rejected with `400 invalid_request` rather than silently ignored, because they tell the image which instance it is: `AGENT37_INSTANCE_ID`, `AGENT37_RUNTIME_IMAGE_REF`, `AGENT37_AGENT_TYPE`, `AGENT37_GATEWAY_PORT`, `OPENCLAW_GATEWAY_PORT`, and `OPENCLAW_CONTROL_UI_INSTANCE_ORIGIN`.
 
-`env` is write-only: it is not returned by `GET /v1/instances/{id}`, and it cannot be edited after create. To change a variable, create a new instance.
+`env` is write-only: it is not returned by `GET /v1/instances/{id}`, so a token you put here lives in the container alone and nothing reads it back out of the API.
+
+## Changing a variable later
+
+[`PATCH /v1/instances/{id}`](/agents-api/instances/edit) edits the stored environment. The keys you send are set, a `null` value unsets that one variable, and anything you leave out stays as it is, so you never have to restate the whole environment.
+
+```bash
+curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "env": { "APP_GATEWAY_URL": "https://api.example.com", "RETIRED_FLAG": null } }'
+```
+
+The edit is stored, not injected. A container is handed its environment when it starts, so the new values arrive with the next container build: restart the instance, stop and start it, update it, or let it wake from sleep. Processes already running keep the environment they started with. The instance keeps its id, its URLs, its public ports, and its disk throughout.
+
+An instance holds up to 64 variables, each value up to 4,096 characters, 64 KB in total. An edit is measured against the merged result, so one that would take the instance past a limit returns `400 invalid_request` and changes nothing.
