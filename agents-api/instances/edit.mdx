@@ -124,7 +124,7 @@ The examples include every editable field. Send only the fields you want to chan
 </ParamField>
 
 <ParamField body="env" type="object" post={["optional"]}>
-  [Environment variables](/agents-api/instance-environment) for the container. The keys you send are set, a `null` value unsets that one variable, and the rest of the stored environment is left alone. Stored only: the new values reach the container on its next start, restart, update, or wake. Write-only, so `env` is never returned.
+  [Environment variables](/agents-api/instance-environment) for the container. The keys you send are set, a `null` value unsets that one variable, and the rest of the stored environment is left alone. Stored only: the new values reach the container on its next start, restart, update, or resize, never on a wake. Write-only, so `env` is never returned.
 </ParamField>
 
 <ParamField body="auto_sleep" type="boolean" post={["optional"]}>
@@ -147,4 +147,4 @@ The patch is partial: only the keys you send change, the rest are left alone. Se
 
 Edits never bill and never recreate the container, and they work in any state except `deleted`. Unknown, deleted, or other-workspace ids return `404 not_found`.
 
-`env` is the one field whose effect is not immediate. A container is handed its environment when it starts, so an edit changes what the *next* container build carries: restart the instance (or stop and start it, update it, or let it wake from sleep) for the new values to arrive. Processes already running keep the environment they started with. An edit that would push the merged environment past the limits on [Environment variables](/agents-api/instance-environment), or that names a platform-owned variable, returns `400 invalid_request` and changes nothing.
+`env` is the one field whose effect is not immediate. A container is handed its environment when it starts, so an edit changes what the *next* container build carries: restart the instance (or stop and start it, update it, or resize it) for the new values to arrive. Processes already running keep the environment they started with, and so does a sleeping instance that wakes, because a wake restores that same process: restart a sleeper to boot it on the new values. An edit that would push the merged environment past the limits on [Environment variables](/agents-api/instance-environment), or that names a platform-owned variable, returns `400 invalid_request` and changes nothing.

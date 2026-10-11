@@ -36,6 +36,8 @@ curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef \
   -d '{ "env": { "APP_GATEWAY_URL": "https://api.example.com", "RETIRED_FLAG": null } }'
 ```
 
-The edit is stored, not injected. A container is handed its environment when it starts, so the new values arrive with the next container build: restart the instance, stop and start it, update it, or let it wake from sleep. Processes already running keep the environment they started with. The instance keeps its id, its URLs, its public ports, and its disk throughout.
+The edit is stored, not injected. A container is handed its environment when it starts, so the new values arrive with the next container build: restart the instance, stop and start it, update it, or resize it. Processes already running keep the environment they started with. The instance keeps its id, its URLs, its public ports, and its disk throughout.
+
+Waking a [sleeping](/agents-api/instance-auto-sleep) instance is not one of those: a wake restores the sandbox exactly as it was, down to the environment its processes were holding. Restart a sleeper instead, which boots it fresh on the new values.
 
 An instance holds up to 64 variables, each value up to 4,096 characters, 64 KB in total. An edit is measured against the merged result, so one that would take the instance past a limit returns `400 invalid_request` and changes nothing.
