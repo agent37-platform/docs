@@ -13,7 +13,7 @@ Every error uses a standard HTTP status code and returns a stable, machine-reada
 
 ## Sandbox API errors
 
-Errors from `https://api.agent37.com/v1/*` always carry `code` and `message`, plus `detail` on the one error that has raw output worth showing: a failed create's `provisioning_failed` includes the tail of your container's console log, so a container that crashed on boot returns its own startup error. There is no `param` or `hint` on this plane.
+Errors from `https://api.agent37.com/v1/*` always carry `code` and `message`, plus `detail` on the one error that has raw output worth showing: a `provisioning_failed` includes the tail of your container's console log, so a container the runtime could not start returns its own startup error. A container that starts and then exits is not a failed create: the instance is created and `running`, and the crash shows up in [logs](/agents-api/logs) and in the `health` beside them. There is no `param` or `hint` on this plane.
 
 ```json wrap
 {
