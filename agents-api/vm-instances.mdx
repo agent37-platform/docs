@@ -84,12 +84,24 @@ anything that has to outlive a restart belongs in a file under `$HOME`.
 Growing the disk extends it in place and your filesystem grows into the new space on the next
 boot, so the data is kept. Disk only grows, as on every instance.
 
+## Backups
+
+[Backups](/agents-api/instance-backups) work exactly as they do on any other instance: a week of
+daily restore points plus one you take on demand, listed and restored by id, and a restore
+replaces the data it finds rather than merging into it.
+
+Two things are worth knowing on a VM. A backup is taken from the machine's disks, so it captures
+what your programs have written to disk, not what they are still holding in memory: a database is
+backed up the way pulling the power cord would leave it, and recovers on the next start the same
+way. That is the same guarantee a VPS snapshot gives you, and it is why a backup that has to be
+exact should be taken with the machine stopped, or alongside your database's own dump. And a
+restore cold-boots the machine, so in-memory state is lost either way.
+
 ## What is not available yet
 
 | | |
 | --- | --- |
 | [Auto-sleep](/agents-api/instance-auto-sleep) | A VM stays running while idle. `stop` and `start` work and release the compute charge; `auto_sleep` is refused. |
-| [Backups](/agents-api/instance-backups) | Not yet available on a VM, so there is no restore point and `delete` is final. Copy anything you need out over SSH or `scp`. |
 | Fork | Not yet available on a VM. |
 | Changing type | An instance is a VM or it is not, for its whole life. To move, create the one you want and copy your data across. |
 
