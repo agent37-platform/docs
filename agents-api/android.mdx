@@ -1,0 +1,106 @@
+---
+title: "Host an Android phone"
+description: "Run the Android emulator with ADB and a live screen in the browser, on a machine with its own kernel."
+---
+
+The `agent37-android` [template](/agents-api/templates) is an Android phone your code can drive: the Android 14 emulator, the SDK, ADB, and a live view of the screen in the browser, already installed and already running. It is a web app and a device, not an agent harness: there is no chat API on this instance.
+
+It only runs as a [VM instance](/agents-api/vm-instances). The emulator needs hardware virtualization (`/dev/kvm`), which a VM has and a sandbox does not, so a create without `"type": "vm"` is a `400`.
+
+```text title="Paste this into your coding agent" wrap
+Read https://www.agent37.com/docs/llms-full.txt.
+I want an Android phone I can drive with adb.
+Create it with POST /v1/instances using the agent37-android template, with "type": "vm" and 4 vCPU / 8 GB / 20 GB disk.
+Then run `android-wait` through POST /v1/instances/{id}/exec until it reports the boot completed, and show me `adb shell getprop ro.build.version.release`.
+Finish by minting a signed URL for port 6901 so I can watch the screen.
+My key is in AGENT37_API_KEY.
+```
+
+## Create one
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "agent37-android",
+    "type": "vm",
+    "resources": { "cpu": 4, "memory": 8, "disk": 20 }
+  }'
+```
+
+4 vCPU / 8 GB is the smallest shape the emulator is comfortable on, and 20 GB of disk leaves the phone's own storage room to grow. A funded workspace is required, as for every VM instance.
+
+The create returns as soon as the machine has started. Android is still booting at that point: the phone is created on the first boot, so the first one takes a few minutes and every boot after it loads the emulator's quick-boot snapshot instead. Wait for it with the image's own helper, which blocks until Android reports `sys.boot_completed`:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "android-wait 600" }'
+```
+
+## Drive it with ADB
+
+ADB is already connected to the phone, so [exec](/agents-api/exec) is all you need. Nothing has to be exposed to the internet for your code to drive the device.
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "adb shell am start -a android.intent.action.VIEW -d https://example.com" }'
+```
+
+The commands a device-driving agent leans on:
+
+| | |
+| --- | --- |
+| `adb exec-out screencap -p` | A PNG of what is on screen, the fastest way to a frame |
+| `adb shell input tap 540 1200` | A touch; `input text`, `input swipe` and `input keyevent` are the rest of the loop |
+| `adb shell uiautomator dump` | The view tree, when you would rather act on element bounds than on pixels |
+| `adb install app.apk` | Sideload an app; `adb shell pm list packages` lists what is installed |
+| `adb logcat -d -t 200` | The last 200 log lines |
+| `adb shell dumpsys window \| grep mCurrentFocus` | Which app and activity is in front |
+
+[SSH](/agents-api/ssh) works too, and is the better way in when you want `adb pull` of something big or an interactive shell: `ssh root@ab12cd34ef.agent37.app`.
+
+## Watch the screen
+
+The screen is served on port `6901` by [noVNC](https://novnc.com), so any browser can open it with no plugin and no client. Mint a [signed URL](/agents-api/urls) and point it at noVNC's own page:
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/signed-url \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "port": 6901, "ttl_seconds": 300 }'
+# -> { "url": "https://ab12cd34ef-6901.agent37.app/?a37_token=...", ... }
+```
+
+Keep the token and change the path to `/vnc.html`:
+
+```
+https://ab12cd34ef-6901.agent37.app/vnc.html?a37_token=...&autoconnect=1&resize=scale
+```
+
+Add `&view_only=1` to watch without touching. The URL is a credential: anyone holding it can tap and type on the phone, so mint a short one and hand it only to the device's owner. To embed the screen in your own app rather than open a tab, mount the noVNC client in your page and connect its WebSocket straight to the instance; [Hermes with a desktop](/agents-api/hermes-desktop) has the code, and it applies here unchanged.
+
+noVNC is what the template ships because it needs nothing installed and rides the same authenticated edge as every other port. For a smoother picture, run [ws-scrcpy](https://github.com/NetrisTV/ws-scrcpy) on the instance and serve it on its own port: it streams H.264 over a WebSocket and the browser decodes it with WebCodecs. The native [scrcpy](https://github.com/Genymobile/scrcpy) client is better still, over an SSH tunnel to ADB (`agent37 ssh ab12cd34ef -- -L 5037:localhost:5037`). The emulator's own WebRTC stream needs UDP, which the Agent37 edge does not carry.
+
+## What is on the image
+
+| | |
+| --- | --- |
+| Android | 14 (API 34), `google_apis` x86_64, as an AVD named `agent37` on a Pixel 6 profile |
+| SDK | `platform-tools` (ADB), `emulator`, `cmdline-tools` at `/opt/android-sdk` |
+| Screen | Xvfb, x11vnc, and noVNC on `6901` |
+| Also | Docker and Compose, with the data-root on your billed disk |
+
+`google_apis` carries Google Play services, so sign-in and push work, and it keeps `adb root`. It does not include the Play Store app: sideload with `adb install`, or build [your own image](/agents-api/custom-image) on `system-images;android-34;google_apis_playstore;x86_64` if you need the store itself. The same applies to another Android version: `sdkmanager --install "system-images;android-16;google_apis;x86_64"` on the instance, or bake it into your own template.
+
+What the phone stores (apps, logins, files, the quick-boot snapshot) lives in the AVD on the instance's persistent disk, so it survives stop, start, restart, resize and [image updates](/agents-api/instances/update). The SDK itself is in the image and costs nothing against your disk.
+
+Environment knobs, as [instance env](/agents-api/instance-environment): `ANDROID_AVD_RAM_MB` (default `2048`), `ANDROID_AVD_DATA_MB` (the phone's storage, default `6144`), `ANDROID_AVD_DEVICE` (default `pixel_6`), `ANDROID_SCREEN_GEOMETRY` (default `1280x1600x24`) and `ANDROID_EMULATOR_ARGS` for anything else you want to pass the emulator.
+
+## Leave auto-sleep off
+
+The emulator is the one workload that has to stay awake. It uses hardware virtualization itself, and after a wake the first call into `/dev/kvm` fails and takes the emulator down with it. [Auto-sleep](/agents-api/instance-auto-sleep) is off unless you ask for it, so there is nothing to do but leave it off; `restart` brings the phone back. Use `stop` and `start` to park a phone instead: that releases the compute charge and cold-boots cleanly.

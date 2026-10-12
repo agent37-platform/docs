@@ -31,6 +31,7 @@
               "agents-api/custom-image",
               "agents-api/migrate-from-docker",
               "agents-api/vm-instances",
+              "agents-api/android",
               "agents-api/n8n",
               {
                 "group": "Manage instances",
@@ -105,7 +106,9 @@
         "groups": [
           {
             "group": "Reference",
-            "pages": ["agents-api/overview"]
+            "pages": [
+              "agents-api/overview"
+            ]
           },
           {
             "group": "Sandbox API",

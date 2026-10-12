@@ -14,7 +14,9 @@ Reach for it when your workload needs the kernel itself:
 - **Kubernetes.** k3s runs with its node Ready and pod networking working.
 - **Databases.** Postgres, MySQL, Redis, anything with its own storage engine.
 - **Android emulators.** `/dev/kvm` is present inside the machine, so an AVD boots with hardware
-  acceleration instead of crawling. Leave auto-sleep off for these; see below.
+  acceleration instead of crawling. The `agent37-android` template has one installed and
+  running already; see [Host an Android phone](/agents-api/android). Leave auto-sleep off for
+  these; see below.
 
 A default instance is the right choice for everything else, and it starts faster.
 
@@ -34,6 +36,9 @@ curl -X POST https://api.agent37.com/v1/instances \
 `agent37-ubuntu` is Ubuntu 26.04 with Docker, Compose, and buildx installed and `dockerd` already
 running. It is built for this type, so it only runs as a `vm` and a create without
 `"type": "vm"` is a `400`.
+
+[`agent37-android`](/agents-api/android) is the other system template for this type: the same
+machine with the Android SDK, an AVD, ADB, and a screen on port `6901`.
 
 Your own [custom image](/agents-api/custom-image) works too: pass `"type": "vm"` with any template.
 Two things to know first:
