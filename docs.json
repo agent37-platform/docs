@@ -30,6 +30,7 @@
             "pages": [
               "agents-api/custom-image",
               "agents-api/migrate-from-docker",
+              "agents-api/vm-instances",
               "agents-api/n8n",
               {
                 "group": "Manage instances",

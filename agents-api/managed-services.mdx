@@ -300,9 +300,9 @@ the instance cap being reached.
 
 ## Filesystem rules for a custom image
 
-`/home/node` and `/home/linuxbrew` are persistent volumes bind-mounted over your image at
+`/home/node` is a persistent volume bind-mounted over your image at
 runtime. The volume is created **empty**, and nothing is ever copied out of the image into it, so
-anything your image writes under those paths is unreachable from the running container.
+anything your image writes under that path is unreachable from the running container.
 
 This catches people twice, because npm's default global prefix is under `/home/node`:
 

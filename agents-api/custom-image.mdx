@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends your-cli \
 USER node
 ```
 
-Bake binaries into `/usr/local/bin` and everything else into `/usr/local` or `/opt`, never `/home/node` or `/home/linuxbrew`, which are masked at runtime. Keep the base `ENTRYPOINT`. See [the full contract](/agents-api/templates#build-on-the-hermes-base-image).
+Bake binaries into `/usr/local/bin` and everything else into `/usr/local` or `/opt`, never `/home/node`, which is masked at runtime. Keep the base `ENTRYPOINT`. See [the full contract](/agents-api/templates#build-on-the-hermes-base-image).
 
 <Note>
   **Skills don't belong in the image.** Hermes reads them from `~/.hermes/skills`, which lives on the instance's persistent volume, so anything the image writes there is masked. Install them into a running instance instead, over [exec](/agents-api/exec) or the [files API](/agents-api/files):

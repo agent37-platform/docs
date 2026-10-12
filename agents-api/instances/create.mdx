@@ -165,6 +165,8 @@ The examples include every optional field. Omit any field to use its default.
 <ParamField body="type" type="string" default="default" post={["optional"]}>
   `default` is used when you omit `type`, and for most harnesses it is all you need. `performance` runs the instance on dedicated cores, for heavy work such as computer use, at 4x the default compute rate. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
 
+  `vm` is a whole virtual machine with its own kernel, for Docker, Kubernetes, databases, and Android emulators, at the same 4x compute rate. It needs a funded workspace, and `auto_sleep` is not available on it. See [VM instances](/agents-api/vm-instances).
+
   `burstable` is an experimental instance type for low average CPU and RAM usage, starting at \$1/month. [Apply here](https://cal.com/vishnukool/30min) to enable it for your workspace.
 </ParamField>
 

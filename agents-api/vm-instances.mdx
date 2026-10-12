@@ -1,0 +1,100 @@
+---
+title: "VM instances"
+description: "Run Docker, Kubernetes, databases, and Android emulators on a full virtual machine."
+---
+
+A `vm` instance is a whole Linux machine with its own kernel, not a sandbox. Everything on this
+reference works the same way: the same keys, the same endpoints, the same URLs, the same billing.
+What changes is what runs inside.
+
+Reach for it when your workload needs the kernel itself:
+
+- **Docker, Compose, and buildx.** Build and run containers, including ones that need privileged
+  mode or their own networks.
+- **Kubernetes.** k3s runs with its node Ready and pod networking working.
+- **Databases.** Postgres, MySQL, Redis, anything with its own storage engine.
+- **Android emulators.** `/dev/kvm` is present inside the machine, so an AVD boots with hardware
+  acceleration instead of crawling.
+
+A default instance is the right choice for everything else, and it starts faster.
+
+## Create one
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "agent37-ubuntu",
+    "type": "vm",
+    "resources": { "cpu": 4, "memory": 8, "disk": 20 }
+  }'
+```
+
+`agent37-ubuntu` is Ubuntu 26.04 with Docker, Compose, and buildx installed and `dockerd` already
+running. It is built for this type, so it only runs as a `vm` and a create without
+`"type": "vm"` is a `400`.
+
+Your own [custom image](/agents-api/custom-image) works too: pass `"type": "vm"` with any template.
+Two things to know first:
+
+- **A container runtime inside the machine must keep its data on your billed disk.** The writable
+  root is an overlay, and pulling an image onto one fails. Point Docker at `$HOME` with
+  `dockerd --data-root "$HOME/docker"` (or `/etc/docker/daemon.json`), and k3s with
+  `--data-dir "$HOME/k3s"`. `agent37-ubuntu` already does this.
+- **Your entrypoint is PID 1, and there is no init system.** An image whose entrypoint *is*
+  systemd is not supported, the same as on Docker. Run your processes from your entrypoint, or
+  install them and start them over [SSH](/agents-api/ssh).
+
+## Getting in
+
+There is no routed web port by default: `agent37-ubuntu` serves nothing, so its `default_port` is
+`null` and the bare instance URL has nothing behind it. Use [SSH](/agents-api/ssh) for an
+interactive shell (one `agent37 ssh setup` first), or [exec](/agents-api/exec) for one-off
+commands:
+
+```bash curl
+ssh root@ab12cd34ef.agent37.app
+```
+
+Anything you do serve gets a URL like every other instance: `{id}-{port}.agent37.app` for your
+workspace's keys, or a [public port](/agents-api/public-ports) for an unauthenticated one.
+
+## Sizing and price
+
+The same four [shapes](/agents-api/instance-sizing), and compute meters at 4x the default rate,
+like a [Performance instance](/agents-api/billing#default-and-performance-instances): a VM's RAM is
+reserved for it alone and its vCPUs are its own. Disk is unchanged at \$0.09 per GB per month.
+
+| cpu | memory | disk | Price at the default disk |
+| --- | --- | --- | --- |
+| 2 | 4 GB | 2-12 GB | \$17.96 per month |
+| 4 | 8 GB | 2-20 GB | \$35.74 per month |
+| 8 | 16 GB | 2-40 GB | \$71.48 per month |
+| 16 | 32 GB | 2-80 GB | \$142.96 per month |
+
+A funded workspace is required: add balance before the first create.
+
+## Lifecycle
+
+`stop`, `start`, `restart`, `update`, and `resize` all work, and your billed disk survives every
+one of them. The machine cold-boots on `start` and on any `resize`, so in-memory state is lost:
+anything that has to outlive a restart belongs in a file under `$HOME`.
+
+Growing the disk extends it in place and your filesystem grows into the new space on the next
+boot, so the data is kept. Disk only grows, as on every instance.
+
+## What is not available yet
+
+| | |
+| --- | --- |
+| [Auto-sleep](/agents-api/instance-auto-sleep) | A VM stays running while idle. `stop` and `start` work and release the compute charge; `auto_sleep` is refused. |
+| [Backups](/agents-api/instance-backups) | Not yet available on a VM, so there is no restore point and `delete` is final. Copy anything you need out over SSH or `scp`. |
+| Fork | Not yet available on a VM. |
+| Changing type | An instance is a VM or it is not, for its whole life. To move, create the one you want and copy your data across. |
+
+Everything else on this reference behaves identically: [public ports](/agents-api/public-ports),
+[domains](/agents-api/domains), [SSH keys](/agents-api/ssh), [logs](/agents-api/logs),
+[metrics](/agents-api/metrics), and [exec](/agents-api/exec). [Crons](/agents-api/crons) post a
+prompt to an agent's chat API, so they need a template that serves one: `agent37-ubuntu` does not
+and refuses them, while your own image takes them like any other instance.
