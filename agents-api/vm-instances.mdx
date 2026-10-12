@@ -14,7 +14,7 @@ Reach for it when your workload needs the kernel itself:
 - **Kubernetes.** k3s runs with its node Ready and pod networking working.
 - **Databases.** Postgres, MySQL, Redis, anything with its own storage engine.
 - **Android emulators.** `/dev/kvm` is present inside the machine, so an AVD boots with hardware
-  acceleration instead of crawling.
+  acceleration instead of crawling. Leave auto-sleep off for these; see below.
 
 A default instance is the right choice for everything else, and it starts faster.
 
@@ -97,16 +97,32 @@ way. That is the same guarantee a VPS snapshot gives you, and it is why a backup
 exact should be taken with the machine stopped, or alongside your database's own dump. And a
 restore cold-boots the machine, so in-memory state is lost either way.
 
+## Auto-sleep
+
+[Auto-sleep](/agents-api/instance-auto-sleep) works the way it does on a sandbox, and it is off
+unless you ask for it. Once nothing has moved through the machine's URLs for
+`idle_timeout_seconds`, its memory is saved to disk, its CPU and RAM are released, and it bills
+the disk rate alone. The next request wakes it and is served on the way through: a second or two
+on a small machine, longer in proportion to its memory. What was running is still running, so a
+container that was up is up, with no restart and nothing to re-warm.
+
+One workload has to stay awake: anything inside the machine that uses hardware virtualization
+itself, which is an Android emulator or Docker running with KVM. After a wake, the first call into
+`/dev/kvm` fails and takes the program that made it down with it. The machine keeps running and
+your files are untouched, and `restart` makes `/dev/kvm` work again, but a machine built around an
+emulator should be left with `auto_sleep` off until a platform update lands. Everything else about
+sleeping and waking is the same on both instance types.
+
 ## What is not available yet
 
 | | |
 | --- | --- |
-| [Auto-sleep](/agents-api/instance-auto-sleep) | A VM stays running while idle. `stop` and `start` work and release the compute charge; `auto_sleep` is refused. |
-| Fork | Not yet available on a VM. |
 | Changing type | An instance is a VM or it is not, for its whole life. To move, create the one you want and copy your data across. |
 
 Everything else on this reference behaves identically: [public ports](/agents-api/public-ports),
 [domains](/agents-api/domains), [SSH keys](/agents-api/ssh), [logs](/agents-api/logs),
-[metrics](/agents-api/metrics), and [exec](/agents-api/exec). [Crons](/agents-api/crons) post a
+[metrics](/agents-api/metrics), [exec](/agents-api/exec), and
+[fork](/agents-api/instances/fork), which copies the machine's files onto a second machine of
+its own and leaves this one running. [Crons](/agents-api/crons) post a
 prompt to an agent's chat API, so they need a template that serves one: `agent37-ubuntu` does not
 and refuses them, while your own image takes them like any other instance.
