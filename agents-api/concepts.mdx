@@ -5,6 +5,8 @@ description: "Persistent sandboxes for code, services, and agents: instances, te
 
 Agent37 Cloud provides persistent sandboxes for code, services, and agents. Each sandbox is an **instance**. A **template** chooses the software installed inside it. The **Sandbox API** manages your instances, and authenticated HTTPS URLs let you reach the services they run. Choose an agent template when you also need the **Agent API** for conversations and tools.
 
+An instance can also be a [full Linux VM](/agents-api/vm-instances): set `"type": "vm"` for its own kernel, Docker-in-Docker, Compose, or nested KVM. Use `agent37-ubuntu` for Docker and a Linux desktop, or [`agent37-android`](/agents-api/android) for Android 14 with ADB and a browser screen. Both use the same Sandbox API.
+
 ## Two planes, one key
 
 | Plane | Base URL | What it serves |
@@ -33,7 +35,7 @@ curl https://api.agent37.com/v1/instances/ab12cd34ef/exec \
 
 | Concept | What it is |
 | --- | --- |
-| **Instance** | An isolated, persistent computer for code, services, or an agent harness. Built from a [template](/agents-api/templates). Lives until you delete it, metered per minute for what it holds: the full rate while running, disk alone while stopped or sleeping. One instance runs one container: if you run several today, each becomes its own instance. Create one per user or workload. Runs on dedicated servers in the United States. |
+| **Instance** | An isolated, persistent computer for code, services, or an agent harness. Built from a [template](/agents-api/templates). Lives until you delete it, metered per minute for what it holds: the full rate while running, disk alone while stopped or sleeping. A default instance runs one container; a VM can run Docker and multiple containers inside it. Create one per user or workload. Runs on dedicated servers in the United States. |
 | **Template** | The image an instance runs, with an optional default port. Choose a system template or register your own Docker image. |
 
 ## Every port has a derivable URL

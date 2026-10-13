@@ -1,7 +1,7 @@
 ---
 title: "Build with Agent37 Cloud"
 sidebarTitle: "Overview"
-description: "Persistent sandboxes for code, services, and agents. Run your tools, keep your files, and reach any port over HTTPS."
+description: "Persistent sandboxes and full Linux VMs for code, services, and agents. Run Docker, automate Android, and reach your tools over HTTPS."
 mode: "wide"
 hideFooterPagination: true
 ---
@@ -31,6 +31,9 @@ hideFooterPagination: true
 
 An **instance** is your persistent Linux computer. A **template** chooses what runs inside it.
 
+Choose a sandbox for everyday code and services, or a [full VM](/agents-api/vm-instances)
+with its own kernel for Docker-in-Docker, Compose, and hardware-accelerated Android emulators.
+
 <Columns cols={3}>
   <Card title="Run commands" icon="terminal-2" href="/agents-api/exec" horizontal>
     Execute code, install tools, and start processes.
@@ -49,6 +52,17 @@ An **instance** is your persistent Linux computer. A **template** chooses what r
   </Card>
   <Card title="Sleep and resume" icon="moon" href="/agents-api/instance-auto-sleep" horizontal>
     Sleep when idle. Wake on the next request to an instance URL.
+  </Card>
+</Columns>
+
+## Full VMs, Docker, and Android
+
+<Columns cols={2}>
+  <Card title="Run Docker inside a VM" icon="server" href="/agents-api/vm-instances" horizontal>
+    Create an Ubuntu VM with Docker, Compose, buildx, and a Linux desktop already installed.
+  </Card>
+  <Card title="Automate an Android phone" icon="device-mobile" href="/agents-api/android" horizontal>
+    Start the Android 14 emulator, drive it with ADB, and watch its screen in your browser.
   </Card>
 </Columns>
 

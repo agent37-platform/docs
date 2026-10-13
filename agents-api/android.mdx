@@ -1,17 +1,18 @@
 ---
 title: "Host an Android phone"
-description: "Run the Android emulator with ADB and a live screen in the browser, on a machine with its own kernel."
+description: "Run an Android 14 emulator with hardware acceleration, ADB, screenshots, persistent phone storage, and a live screen in the browser."
 ---
 
-The `agent37-android` [template](/agents-api/templates) is an Android phone your code can drive: the Android 14 emulator, the SDK, ADB, and a live view of the screen in the browser, already installed and already running. It is a web app and a device, not an agent harness: there is no chat API on this instance.
+The `agent37-android` [template](/agents-api/templates) gives your code an Android 14 emulator with the SDK, ADB, and a live screen in the browser. The image starts the emulator automatically; wait for Android to finish booting before sending it work. This template has no chat API.
 
 It only runs as a [VM instance](/agents-api/vm-instances). The emulator needs hardware virtualization (`/dev/kvm`), which a VM has and a sandbox does not, so a create without `"type": "vm"` is a `400`.
 
 ```text title="Paste this into your coding agent" wrap
 Read https://www.agent37.com/docs/llms-full.txt.
 I want an Android phone I can drive with adb.
-Create it with POST /v1/instances using the agent37-android template, with "type": "vm" and 4 vCPU / 8 GB / 20 GB disk.
+Create it with POST /v1/instances using the agent37-android template, with "type": "vm", "auto_sleep": false, and 4 vCPU / 8 GB / 20 GB disk.
 Then run `android-wait` through POST /v1/instances/{id}/exec until it reports the boot completed, and show me `adb shell getprop ro.build.version.release`.
+Run `android-shot` through exec and decode its stdout as a base64 WebP screenshot; check exit_code and truncated on every exec response.
 Finish by minting a signed URL for port 6901 so I can watch the screen.
 My key is in AGENT37_API_KEY.
 ```
@@ -25,13 +26,14 @@ curl -X POST https://api.agent37.com/v1/instances \
   -d '{
     "template": "agent37-android",
     "type": "vm",
+    "auto_sleep": false,
     "resources": { "cpu": 4, "memory": 8, "disk": 20 }
   }'
 ```
 
-4 vCPU / 8 GB is the smallest shape the emulator is comfortable on, and 20 GB of disk leaves the phone's own storage room to grow. A funded workspace is required, as for every VM instance.
+Omitting `resources` selects 4 vCPU / 8 GB RAM / 12 GB disk. The example requests 20 GB disk for more storage. Size CPU and RAM against your actual apps and sustained automation workload; a successful boot does not establish that a shape is large enough for every app. A funded workspace is required, as for every VM instance.
 
-The create returns as soon as the machine has started. Android is still booting at that point: the phone is created on the first boot, so the first one takes a few minutes and every boot after it loads the emulator's quick-boot snapshot instead. Wait for it with the image's own helper, which blocks until Android reports `sys.boot_completed`:
+The create returns as soon as the machine has started. Android is still booting at that point. The AVD is created on first boot; later boots reuse it and can use an emulator quick-boot snapshot when one is available. Wait after every start with the image's own helper, which blocks until Android reports `sys.boot_completed`:
 
 ```bash curl
 curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
@@ -39,6 +41,11 @@ curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
   -H "Content-Type: application/json" \
   -d '{ "command": "android-wait 600" }'
 ```
+
+`android-wait` checks Android boot, not the readiness of a particular app or its first frame.
+Launch your target app before capturing it, for example with
+`adb shell am start -W -a android.settings.SETTINGS`. If the display is asleep, send
+`adb shell input keyevent KEYCODE_WAKEUP` and `adb shell wm dismiss-keyguard` first.
 
 ## Drive it with ADB
 
@@ -55,7 +62,8 @@ The commands a device-driving agent leans on:
 
 | | |
 | --- | --- |
-| `adb exec-out screencap -p` | A PNG of what is on screen, the fastest way to a frame |
+| `android-shot` | A base64 WebP screenshot, scaled to 540 pixels wide for the JSON exec response |
+| `adb exec-out screencap -p` | A full-resolution PNG; transfer binary output over SSH |
 | `adb shell input tap 540 1200` | A touch; `input text`, `input swipe` and `input keyevent` are the rest of the loop |
 | `adb shell uiautomator dump` | The view tree, when you would rather act on element bounds than on pixels |
 | `adb install app.apk` | Sideload an app; `adb shell pm list packages` lists what is installed |
@@ -63,6 +71,19 @@ The commands a device-driving agent leans on:
 | `adb shell dumpsys window \| grep mCurrentFocus` | Which app and activity is in front |
 
 [SSH](/agents-api/ssh) works too, and is the better way in when you want `adb pull` of something big or an interactive shell: `ssh root@ab12cd34ef.agent37.app`.
+
+### Screenshots through the API
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "android-shot" }'
+```
+
+Decode `stdout` from base64 into a WebP image. Check `exit_code: 0` and `truncated: false`
+before decoding. Exec returns text and caps each output stream at 512 KB, so raw PNG bytes
+cannot be returned directly in its JSON response. `android-shot 360` requests a smaller frame.
 
 ## Watch the screen
 
@@ -94,11 +115,11 @@ noVNC is what the template ships because it needs nothing installed and rides th
 | SDK | `platform-tools` (ADB), `emulator`, `cmdline-tools` at `/opt/android-sdk` |
 | Screen | Xvfb, x11vnc, and noVNC on `6901` |
 
-`google_apis` carries Google Play services, so sign-in and push work, and it keeps `adb root`. It does not include the Play Store app: sideload with `adb install`, or build [your own image](/agents-api/custom-image) on `system-images;android-34;google_apis_playstore;x86_64` if you need the store itself. The same applies to another Android version: `sdkmanager --install "system-images;android-16;google_apis;x86_64"` on the instance, or bake it into your own template.
+`google_apis` includes Google Play services and supports `adb root`. It does not include the Play Store app. Sideload with `adb install` and test the apps and login flows your product needs. For the Play Store or another Android version, build [your own image](/agents-api/custom-image) from the [Android Dockerfile](https://github.com/agent37-platform/templates/tree/main/images/vm/android), selecting the SDK package with its `SYSTEM_IMAGE` build argument. Changing versions also needs a matching AVD; installing an SDK package alone does not change the existing phone.
 
 What the phone stores (apps, logins, files, the quick-boot snapshot) lives in the AVD on the instance's persistent disk, so it survives stop, start, restart, resize and [image updates](/agents-api/instances/update). The SDK itself is in the image and costs nothing against your disk.
 
-Environment knobs, as [instance env](/agents-api/instance-environment): `ANDROID_AVD_RAM_MB` (default `2048`), `ANDROID_AVD_DATA_MB` (the phone's storage, default `6144`), `ANDROID_AVD_DEVICE` (default `pixel_6`), `ANDROID_SCREEN_GEOMETRY` (default `560x1000x24`, sized to the window the emulator draws) and `ANDROID_EMULATOR_ARGS` for anything else you want to pass the emulator.
+Environment knobs, as [instance env](/agents-api/instance-environment): `ANDROID_AVD_RAM_MB` (default `2048`), `ANDROID_AVD_DATA_MB` (phone storage, automatically sized from free disk with a 1536 MB floor and 6144 MB cap), `ANDROID_AVD_DEVICE` (default `pixel_6`), `ANDROID_SCREEN_GEOMETRY` (default `560x1000x24`, sized to the window the emulator draws) and `ANDROID_EMULATOR_ARGS` for additional emulator flags. RAM, phone storage, and device profile are set when the AVD is first created; changing these env values does not resize or replace an existing phone.
 
 ## Leave auto-sleep off
 

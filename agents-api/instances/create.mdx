@@ -159,7 +159,7 @@ The examples include every optional field. Omit any field to use its default.
 </ParamField>
 
 <ParamField body="resources" type="object" post={["optional"]}>
-  The instance shape, for example `{ "cpu": 2, "memory": 4, "disk": 6 }`. Omitted, it uses the smallest shape, 2 vCPU / 4 GB. See [Instance sizing](/agents-api/instance-sizing) for the four available shapes. Free workspaces (before your first top-up) run the 2 vCPU / 4 GB shape; the larger 4/8, 8/16, and 16/32 shapes return `403 tier_limit` until you top up. Disk is any whole number of GB within the shape's range, and defaults to 4, 6, 12, or 24 GB by shape when omitted. Any other combination returns `400 invalid_request` listing the valid shapes.
+  The instance shape, for example `{ "cpu": 2, "memory": 4, "disk": 6 }`. Omitted, most templates use 2 vCPU / 4 GB. `agent37-ubuntu` defaults to 2 vCPU / 4 GB / 12 GB disk; `agent37-android` defaults to 4 vCPU / 8 GB / 12 GB disk. Both require `"type": "vm"` and a funded workspace. See [Instance sizing](/agents-api/instance-sizing) for the four available shapes. Free workspaces (before your first top-up) run the 2 vCPU / 4 GB shape; the larger 4/8, 8/16, and 16/32 shapes return `403 tier_limit` until you top up. Disk is any whole number of GB within the shape's range. When omitted, it defaults to 12 GB for these two VM templates, or 4, 6, 12, or 24 GB by shape for other templates. Any other combination returns `400 invalid_request` listing the valid shapes.
 </ParamField>
 
 <ParamField body="type" type="string" default="default" post={["optional"]}>
