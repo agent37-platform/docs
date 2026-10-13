@@ -6,6 +6,8 @@ description: "Your Dockerfile becomes a template, each container becomes an inst
 
 If your app runs as Docker containers on servers you rent (Hetzner, AWS, DigitalOcean, a VPS), you pay for those servers around the clock. You also run them: capacity, images, restarts, certificates, a reverse proxy. Agent37 runs the same containers for you, one instance per container, and meters each by the minute: compute while it is up, disk alone while it is stopped or asleep. Nothing about your image changes.
 
+If your tooling needs to keep calling `docker run` or `docker compose`, use a [VM instance](/agents-api/vm-instances#run-docker-inside-the-vm). Create `agent37-ubuntu` with `"type": "vm"` and run your containers inside it, including Docker-in-Docker workloads. The rest of this guide covers moving each container onto its own default instance.
+
 ```text title="Paste this into your coding agent" wrap
 Read https://www.agent37.com/docs/llms-full.txt.
 My app runs as Docker containers on my own servers. Move it to Agent37, one container at a time.
@@ -19,7 +21,7 @@ My key is in AGENT37_API_KEY.
 
 ## One container, one instance
 
-An instance is one container from your image on its own isolated computer. Your `ENTRYPOINT` is its main process, its disk persists, and every port it listens on has an HTTPS URL derived from its id. There is no Docker to run inside an instance: whatever you `docker run` today becomes its own instance, created with one API call.
+A default instance is one container from your image on its own isolated computer. Your `ENTRYPOINT` is its main process, its disk persists, and every port it listens on has an HTTPS URL derived from its id. With this approach, whatever you `docker run` today becomes its own instance, created with one API call. Running Docker inside an instance requires `"type": "vm"`.
 
 Three commands move a container:
 

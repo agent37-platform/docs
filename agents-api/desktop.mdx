@@ -4,12 +4,18 @@ sidebarTitle: "Browser and desktop"
 description: "Browser use and computer use on Agent37: the stock agent drives a headless browser, and one cloud build gives it a full desktop you can watch live and take over."
 ---
 
-Every instance is a Linux machine with a browser on it. The stock `agent37-hermes` template drives that browser headless: the agent opens pages, clicks, fills forms, and reads what comes back, with nothing for you to watch. Build the desktop recipe instead and the same browser runs on a screen you can open in a tab, watch live, and take control of when a site needs a human.
+The stock `agent37-hermes` template includes a headless browser: the agent opens pages, clicks, fills forms, and reads what comes back. Build the desktop recipe and the same browser runs on a screen you can open in a tab, watch live, and take control of when a site needs a human. Other templates include different tools; a browser is not installed on every instance.
 
 | You want | Use |
 | --- | --- |
 | The agent to work on websites on its own | `agent37-hermes`, nothing to set up |
 | To watch it work, and take over the mouse and keyboard | The [desktop template](#add-a-desktop), one cloud build |
+| A full Linux desktop for my own automation harness, plus Docker | [`agent37-ubuntu` with `"type": "vm"`](/agents-api/vm-instances), including XFCE and Firefox on port `6080` |
+| An Android phone with ADB and a live screen | [`agent37-android` with `"type": "vm"`](/agents-api/android), with auto-sleep off |
+
+On the Ubuntu VM, your harness can install Chrome and its own screenshot, click, typing, and
+recording tools. Agent37 provides the machine, desktop, exec, and SSH; it does not bundle a
+general desktop-control SDK or session recording service.
 
 ```text title="Paste this into your coding agent" wrap
 Read https://www.agent37.com/docs/llms-full.txt.

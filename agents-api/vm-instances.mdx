@@ -3,14 +3,14 @@ title: "VM instances"
 description: "Run Docker, Kubernetes, databases, and Android emulators on a full virtual machine."
 ---
 
-A `vm` instance is a whole Linux machine with its own kernel, not a sandbox. Everything on this
-reference works the same way: the same keys, the same endpoints, the same URLs, the same billing.
-What changes is what runs inside.
+A `vm` instance is a full Linux virtual machine with its own kernel and KVM hardware
+virtualization. It uses the same API keys, endpoints, URLs, and prepaid wallet as a default
+instance. VM compute has its own rate, listed below.
 
 Reach for it when your workload needs the kernel itself:
 
-- **Docker, Compose, and buildx.** Build and run containers, including ones that need privileged
-  mode or their own networks.
+- **Docker, Compose, and buildx.** Build and run containers, including Docker-in-Docker workloads
+  and containers that need privileged mode or their own networks.
 - **Kubernetes.** k3s runs with its node Ready and pod networking working.
 - **Databases.** Postgres, MySQL, Redis, anything with its own storage engine.
 - **Android emulators.** `/dev/kvm` is present inside the machine, so an AVD boots with hardware
@@ -37,8 +37,8 @@ curl -X POST https://api.agent37.com/v1/instances \
 running, plus an XFCE desktop with Firefox, a terminal, and a file manager in the browser. It is
 built for this type, so it only runs as a `vm` and a create without `"type": "vm"` is a `400`.
 
-[`agent37-android`](/agents-api/android) is the other system template for this type: the same
-machine with the Android SDK, an AVD, ADB, and a screen on port `6901`.
+[`agent37-android`](/agents-api/android) is a separate VM image with the Android SDK, an AVD,
+ADB, and a screen on port `6901`. It does not bundle Ubuntu's Docker daemon or XFCE desktop.
 
 Your own [custom image](/agents-api/custom-image) works too: pass `"type": "vm"` with any template.
 Two things to know first:
@@ -50,6 +50,26 @@ Two things to know first:
 - **Your entrypoint is PID 1, and there is no init system.** An image whose entrypoint *is*
   systemd is not supported, the same as on Docker. Run your processes from your entrypoint, or
   install them and start them over [SSH](/agents-api/ssh).
+
+## Run Docker inside the VM
+
+After create returns, run Docker through [exec](/agents-api/exec) or [SSH](/agents-api/ssh):
+
+```bash curl
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "command": "docker run --rm hello-world && docker compose version && docker buildx version" }'
+```
+
+Check the response's `exit_code` and `stdout`. Your existing tooling can keep calling
+`docker run` and `docker compose` inside this machine. Containers share the VM's purchased
+CPU, memory, and disk. Publish a container's HTTP port onto the VM with `docker run -p`, then
+reach it at `https://{id}-{port}.agent37.app` with your workspace key.
+
+Docker-in-Docker also works: a privileged `docker:dind` container can run its own daemon.
+Bind its `/var/lib/docker` to a directory under `$HOME`, just as the outer daemon keeps its
+data at `$HOME/docker`. The default gVisor instance type cannot run a Docker daemon.
 
 ## Getting in
 
@@ -80,14 +100,19 @@ The same four [shapes](/agents-api/instance-sizing), and compute meters at 2.5x 
 a VM's RAM is reserved for it alone and its vCPUs are its own. Disk is unchanged at \$0.09 per GB
 per month.
 
-| cpu | memory | disk | Price at the default disk |
-| --- | --- | --- | --- |
-| 2 | 4 GB | 2-12 GB | \$11.36 per month |
-| 4 | 8 GB | 2-20 GB | \$22.54 per month |
-| 8 | 16 GB | 2-40 GB | \$45.08 per month |
-| 16 | 32 GB | 2-80 GB | \$90.16 per month |
+| cpu | memory | Allowed disk | Disk used for this price | Monthly price |
+| --- | --- | --- | --- | --- |
+| 2 | 4 GB | 2-12 GB | 4 GB | \$11.36 |
+| 4 | 8 GB | 2-20 GB | 6 GB | \$22.54 |
+| 8 | 16 GB | 2-40 GB | 12 GB | \$45.08 |
+| 16 | 32 GB | 2-80 GB | 24 GB | \$90.16 |
 
 A funded workspace is required: add balance before the first create.
+
+When you omit `resources`, `agent37-ubuntu` defaults to 2 vCPU / 4 GB RAM / 12 GB disk
+(\$12.08/month), and `agent37-android` defaults to 4 vCPU / 8 GB RAM / 12 GB disk
+(\$23.08/month). These VM templates default to 12 GB disk even when you choose another CPU/RAM
+shape; pass `resources.disk` to choose a different size within that shape's range.
 
 ## Lifecycle
 
@@ -116,9 +141,10 @@ restore cold-boots the machine, so in-memory state is lost either way.
 [Auto-sleep](/agents-api/instance-auto-sleep) works the way it does on a sandbox, and it is off
 unless you ask for it. Once nothing has moved through the machine's URLs for
 `idle_timeout_seconds`, its memory is saved to disk, its CPU and RAM are released, and it bills
-the disk rate alone. The next request wakes it and is served on the way through: a second or two
-on a small machine, longer in proportion to its memory. What was running is still running, so a
-container that was up is up, with no restart and nothing to re-warm.
+the disk rate alone. The next request wakes it and is served on the way through. Wake time
+depends on memory size and whether the saved state can be restored. A successful memory restore
+resumes running processes; if that checkpoint is unusable or the instance moves hosts, it
+cold-boots instead. Keep anything that must survive a wake on the persistent disk.
 
 One workload has to stay awake: anything inside the machine that uses hardware virtualization
 itself, which is an Android emulator or Docker running with KVM. After a wake, the first call into
