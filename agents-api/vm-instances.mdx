@@ -33,8 +33,8 @@ curl -X POST https://api.agent37.com/v1/instances \
 ```
 
 `agent37-ubuntu` is Ubuntu 26.04 with Docker, Compose, and buildx installed and `dockerd` already
-running, plus an XFCE desktop with Firefox, a terminal, and a file manager in the browser. It is
-built for this type, so it only runs as a `vm` and a create without `"type": "vm"` is a `400`.
+running, plus an XFCE desktop with Firefox in the browser. It is built for this type, so it only
+runs as a `vm` and a create without `"type": "vm"` is a `400`.
 
 [`agent37-android`](/agents-api/android) is a separate VM image with the Android SDK, an AVD,
 ADB, and a screen on port `6901`. It does not bundle Ubuntu's Docker daemon or XFCE desktop.
@@ -73,16 +73,14 @@ data at `$HOME/docker`. The default gVisor instance type cannot run a Docker dae
 ## Getting in
 
 `agent37-ubuntu` has no default port, so the bare instance URL has nothing behind it: whatever
-you run gets its own port. Three services are already running, each at its derivable URL and
-behind your workspace's keys:
+you run gets its own port. The machine binds exactly one port of its own, so every other port is
+yours:
 
 | URL | What |
 | --- | --- |
 | `{id}-6080.agent37.app` | The XFCE desktop, with Firefox |
-| `{id}-7681.agent37.app` | A terminal |
-| `{id}-8080.agent37.app` | A file manager, rooted at `/root` |
 
-The dashboard opens all three with a button. For a shell of your own, use
+The dashboard opens it with a button. For a shell of your own, use
 [SSH](/agents-api/ssh) (one `agent37 ssh setup` first), or [exec](/agents-api/exec) for one-off
 commands:
 
