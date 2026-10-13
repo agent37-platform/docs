@@ -24,10 +24,10 @@ Replace the task with what you want to build, such as hosting a harness or runni
 | Your workload | Tell your coding agent |
 | --- | --- |
 | Full Linux VM, Docker-in-Docker, or Compose | Read [VM instances](/agents-api/vm-instances). Create with `"template": "agent37-ubuntu"` and `"type": "vm"`; Docker is already running. |
-| Android phone automation | Read [Host an Android phone](/agents-api/android). Create with `"template": "agent37-android"`, `"type": "vm"`, and `"auto_sleep": false`; wait with `android-wait`, then use ADB and `android-shot` through exec. |
+| Android phone automation | Read [Host an Android phone](/agents-api/android). Create with `"template": "agent37-android"` and `"type": "vm"`; wait with `android-wait`, then use ADB and `android-shot` through exec. |
 | Linux desktop automation | Read [Browser and desktop](/agents-api/desktop). Ubuntu VMs include an XFCE desktop; bring your own screenshot, click, and recording tools. |
 
-VMs require a funded workspace. The Android template includes Android 14, ADB, and a browser screen on port `6901`. Its emulator uses nested KVM, so leave auto-sleep off and use stop/start when parking it. The guides include the exact requests and current limits.
+VMs require a funded workspace. The Android template includes Android 14, ADB, and a browser screen on port `6901`. The guides include the exact requests and current limits.
 
 ## Choose the documentation format
 

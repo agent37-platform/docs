@@ -18,5 +18,3 @@ While asleep:
 - `restart`, `resize`, and `restore` return `400`: wake the instance first, with any request to its URL or an explicit [`start`](/agents-api/instances/start).
 
 Both fields are set at create and editable any time with `PATCH /v1/instances/{id}`, no restart needed. Instances default to `auto_sleep: false` and never sleep unless you opt them in.
-
-A [VM instance](/agents-api/vm-instances) sleeps the same way, with one exception: a machine whose own workload uses hardware virtualization, such as an Android emulator or Docker with KVM, should be left awake, because `/dev/kvm` stops working inside it after a wake until the machine is restarted.
