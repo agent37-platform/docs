@@ -93,13 +93,12 @@ noVNC is what the template ships because it needs nothing installed and rides th
 | Android | 14 (API 34), `google_apis` x86_64, as an AVD named `agent37` on a Pixel 6 profile |
 | SDK | `platform-tools` (ADB), `emulator`, `cmdline-tools` at `/opt/android-sdk` |
 | Screen | Xvfb, x11vnc, and noVNC on `6901` |
-| Also | Docker and Compose, with the data-root on your billed disk |
 
 `google_apis` carries Google Play services, so sign-in and push work, and it keeps `adb root`. It does not include the Play Store app: sideload with `adb install`, or build [your own image](/agents-api/custom-image) on `system-images;android-34;google_apis_playstore;x86_64` if you need the store itself. The same applies to another Android version: `sdkmanager --install "system-images;android-16;google_apis;x86_64"` on the instance, or bake it into your own template.
 
 What the phone stores (apps, logins, files, the quick-boot snapshot) lives in the AVD on the instance's persistent disk, so it survives stop, start, restart, resize and [image updates](/agents-api/instances/update). The SDK itself is in the image and costs nothing against your disk.
 
-Environment knobs, as [instance env](/agents-api/instance-environment): `ANDROID_AVD_RAM_MB` (default `2048`), `ANDROID_AVD_DATA_MB` (the phone's storage, default `6144`), `ANDROID_AVD_DEVICE` (default `pixel_6`), `ANDROID_SCREEN_GEOMETRY` (default `1280x1600x24`) and `ANDROID_EMULATOR_ARGS` for anything else you want to pass the emulator.
+Environment knobs, as [instance env](/agents-api/instance-environment): `ANDROID_AVD_RAM_MB` (default `2048`), `ANDROID_AVD_DATA_MB` (the phone's storage, default `6144`), `ANDROID_AVD_DEVICE` (default `pixel_6`), `ANDROID_SCREEN_GEOMETRY` (default `560x1000x24`, sized to the window the emulator draws) and `ANDROID_EMULATOR_ARGS` for anything else you want to pass the emulator.
 
 ## Leave auto-sleep off
 
