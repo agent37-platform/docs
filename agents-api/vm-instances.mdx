@@ -15,8 +15,7 @@ Reach for it when your workload needs the kernel itself:
 - **Databases.** Postgres, MySQL, Redis, anything with its own storage engine.
 - **Android emulators.** `/dev/kvm` is present inside the machine, so an AVD boots with hardware
   acceleration instead of crawling. The `agent37-android` template has one installed and
-  running already; see [Host an Android phone](/agents-api/android). Leave auto-sleep off for
-  these; see below.
+  running already; see [Host an Android phone](/agents-api/android).
 
 A default instance is the right choice for everything else, and it starts faster.
 
@@ -145,13 +144,6 @@ the disk rate alone. The next request wakes it and is served on the way through.
 depends on memory size and whether the saved state can be restored. A successful memory restore
 resumes running processes; if that checkpoint is unusable or the instance moves hosts, it
 cold-boots instead. Keep anything that must survive a wake on the persistent disk.
-
-One workload has to stay awake: anything inside the machine that uses hardware virtualization
-itself, which is an Android emulator or Docker running with KVM. After a wake, the first call into
-`/dev/kvm` fails and takes the program that made it down with it. The machine keeps running and
-your files are untouched, and `restart` makes `/dev/kvm` work again, but a machine built around an
-emulator should be left with `auto_sleep` off until a platform update lands. Everything else about
-sleeping and waking is the same on both instance types.
 
 ## What is not available yet
 
