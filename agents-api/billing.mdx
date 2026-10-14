@@ -64,6 +64,8 @@ A **Performance** instance runs on dedicated cores. Reach for it when the agent 
 
 Start with the default. For a Performance instance, pass `"type": "performance"` on [create](/agents-api/instances/create); compute is 4x the default rate, and disk is unchanged.
 
+Default instances share hardware, so sustained heavy CPU use may be limited when the hardware is busy. Performance and VM instances are not.
+
 A [VM instance](/agents-api/vm-instances) is a whole virtual machine with its own kernel, for Docker, Kubernetes, databases, and Android emulators. Its compute is 2.5x the default rate, and disk is unchanged.
 
 [Auto-sleep](/agents-api/instance-auto-sleep) does not change these rates. An auto-sleep instance bills the same rate as an always-on one for the time it is awake, and disk alone for the time it is asleep, so anything idle for most of the day costs a fraction of the always-on price. See [Per-minute metering](#per-minute-metering).
