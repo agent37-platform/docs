@@ -15,6 +15,7 @@ Create, get, edit, and fork return an instance object. List wraps these objects 
   "image_ref": "ghcr.io/agent37-platform/hermes:2026.10.05a",
   "image_digest": "sha256:d3f6f28fae8128274b15256a3f17ecf6b2cc5e209db886def17f0595900a1045",
   "type": "default",
+  "region": "us",
   "resources": { "cpu": 2, "memory": 4, "disk": 4 },
   "url": "https://ab12cd34ef.agent37.app",
   "domain_urls": [],
@@ -63,6 +64,10 @@ Create, get, edit, and fork return an instance object. List wraps these objects 
 
 <ResponseField name="type" type="string">
   `default` or `performance`. See [Default and Performance instances](/agents-api/billing#default-and-performance-instances).
+</ResponseField>
+
+<ResponseField name="region" type="string">
+  Where the instance runs: `us` or `eu`. Set at create, fixed for the life of the instance. See [`region`](/agents-api/instances/create#request-body) on create.
 </ResponseField>
 
 <ResponseField name="resources" type="object">

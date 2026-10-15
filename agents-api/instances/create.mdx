@@ -20,6 +20,7 @@ curl -X POST \
       "disk": 4
     },
     "type": "default",
+    "region": "us",
     "user": "u_882",
     "name": "Production agent",
     "metadata": {
@@ -61,6 +62,7 @@ response = requests.post(
             "disk": 4,
         },
         "type": "default",
+        "region": "us",
         "user": "u_882",
         "name": "Production agent",
         "metadata": {
@@ -106,6 +108,7 @@ const response = await fetch(
         disk: 4,
       },
       type: "default",
+      region: "us",
       user: "u_882",
       name: "Production agent",
       metadata: {
@@ -170,6 +173,18 @@ The examples include every optional field. Omit any field to use its default.
   `burstable` is an experimental instance type for low average CPU and RAM usage, starting at \$1/month. [Apply here](https://cal.com/vishnukool/30min) to enable it for your workspace.
 </ParamField>
 
+<ParamField body="region" type="string" default="us" post={["optional"]}>
+  Where the instance runs: `us` or `eu`. The price is the same in both.
+
+  The region is fixed for the life of the instance. Every later operation honours it: a stop and start, a wake, a resize that has to move the instance to another host, and a restore all keep it on the same continent. A `resize` body carrying `region` returns `400 invalid_request`. To move region, create a new instance there and copy the data over (a [backup](/agents-api/instance-backups) and a restore is the usual way).
+
+  There is no fallback. If the region you asked for has no room for the shape you asked for, the create returns `503 no_capacity` rather than placing the instance somewhere else.
+
+  `eu` runs the instance, its disk, and everything your code writes to that disk in the EU. Backups and the instance's own control-plane record (its id, shape, and status) are stored in the US; if that matters for your use case, email vishnu@agent37.com before you build on it.
+
+  EU capacity is [VM instances](/agents-api/vm-instances) only right now, so an `eu` create should also send `"type": "vm"`. Anything else in `eu` returns `503 no_capacity` until more hardware lands there.
+</ParamField>
+
 <ParamField body="user" type="string" post={["optional"]}>
   An opaque tag for your own attribution, typically your end user's id. Stored, never interpreted, echoed back on the instance object.
 </ParamField>
@@ -229,7 +244,7 @@ A template name. `agent37-hermes` (full Hermes, with a headless browser) is the 
 | `402 insufficient_balance` | Create when the wallet holds less than one day of the instance's running rate, or start of a past-due instance while the balance is negative. |
 | `409 instance_limit_reached` | Create when the workspace is at its instance cap, which counts every instance that is not deleted or `failed`, sleeping and stopped ones included: one instance on the free credit, 10 once topped up, 50 once top-ups total \$100, 200 once they total \$250 (email vishnu@agent37.com to raise it further). |
 | `403 tier_limit` | Create or resize asks for a shape larger than your plan includes. Free workspaces run any template on the 2 vCPU / 4 GB shape; a top-up unlocks the 4/8, 8/16, and 16/32 shapes. |
-| `503 no_capacity` | Create when no host has capacity for the requested shape right now. |
+| `503 no_capacity` | Create when no host in the requested `region` has capacity for the requested shape and type right now. There is no fallback to another region. |
 | `409 capacity_unavailable` | Start or resize when no host in the fleet can fit the instance right now; the platform first tries to move it to a host with room. |
 
 See [Errors](/agents-api/errors) for the full catalog and the error envelope.
