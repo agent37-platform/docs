@@ -19,6 +19,10 @@ Reach for it when your workload needs the kernel itself:
 
 A default instance is the right choice for everything else, and it starts faster.
 
+VM instances run in every [region](/agents-api/instances/create#request-body): `us`, `eu`
+(France), and `ap-south` (India, Mumbai). Outside the US they are the *only* type available, so
+a create in `eu` or `ap-south` has to send `"type": "vm"`.
+
 ## Create one
 
 ```bash curl
