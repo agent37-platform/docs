@@ -206,34 +206,25 @@ console.log(await response.json());
 
 ### Fund the wallet from the API
 
-`POST /v1/billing/top-up` pays in one of two ways, decided by whether you send a payment token.
+`POST /v1/billing/top-up` answers with a Stripe-hosted payment page for `amount_usd`.
 
 <ParamField body="amount_usd" type="number" required>
   How much to add, \$5 to \$10,000.
 </ParamField>
-<ParamField body="shared_payment_token" type="string" post={["optional"]}>
-  An [Agentic Commerce Protocol](https://docs.stripe.com/agentic-commerce/concepts/shared-payment-tokens) shared payment token, scoped to Agent37's Stripe profile. Send it to charge a card in this request with no browser anywhere in the flow. Omit it to get a hosted Checkout URL instead.
-</ParamField>
-
-<ResponseField name="paid" type="boolean">
-  `true` when the money is already in the wallet, `false` when `url` still has to be opened and paid.
-</ResponseField>
-
-<ResponseField name="balance_usd" type="number">
-  The balance after the charge. Present when `paid` is `true`.
-</ResponseField>
 
 <ResponseField name="url" type="string">
-  A hosted Stripe Checkout link for `amount_usd`. Present when `paid` is `false`.
+  A hosted Stripe Checkout link for `amount_usd`.
 </ResponseField>
 
 <ResponseField name="amount_usd" type="number">
-  The amount charged, or the amount the link charges.
+  The amount the link charges.
 </ResponseField>
 
-#### Pay with a Checkout link
+<ResponseField name="paid" type="boolean">
+  `false`: nothing has moved when the call returns, and the money lands when the payment confirms.
+</ResponseField>
 
-With no token, the answer is a Stripe-hosted page. Open it, pay once, and the card is saved: [automatic top-up](#automatic-top-up) then refills the wallet off-session from then on, so the browser is needed exactly once per account and never again. Nothing has moved when the call returns, and the balance changes when Stripe confirms the payment, so poll `GET /v1/billing` for it.
+Open it, pay once, and the card is saved: [automatic top-up](#automatic-top-up) then refills the wallet off-session from then on, so the browser is needed exactly once per account and never again. The balance changes when Stripe confirms the payment, so poll `GET /v1/billing` for it.
 
 <CodeGroup>
 ```bash curl wrap
@@ -273,26 +264,6 @@ console.log("Open to pay:", (await response.json()).url);
 ```json
 { "url": "https://checkout.stripe.com/c/pay/cs_live_...", "amount_usd": 25, "paid": false }
 ```
-
-#### Pay with a shared payment token
-
-A shared payment token is a single-use credential an agent mints against its own card, scoped to one seller and carrying its own currency, maximum amount, and expiry. Send one and the money is in the wallet when the call returns.
-
-```bash curl wrap
-curl -X POST \
-  https://api.agent37.com/v1/billing/top-up \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{"amount_usd": 25, "shared_payment_token": "spt_..."}'
-```
-
-```json
-{ "balance_usd": 67.5, "amount_usd": 25, "paid": true }
-```
-
-`amount_usd` has to fit inside the token's own maximum. A token that is spent, revoked, or expired, an amount above its limit, or a declining card all return `402 payment_failed` with the reason in the message.
-
-No card is saved, because there is nothing durable to save: a token is used once. So no refill rule is armed either, and the agent pays again when a `402 insufficient_balance` on create says the balance ran out. If you want the wallet to refill itself, pay once through Checkout instead.
 
 ## Ledger and spend visibility
 

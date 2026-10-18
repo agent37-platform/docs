@@ -130,7 +130,7 @@ An account created by `POST /v1/signup` does not receive the one-time \$5 starte
 
 ## Fund it, then create
 
-A new workspace is on the free tier: balance \$0, and one instance once it is funded. Creating an instance with an empty wallet returns `402 insufficient_balance`, which is the signal to pay. The first top-up of any amount raises the ceiling to 10 instances. See [Billing](/agents-api/billing) for the tiers, the rates, and both ways to pay.
+A new workspace is on the free tier: balance \$0, and one instance once it is funded. Creating an instance with an empty wallet returns `402 insufficient_balance`, which is the signal to pay. The first top-up of any amount raises the ceiling to 10 instances. See [Billing](/agents-api/billing) for the tiers, the rates, and how to pay.
 
 ```text
 POST /v1/signup          -> workspace_id, api_key, top_up_url, claim_url
