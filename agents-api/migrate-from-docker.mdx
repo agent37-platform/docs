@@ -52,7 +52,7 @@ The build runs on Agent37's infrastructure and streams its log to your terminal 
 | `-e KEY=value` | `"env": { "KEY": "value" }` on create |
 | `-p 3000:3000` (or a random host port) | The URL replaces the host port, the public IP, and the certificate: `https://{instanceId}.agent37.app` for the template's `default_port`, `https://{instanceId}-{port}.agent37.app` for any other |
 | `-v data:/data` | The instance's own disk, which persists across stop, start, and restart. Data under `/home/node` also survives an image update. |
-| `--memory 4g --cpus 2` | `"resources": { "cpu": 2, "memory": 4 }` (also 4/8, 8/16, and 16/32) |
+| `--memory 4g --cpus 2` | `"resources": { "cpu": 2, "memory": 4 }` (also 4/8, 4/16, and 4/32; 4 vCPU is the ceiling, and a bigger `--cpus` keeps the memory and comes back with 4) |
 | `--restart unless-stopped` | Built in. Once the instance has booted, a container that exits is started again. |
 | `docker exec web sh -c "..."` | [`POST /v1/instances/{id}/exec`](/agents-api/exec) |
 | `docker logs web` | [`GET /v1/instances/{id}/logs`](/agents-api/logs) |
@@ -68,7 +68,7 @@ A rented server bills every hour it exists. Most containers on it do nothing for
 
 An instance created with `auto_sleep: true` sleeps once it has been idle for `idle_timeout_seconds` and wakes on the next request: a few seconds for a restore, about two minutes when the instance has to be rebuilt. Idle means no traffic through the instance's URLs or exec, so set `idle_timeout_seconds` to the longest gap you expect between requests. Awake minutes bill the compute rate; asleep minutes bill disk alone. A 2 vCPU / 4 GB instance awake an hour a day costs about \$0.54 per month, against \$4.76 always-on. Either price includes the URL, TLS, restarts, and the API to manage it. See [Billing](/agents-api/billing) and [Auto-sleep](/agents-api/instance-auto-sleep).
 
-One team kept an 8 vCPU / 16 GB server up around the clock for up to 13 coding-session containers, whether or not anyone was in a session. As instances with auto-sleep, each session bills compute only while its user is working in it.
+One team kept an 8-core, 16 GB server up around the clock for up to 13 coding-session containers, whether or not anyone was in a session. As instances with auto-sleep, each session bills compute only while its user is working in it.
 
 ## If your app launches containers for its users
 

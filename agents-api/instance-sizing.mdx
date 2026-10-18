@@ -7,10 +7,14 @@ description: "Choose CPU, memory, disk, and an instance type."
 | --- | --- | --- | --- |
 | 2 | 4 GB | 2-12 GB | \$4.76 per month (the default) |
 | 4 | 8 GB | 2-20 GB | \$9.34 per month |
-| 8 | 16 GB | 2-40 GB | \$18.68 per month |
-| 16 | 32 GB | 2-80 GB | \$37.36 per month |
+| 4 | 16 GB | 2-40 GB | \$15.48 per month |
+| 4 | 32 GB | 2-80 GB | \$27.76 per month |
 
 Disk bills at \$0.09 per GB per month, included in the prices above at the default disk. Those are the prices of the `default` [instance type](/agents-api/billing#default-and-performance-instances). The monthly price is the rate; the wallet is metered per minute, and only for what the instance holds: running time bills the full rate, and stopped or sleeping time bills the disk alone. Deleting an instance settles its final minutes and billing ends. See [Billing](/agents-api/billing).
+
+4 vCPU is the ceiling on every instance type. A create that asks for more cores keeps the memory it
+asked for and comes back with 4 vCPU, at the price above, so a request for `{ "cpu": 16, "memory": 32 }`
+provisions 4 vCPU / 32 GB. The `resources` in the response is always what the instance actually has.
 
 A [VM instance](/agents-api/vm-instances) takes the same four shapes, and its compute is 2.5x the default rate.
 

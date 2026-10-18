@@ -86,7 +86,7 @@ Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.co
 ## Request body
 
 <ParamField body="cpu" type="integer" post={["optional"]}>
-  Target vCPUs. Send a valid CPU and memory shape; omitted values keep their current value.
+  Target vCPUs, up to the ceiling of 4. Send a valid CPU and memory shape; omitted values keep their current value. Unlike create, resize does not adjust a shape for you: a pair that is not a shape returns `400` with the valid ones listed.
 </ParamField>
 
 <ParamField body="memory" type="integer" post={["optional"]}>
