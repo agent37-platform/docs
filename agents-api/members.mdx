@@ -117,6 +117,8 @@ curl https://api.agent37.com/v1/members \
 
 Both arrays use the same `id` field, so removing a member and revoking an invitation are the same call on whatever you just read.
 
+A workspace created by [`POST /v1/signup`](/agents-api/signup) starts with one pending invitation already there: the admin claim link for the address it signed up with. Revoke it like any other to close that door.
+
 ## Remove a member or revoke an invitation
 
 ```bash curl wrap

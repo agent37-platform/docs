@@ -20,6 +20,9 @@ export AGENT37_API_KEY=$(printf '%s' "$SIGNUP" | jq -er '.api_key')
 # 2. Fund the wallet. Open the link, or pay with a token (see Funding below).
 printf '%s' "$SIGNUP" | jq -er '.top_up_url'
 
+# Hand this to the human who owns the email to give them the dashboard.
+printf '%s' "$SIGNUP" | jq -er '.claim_url'
+
 # 3. Create an instance with the key from step 1.
 curl --fail-with-body -sS -X POST https://api.agent37.com/v1/instances \
   -H "Authorization: Bearer $AGENT37_API_KEY"
@@ -38,6 +41,7 @@ account = signup.json()
 
 api_key = account["api_key"]
 print("Fund the wallet:", account["top_up_url"])
+print("Claim the dashboard:", account["claim_url"])
 
 instance = requests.post(
     "https://api.agent37.com/v1/instances",
@@ -57,6 +61,7 @@ if (!signup.ok) throw new Error(await signup.text());
 const account = await signup.json();
 
 console.log("Fund the wallet:", account.top_up_url);
+console.log("Claim the dashboard:", account.claim_url);
 
 const instance = await fetch("https://api.agent37.com/v1/instances", {
   method: "POST",
@@ -72,7 +77,7 @@ Every other endpoint on this reference works with the key from step 1: it is a f
 ## Request
 
 <ParamField body="email" type="string" required>
-  The address that owns the account. One account per address: a second signup on the same address returns `409 email_in_use` and creates nothing.
+  Where to reach the workspace's owner, and the address its `claim_url` is scoped to. It is not a login, and it is not verified. One API-created workspace per address: a second signup on the same address returns `409 email_in_use` and creates nothing.
 </ParamField>
 <ParamField body="name" type="string" post={["optional"]}>
   The workspace name, up to 100 characters. Defaults to a name derived from the email address.
@@ -107,11 +112,19 @@ Every other endpoint on this reference works with the key from step 1: it is a f
   The amount `top_up_url` charges.
 </ResponseField>
 
+<ResponseField name="claim_url">
+  An admin invitation link for `email`, so a human can take over the workspace in the dashboard. Give it to the person who owns that address. See [The email, and who owns the account](#the-email-and-who-owns-the-account).
+</ResponseField>
+
 ## The email, and who owns the account
 
-Nothing is emailed and the address is not verified, so an account created this way is reachable only through its API key until a human claims it. To claim it, the person who owns the address resets its password at [agent37.com](https://www.agent37.com): the login already exists, so the reset sets a password and signs them in. From there they can mint and revoke keys, see the ledger, and manage the team in the dashboard.
+The address is a contact address and a claim ticket, not a login. Nothing is emailed, and the workspace is owned by an account that has no email address and no password, so nobody can sign in as it. That matters because this endpoint is unauthenticated: if it registered a login on the address you send, anyone could sign up `someone@theircompany.com` and keep a working key in the workspace that person later landed in.
+
+`claim_url` is how a human gets in. It is an ordinary admin invitation scoped to the address you signed up with, so give it to the person who owns that address. They sign in (or sign up) with it and accept, which makes them a full admin: from there they mint and revoke keys, see the ledger, fund the wallet, and manage the team in the dashboard. The link does not expire and is used once.
 
 That is the intended path to a second key. There is no endpoint that mints keys, on purpose: a key that can mint keys is no protection, because a stolen one just mints another.
+
+Signing up does not touch any Agent37 account that address may already have, and an address that already has an API-created workspace returns `409 email_in_use` rather than a second one.
 
 An account created by `POST /v1/signup` does not receive the one-time \$5 starter credit. That credit exists so a person can try the product before paying; fund the wallet to start.
 
@@ -120,7 +133,7 @@ An account created by `POST /v1/signup` does not receive the one-time \$5 starte
 A new workspace is on the free tier: balance \$0, and one instance once it is funded. Creating an instance with an empty wallet returns `402 insufficient_balance`, which is the signal to pay. The first top-up of any amount raises the ceiling to 10 instances. See [Billing](/agents-api/billing) for the tiers, the rates, and both ways to pay.
 
 ```text
-POST /v1/signup          -> workspace_id, api_key, top_up_url
+POST /v1/signup          -> workspace_id, api_key, top_up_url, claim_url
 POST /v1/billing/top-up  -> pay by token, or open the Checkout URL
 GET  /v1/billing         -> balance_usd, tier, instance_limit
 POST /v1/instances       -> a running sandbox
@@ -131,4 +144,4 @@ POST /v1/instances       -> a running sandbox
 | Status | Code | Meaning |
 | --- | --- | --- |
 | `400` | `invalid_request` | `email` is missing or malformed, or `top_up_usd` is outside \$5 to \$10,000. |
-| `409` | `email_in_use` | An account already exists for that address. Sign in and mint a key in the dashboard. |
+| `409` | `email_in_use` | An API-created workspace already exists for that address. Use its claim link, or mint another key in the dashboard. |
