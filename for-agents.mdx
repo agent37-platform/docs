@@ -19,6 +19,8 @@ Include a cleanup command to delete the instance when I am finished.
 
 Replace the task with what you want to build, such as hosting a harness or running your own Docker image.
 
+If the agent has no API key, point it at [Sign up](/agents-api/signup): one unauthenticated `POST /v1/signup` returns a workspace, a key, and a payment link, so it can onboard itself and then [fund the wallet](/agents-api/billing#fund-the-wallet-from-the-api) without a person in the loop.
+
 ## Choose the runtime for your task
 
 | Your workload | Tell your coding agent |

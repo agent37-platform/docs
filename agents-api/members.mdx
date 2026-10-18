@@ -1,0 +1,142 @@
+---
+title: "Members"
+description: "Invite, list, and remove the people who share a workspace, its wallet, and its instances."
+---
+
+A workspace is the account: it owns the API keys, the [wallet](/agents-api/billing), and every instance. Members are the people who share it, and these endpoints manage them with the same workspace key you use everywhere else. The dashboard manages the same list under **Team**.
+
+| Method | Path | Returns |
+| --- | --- | --- |
+| `GET` | `/v1/members` | `200` with members and pending invitations |
+| `POST` | `/v1/members` | `201` with the invitation |
+| `DELETE` | `/v1/members/{id}` | `200` `{ "id": "...", "deleted": true }` |
+
+Adding someone always sends an invitation they have to accept. There is no endpoint that writes a membership directly, so a key can never put an account inside a workspace without its owner clicking a link in their own inbox.
+
+## Roles
+
+| Role | Can |
+| --- | --- |
+| `admin` | Everything: instances, keys, billing, and the team. |
+| `user` | Use the workspace's apps. No dashboard, keys, or billing. |
+
+A workspace must keep at least one admin. Removing the last one returns `409`.
+
+## Invite a member
+
+<ParamField body="email" type="string" required>
+  Who to invite. The invitation email comes from the workspace owner's address.
+</ParamField>
+<ParamField body="role" type="string" post={["optional"]} default="user">
+  `admin` or `user`.
+</ParamField>
+
+<CodeGroup>
+```bash curl wrap
+curl -X POST \
+  https://api.agent37.com/v1/members \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"email": "teammate@example.com", "role": "admin"}'
+```
+
+```python Python wrap
+import requests
+
+response = requests.post(
+    "https://api.agent37.com/v1/members",
+    headers={"Authorization": "Bearer sk_live_..."},
+    json={"email": "teammate@example.com", "role": "admin"},
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch("https://api.agent37.com/v1/members", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer sk_live_...",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ email: "teammate@example.com", role: "admin" }),
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+```
+</CodeGroup>
+
+```json
+{
+  "id": "4f1c2a90-7b3e-4d58-9a21-0c8e5f6b7d44",
+  "email": "teammate@example.com",
+  "role": "admin",
+  "invited": true
+}
+```
+
+`id` is the invitation's id, which `DELETE /v1/members/{id}` takes to revoke it. Inviting someone who is already a member, or who already has a pending invitation, returns `409`.
+
+## List members
+
+`GET /v1/members` returns everyone in the workspace plus every invitation nobody has accepted yet.
+
+<ResponseField name="members" type="array">
+  One entry per member: `id` (their user id), `email`, `role`, and `created` in epoch milliseconds.
+</ResponseField>
+
+<ResponseField name="invitations" type="array">
+  One entry per pending invitation, with the same fields. `id` is the invitation's id.
+</ResponseField>
+
+```bash curl wrap
+curl https://api.agent37.com/v1/members \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```json
+{
+  "members": [
+    {
+      "id": "aT6kQ2wEr8ZxYv1b",
+      "email": "agents@example.com",
+      "role": "admin",
+      "created": 1760000000000
+    }
+  ],
+  "invitations": [
+    {
+      "id": "4f1c2a90-7b3e-4d58-9a21-0c8e5f6b7d44",
+      "email": "teammate@example.com",
+      "role": "admin",
+      "created": 1760000100000
+    }
+  ]
+}
+```
+
+Both arrays use the same `id` field, so removing a member and revoking an invitation are the same call on whatever you just read.
+
+## Remove a member or revoke an invitation
+
+```bash curl wrap
+curl -X DELETE \
+  https://api.agent37.com/v1/members/aT6kQ2wEr8ZxYv1b \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```json
+{ "id": "aT6kQ2wEr8ZxYv1b", "deleted": true }
+```
+
+Removing a member revokes their access to the workspace and its instances at once; nothing they created is deleted, and the API keys they minted keep working (revoke those on the [API keys page](https://www.agent37.com/dashboard/cloud/api-keys)). Revoking an invitation makes its link dead.
+
+Acts once: repeating the call returns `404 not_found`, and so does an id from another workspace.
+
+## Errors
+
+| Status | Code | Meaning |
+| --- | --- | --- |
+| `400` | `invalid_request` | `email` is missing or malformed, or `role` is not `admin` or `user`. |
+| `404` | `not_found` | No member or pending invitation with that id in this workspace. |
+| `409` | `forbidden` | Already a member, already invited, or the workspace's last admin. |

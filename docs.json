@@ -172,7 +172,9 @@
           {
             "group": "Shared reference",
             "pages": [
+              "agents-api/signup",
               "agents-api/billing",
+              "agents-api/members",
               "agents-api/errors",
               "agents-api/hermes-desktop"
             ]

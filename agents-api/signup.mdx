@@ -1,0 +1,134 @@
+---
+title: "Sign up"
+description: "Create a workspace and an API key with one unauthenticated call, so an agent can onboard itself and start paying."
+---
+
+`POST /v1/signup` creates a workspace, a login, an empty [wallet](/agents-api/billing), and your first API key in one call. It is the only endpoint on the Sandbox API that takes no `Authorization` header, because it is where the key comes from.
+
+Use it when the caller is a program. If you are a person, [sign up in the dashboard](https://www.agent37.com/dashboard/cloud/api-keys) instead: you get the same workspace and the same key, on a screen.
+
+## Sign up and start running
+
+<CodeGroup>
+```bash curl wrap
+# 1. Get a workspace and a key. No credentials needed.
+SIGNUP=$(curl --fail-with-body -sS -X POST https://api.agent37.com/v1/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email": "agents@example.com", "name": "Acme Agents"}')
+export AGENT37_API_KEY=$(printf '%s' "$SIGNUP" | jq -er '.api_key')
+
+# 2. Fund the wallet. Open the link, or pay with a token (see Funding below).
+printf '%s' "$SIGNUP" | jq -er '.top_up_url'
+
+# 3. Create an instance with the key from step 1.
+curl --fail-with-body -sS -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer $AGENT37_API_KEY"
+```
+
+```python Python wrap
+import os
+import requests
+
+signup = requests.post(
+    "https://api.agent37.com/v1/signup",
+    json={"email": "agents@example.com", "name": "Acme Agents"},
+)
+signup.raise_for_status()
+account = signup.json()
+
+api_key = account["api_key"]
+print("Fund the wallet:", account["top_up_url"])
+
+instance = requests.post(
+    "https://api.agent37.com/v1/instances",
+    headers={"Authorization": f"Bearer {api_key}"},
+)
+instance.raise_for_status()
+print(instance.json())
+```
+
+```javascript Node wrap
+const signup = await fetch("https://api.agent37.com/v1/signup", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email: "agents@example.com", name: "Acme Agents" }),
+});
+if (!signup.ok) throw new Error(await signup.text());
+const account = await signup.json();
+
+console.log("Fund the wallet:", account.top_up_url);
+
+const instance = await fetch("https://api.agent37.com/v1/instances", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${account.api_key}` },
+});
+if (!instance.ok) throw new Error(await instance.text());
+console.log(await instance.json());
+```
+</CodeGroup>
+
+Every other endpoint on this reference works with the key from step 1: it is a full workspace key, so it creates instances, manages templates and domains, reads [usage](/agents-api/billing#read-workspace-usage), [funds the wallet](/agents-api/billing#fund-the-wallet-from-the-api), and [adds members](/agents-api/members). Store it the way you would store any secret, and treat it as able to spend money.
+
+## Request
+
+<ParamField body="email" type="string" required>
+  The address that owns the account. One account per address: a second signup on the same address returns `409 email_in_use` and creates nothing.
+</ParamField>
+<ParamField body="name" type="string" post={["optional"]}>
+  The workspace name, up to 100 characters. Defaults to a name derived from the email address.
+</ParamField>
+<ParamField body="top_up_usd" type="number" post={["optional"]} default="5">
+  What `top_up_url` is worth, \$5 to \$10,000. It only sizes the returned payment link; nothing is charged by this call.
+</ParamField>
+
+## Response
+
+<ResponseField name="workspace_id" type="string">
+  The workspace the key belongs to. Everything the key creates is owned by it.
+</ResponseField>
+
+<ResponseField name="api_key" type="string">
+  Your `sk_live_` key, shown once and never again. The account has no other key until you mint one.
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  The address the account was created on, lowercased.
+</ResponseField>
+
+<ResponseField name="balance_usd" type="number">
+  Always `0`. Fund the wallet before creating an instance.
+</ResponseField>
+
+<ResponseField name="top_up_url" type="string">
+  A hosted Stripe Checkout link for `top_up_usd`. `null` if the link could not be created, in which case [`POST /v1/billing/top-up`](/agents-api/billing#fund-the-wallet-from-the-api) mints another one.
+</ResponseField>
+
+<ResponseField name="top_up_usd" type="number">
+  The amount `top_up_url` charges.
+</ResponseField>
+
+## The email, and who owns the account
+
+Nothing is emailed and the address is not verified, so an account created this way is reachable only through its API key until a human claims it. To claim it, the person who owns the address resets its password at [agent37.com](https://www.agent37.com): the login already exists, so the reset sets a password and signs them in. From there they can mint and revoke keys, see the ledger, and manage the team in the dashboard.
+
+That is the intended path to a second key. There is no endpoint that mints keys, on purpose: a key that can mint keys is no protection, because a stolen one just mints another.
+
+An account created by `POST /v1/signup` does not receive the one-time \$5 starter credit. That credit exists so a person can try the product before paying; fund the wallet to start.
+
+## Fund it, then create
+
+A new workspace is on the free tier: balance \$0, and one instance once it is funded. Creating an instance with an empty wallet returns `402 insufficient_balance`, which is the signal to pay. The first top-up of any amount raises the ceiling to 10 instances. See [Billing](/agents-api/billing) for the tiers, the rates, and both ways to pay.
+
+```text
+POST /v1/signup          -> workspace_id, api_key, top_up_url
+POST /v1/billing/top-up  -> pay by token, or open the Checkout URL
+GET  /v1/billing         -> balance_usd, tier, instance_limit
+POST /v1/instances       -> a running sandbox
+```
+
+## Errors
+
+| Status | Code | Meaning |
+| --- | --- | --- |
+| `400` | `invalid_request` | `email` is missing or malformed, or `top_up_usd` is outside \$5 to \$10,000. |
+| `409` | `email_in_use` | An account already exists for that address. Sign in and mint a key in the dashboard. |

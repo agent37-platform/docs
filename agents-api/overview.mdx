@@ -25,6 +25,7 @@ Manage instances, choose templates, run commands, and route services through HTT
 | Networking | [Instance and preview URLs](/agents-api/urls), [public ports](/agents-api/public-ports), [custom domains](/agents-api/domains) |
 | Execution | [Run commands](/agents-api/exec), [scheduled runs](/agents-api/crons), [SSH](/agents-api/ssh) |
 | Operations | [Logs](/agents-api/logs), [metrics](/agents-api/metrics), [budgets](/agents-api/budgets), [integrations](/agents-api/integrations) |
+| Account | [Sign up](/agents-api/signup), [wallet and top-ups](/agents-api/billing#wallet-endpoints), [members](/agents-api/members) |
 
 ## Agent API
 
@@ -38,6 +39,6 @@ These endpoints are provided by the gateway in agent templates. A custom image o
 
 ## Authentication and shared reference
 
-See [Core concepts](/agents-api/concepts#two-planes-one-key) for the base URLs and authentication headers for each API. For costs and failures, use [Billing](/agents-api/billing) and [Errors](/agents-api/errors).
+See [Core concepts](/agents-api/concepts#two-planes-one-key) for the base URLs and authentication headers for each API. For costs and failures, use [Billing](/agents-api/billing) and [Errors](/agents-api/errors). No key yet? [`POST /v1/signup`](/agents-api/signup) creates a workspace and a key in one unauthenticated call.
 
 Building with a coding agent? [Give it the documentation](/for-agents).
