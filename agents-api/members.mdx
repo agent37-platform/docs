@@ -140,5 +140,6 @@ Acts once: repeating the call returns `404 not_found`, and so does an id from an
 | Status | Code | Meaning |
 | --- | --- | --- |
 | `400` | `invalid_request` | `email` is missing or malformed, or `role` is not `admin` or `user`. |
+| `402` | `insufficient_balance` | An invite from a workspace made by [`POST /v1/signup`](/agents-api/signup) whose wallet has not been funded yet. |
 | `404` | `not_found` | No member or pending invitation with that id in this workspace. |
 | `409` | `forbidden` | Already a member, already invited, or the workspace's last admin. |

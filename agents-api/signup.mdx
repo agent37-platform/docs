@@ -17,7 +17,7 @@ SIGNUP=$(curl --fail-with-body -sS -X POST https://api.agent37.com/v1/signup \
   -d '{"email": "agents@example.com", "name": "Acme Agents"}')
 export AGENT37_API_KEY=$(printf '%s' "$SIGNUP" | jq -er '.api_key')
 
-# 2. Fund the wallet. Open the link, or pay with a token (see Funding below).
+# 2. Fund the wallet: open the link and pay.
 printf '%s' "$SIGNUP" | jq -er '.top_up_url'
 
 # Hand this to the human who owns the email to give them the dashboard.
@@ -77,7 +77,7 @@ Every other endpoint on this reference works with the key from step 1: it is a f
 ## Request
 
 <ParamField body="email" type="string" required>
-  Where to reach the workspace's owner, and the address its `claim_url` is scoped to. It is not a login, and it is not verified. One API-created workspace per address: a second signup on the same address returns `409 email_in_use` and creates nothing.
+  Where to reach the workspace's owner, and the address its `claim_url` is scoped to. It is not a login, and it is not verified. Every call creates a new workspace, the same address included, so if a response is lost, call again: the key is shown only once.
 </ParamField>
 <ParamField body="name" type="string" post={["optional"]}>
   The workspace name, up to 100 characters. Defaults to a name derived from the email address.
@@ -124,17 +124,17 @@ The address is a contact address and a claim ticket, not a login. Nothing is ema
 
 That is the intended path to a second key. There is no endpoint that mints keys, on purpose: a key that can mint keys is no protection, because a stolen one just mints another.
 
-Signing up does not touch any Agent37 account that address may already have, and an address that already has an API-created workspace returns `409 email_in_use` rather than a second one.
+Signing up does not touch any Agent37 account that address may already have.
 
 An account created by `POST /v1/signup` does not receive the one-time \$5 starter credit. That credit exists so a person can try the product before paying; fund the wallet to start.
 
 ## Fund it, then create
 
-A new workspace is on the free tier: balance \$0, and one instance once it is funded. Creating an instance with an empty wallet returns `402 insufficient_balance`, which is the signal to pay. The first top-up of any amount raises the ceiling to 10 instances. See [Billing](/agents-api/billing) for the tiers, the rates, and how to pay.
+A new workspace is on the free tier: balance \$0, and one instance once it is funded. Creating an instance with an empty wallet returns `402 insufficient_balance`, which is the signal to pay. Until the wallet holds money, [cloud template builds](/agents-api/templates#build-an-image-in-the-cloud) and [member invitations](/agents-api/members) return `402 insufficient_balance` too. The first top-up of any amount raises the ceiling to 10 instances. See [Billing](/agents-api/billing) for the tiers, the rates, and how to pay.
 
 ```text
 POST /v1/signup          -> workspace_id, api_key, top_up_url, claim_url
-POST /v1/billing/top-up  -> pay by token, or open the Checkout URL
+POST /v1/billing/top-up  -> open the Checkout URL
 GET  /v1/billing         -> balance_usd, tier, instance_limit
 POST /v1/instances       -> a running sandbox
 ```
@@ -144,4 +144,3 @@ POST /v1/instances       -> a running sandbox
 | Status | Code | Meaning |
 | --- | --- | --- |
 | `400` | `invalid_request` | `email` is missing or malformed, or `top_up_usd` is outside \$5 to \$10,000. |
-| `409` | `email_in_use` | An API-created workspace already exists for that address. Use its claim link, or mint another key in the dashboard. |

@@ -142,7 +142,7 @@ Two endpoints cover the whole money rail from a program: read what is left, and 
 | Method | Path | Returns |
 | --- | --- | --- |
 | `GET` | `/v1/billing` | `200` with the balance, tier, instance ceiling, refill rule, and suspension state |
-| `POST` | `/v1/billing/top-up` | `200` when a payment token settled, `201` with a Checkout URL otherwise |
+| `POST` | `/v1/billing/top-up` | `201` with a Checkout URL |
 
 ### Read the wallet
 

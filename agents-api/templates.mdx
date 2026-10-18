@@ -1013,6 +1013,7 @@ A workspace template registered from a registry reference echoes that reference 
 | --- | --- | --- |
 | `400` | `invalid_request` | Bad `name`, `image_ref`, `default_port`, or `entrypoint` (not a non-empty array of non-empty strings); a template create with no `image_ref`; a registry reference the platform cannot pull (private without `registry_auth`, or a wrong login); a malformed `registry_auth`; the legacy `ports` array; a direct image reference passed as `template` on instance create; a bad [pin](#pin-a-template-version) on create or update (unpublished system tag, `@latest`, non-numeric or unpublished workspace revision); a [build](#build-an-image-in-the-cloud) `start` with no uploaded context, one over 1 GB, or a malformed `secrets` or `registry_auth` body |
 | `400` | `image_too_large` | The staged image is over the 8 GB decimal cap |
+| `402` | `insufficient_balance` | A build create from a workspace made by [`POST /v1/signup`](/agents-api/signup) whose wallet has not been funded yet |
 | `403` | `forbidden` | `PATCH` or `DELETE` on a system template: they are read-only |
 | `404` | `not_found` | Unknown template name or build id; a pinned `GET` for an unpublished version or revision; repeat `DELETE` |
 | `409` | `template_conflict` | Create or rename onto a name that already exists |
