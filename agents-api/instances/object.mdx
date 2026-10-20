@@ -107,7 +107,7 @@ Create, get, edit, and fork return an instance object. List wraps these objects 
 </ResponseField>
 
 <ResponseField name="slept_at" type="integer | null">
-  Present only while `status` is `sleeping` or `waking`: when the instance fell asleep, in epoch seconds. It does not signal that the checkpoint has finished: `status` flips to `sleeping` before the checkpoint is written, and during the write this field can be `null` or still carry an earlier timestamp. Instances that have been asleep for a long stretch may be rebuilt from cold storage on wake, which takes about two minutes (see [Auto-sleep](/agents-api/instance-auto-sleep)).
+  Present only while `status` is `sleeping` or `waking`: when the instance fell asleep, in epoch seconds. It does not signal that the checkpoint has finished: `status` flips to `sleeping` before the checkpoint is written, and during the write this field can be `null` or still carry an earlier timestamp. Instances moved to cold storage are rebuilt on wake (see [Auto-sleep](/agents-api/instance-auto-sleep)).
 </ResponseField>
 
 <ResponseField name="past_due" type="boolean">
@@ -130,7 +130,7 @@ Create, get, edit, and fork return an instance object. List wraps these objects 
 | `restarting` | A restart is in progress. |
 | `updating` | An update, resize, or [restore](/agents-api/instances/restore) is in progress. |
 | `sleeping` | Checkpointed on idle ([auto-sleep](/agents-api/instance-auto-sleep)), or force-slept for non-payment (with `past_due: true`). Any request to its URLs, an explicit `start`, an `exec`, or an `update` wakes it; while the checkpoint is still being written, `stop`, `start`, `exec`, and `update` return `409 try_again`. A sleeper moved to cold storage can be woken or deleted but not stopped. Bills disk only. |
-| `waking` | A wake is in progress. Every `start`, `exec`, or `update` wake shows it, as does a URL wake that has to move the instance to another host or pull it back from cold storage: a few seconds after a checkpoint restore, about two minutes on a rebuild. The held request completes when it finishes. Bills disk only. |
+| `waking` | A wake is in progress. Every `start`, `exec`, or `update` wake shows it, as does a URL wake that has to move the instance to another host or pull it back from cold storage. The held request completes when it finishes. Bills disk only. |
 | `failed` | A create or lifecycle action failed. |
 | `deleting` | A delete is in progress. |
 | `deleted` | Gone. The id reads as `404` from here on. |
