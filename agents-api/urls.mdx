@@ -270,7 +270,7 @@ console.log(await res.json());
 
 ## Sleeping instances wake on request
 
-An [auto-sleep](/agents-api/instance-auto-sleep) instance that has gone to sleep keeps every one of its URLs. A request to any of them wakes it transparently: the edge holds the request while the instance restores, then forwards it. Restoring the checkpoint takes a few seconds. When the wake has to rebuild the instance instead (it was moved to another host, pulled back from cold storage after a long sleep, or the restore failed), it takes about two minutes and boots fresh: processes and in-memory state from before the sleep are gone, files on disk are kept. No status polling, no retry logic; the response you get is the response to the request you sent. No response headers arrive until the wake completes, so give the client a first-byte timeout of at least three minutes.
+An [auto-sleep](/agents-api/instance-auto-sleep) instance that has gone to sleep keeps every one of its URLs. A request to any of them wakes it transparently: the edge holds the request while the instance restores, then forwards it. Restoring the checkpoint takes a few seconds. When the wake has to rebuild the instance instead (it was moved to another host, pulled back from cold storage, or the restore failed), it boots fresh: processes and in-memory state from before the sleep are gone, files on disk are kept. No status polling, no retry logic; the response you get is the response to the request you sent. No response headers arrive until the wake completes, so give the client a first-byte timeout of at least three minutes.
 
 A wake can be refused or fail, and those answers use the same flat error shape as the other [transport errors](/agents-api/errors#transport-errors):
 
