@@ -62,7 +62,7 @@ Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.co
 
 ## What deletion does
 
-`DELETE /v1/instances/{id}` returns `{ "id": "ab12cd34ef", "deleted": true }`. It acts once: a repeat delete returns `404`. Delete settles the final metered window and billing ends; nothing is ever prepaid, so there is nothing to refund.
+`DELETE /v1/instances/{id}` returns `{ "id": "ab12cd34ef", "deleted": true }`. It acts once: a repeat delete returns `404`. Delete settles the final metered window and billing ends; nothing is ever prepaid, so there is nothing to refund. The reply comes back as soon as the instance is deleted, and the sandbox itself stops within a few seconds after it. Its URLs can answer for up to a minute while the route clears, and none of that time is billed.
 
 <Warning>
   Delete is destructive: the instance's files, memory, sessions, and backups are gone, and no API call brings them back. A backup belongs to the instance, not to your workspace, and [restore](/agents-api/instances/restore) only ever writes back in place, so [download](/agents-api/files#download-a-folder) anything you want to keep first. A copy of the instance's data stays in backup storage for seven days after the delete and is then purged, so allow for that window in any promise to erase your own users' data. To pause work while keeping everything, `stop` it instead. A stopped instance bills its disk alone; delete is what ends billing entirely.
