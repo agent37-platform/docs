@@ -174,9 +174,7 @@ The examples include every optional field. Omit any field to use its default.
 </ParamField>
 
 <ParamField body="region" type="string" default="us" post={["optional"]}>
-  Where the instance runs: `us` (either US coast), `us-east` (Virginia), `us-west` (Oregon), `eu` (France), or `ap-south` (India, Mumbai). The price is the same in all of them.
-
-  `us` goes to whichever coast has room, and a later move to another host can put it on the other one. Ask for `us-east` or `us-west` to keep the instance on one coast.
+  Where the instance runs: `us`, `eu` (France), or `ap-south` (India, Mumbai). The price is the same in all three.
 
   The region is fixed for the life of the instance. Every later operation honours it: a stop and start, a wake, a resize that has to move the instance to another host, and a restore all keep it on the same continent. A `resize` body carrying `region` returns `400 invalid_request`. To move region, create a new instance there and copy the data over (a [backup](/agents-api/instance-backups) and a restore is the usual way).
 
@@ -184,7 +182,7 @@ The examples include every optional field. Omit any field to use its default.
 
   `eu` and `ap-south` run the instance, its disk, and everything your code writes to that disk in that region. Backups and the instance's own control-plane record (its id, shape, and status) are stored in the US; if that matters for your use case, email vishnu@agent37.com before you build on it.
 
-  **The US regions are the only ones that run every instance type.** `eu` and `ap-south` run [VM](/agents-api/vm-instances) and Performance instances, so a create in either should also send `"type": "vm"` or `"type": "performance"`. A `default` create there returns `503 no_capacity`, and the message says so.
+  **`us` is the only region that runs every instance type.** `eu` and `ap-south` run [VM](/agents-api/vm-instances) and Performance instances, so a create in either should also send `"type": "vm"` or `"type": "performance"`. A `default` create there returns `503 no_capacity`, and the message says so.
 </ParamField>
 
 <ParamField body="user" type="string" post={["optional"]}>
