@@ -135,15 +135,19 @@ The examples include every editable field. Send only the fields you want to chan
   The new idle timeout: an integer from `300` to `86400` seconds.
 </ParamField>
 
+<ParamField body="network" type="string | object" post={["optional"]}>
+  Where the instance can connect: `"allow-all"`, `"deny-all"`, or `{ "allow": [...] }`. Applies to the running instance within seconds, with no restart. See [Network access](/agents-api/instance-network).
+</ParamField>
+
 ## Response
 
 The response contains the full [instance object](/agents-api/instances/object), including its resources, URLs, and timestamps. The example shows only the id and edited fields.
 
 ## Update behavior
 
-`PATCH /v1/instances/{id}` edits the instance's `name`, `user` tag, and `metadata` after creation, plus its [auto-sleep](/agents-api/instance-auto-sleep) settings. These are the same fields you can set at create, and they are the only things this call changes: it never touches the running container. It returns `200` with the full instance object, the same shape as `GET`.
+`PATCH /v1/instances/{id}` edits the instance's `name`, `user` tag, and `metadata` after creation, plus its [auto-sleep](/agents-api/instance-auto-sleep) settings and its [network access](/agents-api/instance-network). These are the same fields you can set at create, and they are the only things this call changes: it never touches the running container. It returns `200` with the full instance object, the same shape as `GET`.
 
-The patch is partial: only the keys you send change, the rest are left alone. Send a string to set a label field, or `null` (or `""`) to clear it. You must send at least one of `name`, `user`, `metadata`, `env`, `auto_sleep`, or `idle_timeout_seconds`; an empty body returns `400 invalid_request`.
+The patch is partial: only the keys you send change, the rest are left alone. Send a string to set a label field, or `null` (or `""`) to clear it. You must send at least one of `name`, `user`, `metadata`, `env`, `auto_sleep`, `idle_timeout_seconds`, or `network`; an empty body returns `400 invalid_request`.
 
 Edits never bill and never recreate the container, and they work in any state except `deleted`. Unknown, deleted, or other-workspace ids return `404 not_found`.
 

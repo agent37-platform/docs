@@ -1,0 +1,45 @@
+---
+title: "Network access"
+description: "Cut an instance off from the internet, or let it reach only the addresses you list."
+---
+
+Every instance can reach the public internet by default. The `network` field limits where it can connect: set it when you [create](/agents-api/instances/create) the instance, or change it any time with [`PATCH /v1/instances/{id}`](/agents-api/instances/edit). A change applies to the running instance within seconds, with no restart, and connections it no longer allows are cut.
+
+| Value | What the instance can reach |
+| --- | --- |
+| `"allow-all"` | The whole public internet. The default. |
+| `"deny-all"` | Nothing, including DNS. |
+| `{ "allow": [...] }` | Only the listed IPv4 addresses and ranges, up to 100 entries. |
+
+```bash
+curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef \
+  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "network": { "allow": ["203.0.113.0/24", "198.51.100.7"] } }'
+```
+
+The response is the full [instance object](/agents-api/instances/object), with the list as stored: a bare address comes back as `/32`, and a range is written as its network address (`203.0.113.9/24` becomes `203.0.113.0/24`).
+
+A common pattern is to install dependencies with the internet open, then lock the instance down before it runs code you do not trust:
+
+```bash
+curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
+  -H "Authorization: Bearer $AGENT37_API_KEY" -H "Content-Type: application/json" \
+  -d '{ "command": "npm install" }'
+
+curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef \
+  -H "Authorization: Bearer $AGENT37_API_KEY" -H "Content-Type: application/json" \
+  -d '{ "network": "deny-all" }'
+```
+
+When the `PATCH` returns `200`, the policy is in force. If it returns `503 try_again`, the new policy is saved and reaches the instance within two minutes; send the same request again to confirm it.
+
+## What a policy covers
+
+- **Outbound connections only.** Requests to the instance's own URLs, [public ports](/agents-api/public-ports), [exec](/agents-api/exec), [logs](/agents-api/logs), and [SSH](/agents-api/ssh) keep working under any policy.
+- **DNS counts as a connection.** Under `deny-all` or a list, names do not resolve unless a resolver is on the list. Add `1.1.1.1` and `8.8.8.8` to look names up.
+- **Managed services count too.** The built-in model and tools are reached over the internet, so an instance under `deny-all` or a list cannot use them.
+- **Private ranges stay blocked.** Listing a private address (such as `10.0.0.0/8`) has no effect: an instance can never reach private networks, other instances, or the machine it runs on.
+- **Entries are IPv4 for now.** Domain names and IPv6 return `400 invalid_request`.
+
+The policy stays with the instance through stop, start, restart, sleep, resize, update, backups and restores, and a [fork](/agents-api/instances/fork) starts with its source's policy. It works the same on [VM instances](/agents-api/vm-instances).
