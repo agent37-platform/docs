@@ -217,6 +217,10 @@ The examples include every optional field. Omit any field to use its default.
   Ports to expose at permanent unauthenticated URLs, each `{ port, prefix?, label? }`, for webhooks and other callers that can't send a credential. See [Public ports](/agents-api/public-ports), or follow the end-to-end [Hermes webhook setup](/agents-api/hermes-webhooks) for port `8644`.
 </ParamField>
 
+<ParamField body="network" type="string | object" default="allow-all" post={["optional"]}>
+  Where the instance can connect: `"allow-all"` (the public internet), `"deny-all"` (nothing, DNS included), or `{ "allow": [...] }` with up to 100 IPv4 addresses and ranges. See [Network access](/agents-api/instance-network).
+</ParamField>
+
 ## Defaults
 
 `POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-hermes`) on the smallest shape, 2 vCPU / 4 GB.

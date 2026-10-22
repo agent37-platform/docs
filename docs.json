@@ -40,6 +40,7 @@
                   "agents-api/instance-sizing",
                   "agents-api/instance-environment",
                   "agents-api/instance-auto-sleep",
+                  "agents-api/instance-network",
                   "agents-api/instance-backups"
                 ]
               }

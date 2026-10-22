@@ -27,6 +27,7 @@ Create, get, edit, and fork return an instance object. List wraps these objects 
   "metadata": null,
   "auto_sleep": false,
   "idle_timeout_seconds": 900,
+  "network": "allow-all",
   "past_due": false,
   "created": 1781222400
 }
@@ -104,6 +105,10 @@ Create, get, edit, and fork return an instance object. List wraps these objects 
 
 <ResponseField name="idle_timeout_seconds" type="integer">
   How long the instance must be idle before it sleeps, in seconds. Defaults to `900`.
+</ResponseField>
+
+<ResponseField name="network" type="string | object">
+  Where the instance can connect: `"allow-all"`, `"deny-all"`, or `{ "allow": [...] }` with the stored IPv4 networks. See [Network access](/agents-api/instance-network).
 </ResponseField>
 
 <ResponseField name="slept_at" type="integer | null">
