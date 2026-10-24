@@ -97,7 +97,7 @@ The monthly price is the rate; the wallet is metered per minute (the monthly pri
 
 **Each instance meters on its own.** Every instance draws its own metered debits from the wallet; there is no extra balance reserve for running several at once. How many you can hold is set by your [instance limit](#instance-limits), not by your balance.
 
-**Sleep and stop cut the rate; delete ends it.** An instance bills for as long as it exists, but only for what it holds. Stopping (or [auto-sleep](/agents-api/instance-auto-sleep)) releases CPU and RAM and keeps the disk, so parked time bills disk alone. An auto-sleep instance that spends most of its life asleep costs mostly its disk, about \$0.36 per month at the default 4 GB. Deleting an instance settles the final window and billing stops. A started minute bills as a whole one, so an instance that lives 20 seconds pays for one minute.
+**Sleep and stop cut the rate; delete ends it.** An instance bills for as long as it exists, but only for what it holds. Stopping (or [auto-sleep](/agents-api/instance-auto-sleep)) releases CPU and RAM and keeps the disk, so parked time bills disk alone. An auto-sleep instance that spends most of its life asleep costs mostly its disk, about \$0.36 per month at the default 4 GB. Deleting an instance settles the final window and billing stops.
 
 **The meter settles behind the scenes.** Whole minutes are billed at every lifecycle transition and at least hourly; you never see a per-minute charge on an API call. Each debit lands in the [ledger](#ledger-and-spend-visibility) as a metered compute entry.
 
