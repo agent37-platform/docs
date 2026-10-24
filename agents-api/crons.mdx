@@ -7,7 +7,7 @@ A **cron** is one sentence and a schedule: say this to my agent, every weekday a
 
 That last part is the reason to use this instead of the scheduler inside the agent. A crontab inside the container only runs while the container is running, so on an instance with [auto-sleep](/agents-api/instance-auto-sleep) it stops firing the moment the instance sleeps, and it keeps the instance awake for nothing when it doesn't. A platform cron is outside the instance: it fires whether the instance is awake or asleep, and between firings the instance is free to sleep and cost you nothing but disk.
 
-Crons belong to an instance. Deleting the instance deletes its crons. `agent37-n8n` takes none: it serves a web app rather than an agent, so there is nothing to send a message to.
+Crons belong to an instance. Deleting the instance deletes its crons. `agent37-base` and `agent37-n8n` take none: they run no agent, so there is nothing to send a message to.
 
 ## Create a cron
 

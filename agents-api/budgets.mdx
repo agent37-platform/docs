@@ -53,6 +53,7 @@ curl -X POST https://api.agent37.com/v1/instances \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
+    "template": "agent37-hermes",
     "name": "research-bot",
     "budget": { "monthly_cap_micros": 5000000, "credit_micros": 1000000 }
   }'
@@ -66,6 +67,7 @@ instance = requests.post(
     "https://api.agent37.com/v1/instances",
     headers=H,
     json={
+        "template": "agent37-hermes",
         "name": "research-bot",
         "budget": {"monthly_cap_micros": 5000000, "credit_micros": 1000000},
     },
@@ -81,6 +83,7 @@ const instance = await (await fetch("https://api.agent37.com/v1/instances", {
   method: "POST",
   headers: H,
   body: JSON.stringify({
+    template: "agent37-hermes",
     name: "research-bot",
     budget: { monthly_cap_micros: 5000000, credit_micros: 1000000 },
   }),

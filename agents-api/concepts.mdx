@@ -43,7 +43,7 @@ curl https://sandbox.agent37.app/v1/instances/ab12cd34ef/exec \
 
 Nothing about ports is declared per instance:
 
-- The **instance URL**, `https://{instanceId}.agent37.app`, routes to the template's `default_port` (`3737`, the gateway, unless the template says otherwise). On the default template, `agent37-hermes`, that makes it the chat URL.
+- The **instance URL**, `https://{instanceId}.agent37.app`, routes to the template's `default_port` (`3737`, the gateway, unless the template says otherwise). On an agent template such as `agent37-hermes`, that makes it the chat URL. The default template, `agent37-base`, has no default port, so its instance URL has nothing behind it.
 - Every other port is reachable at its **preview URL**, `https://{instanceId}-{port}.agent37.app`, for example `https://ab12cd34ef-9119.agent37.app`.
 - A port can also get a permanent unauthenticated URL; see [Public ports](/agents-api/public-ports).
 

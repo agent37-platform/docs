@@ -9,7 +9,7 @@ sidebarTitle: "Personal assistant (Muse)"
 ```text title="Paste this into your coding agent" wrap
 Read https://www.agent37.com/docs/llms-full.txt.
 I want a Muse-style personal agent app: a chat with side chats, plus Ideas, Goals and Library tabs, one agent per user.
-Create one instance per user with POST /v1/instances (budget.monthly_cap_micros, auto_sleep, and a notify token in env), write the persona into ~/.hermes/SOUL.md read-merge-write, have a daily platform cron write ~/muse/ideas.json, let the agent keep ~/muse/goals.json and schedule its own check-ins with agent37 cron, list ~/muse/library with GET /v1/files, and give the agent a script that calls my server so it can message the user first.
+Create one instance per user with POST /v1/instances (template agent37-hermes, budget.monthly_cap_micros, auto_sleep, and a notify token in env), write the persona into ~/.hermes/SOUL.md read-merge-write, have a daily platform cron write ~/muse/ideas.json, let the agent keep ~/muse/goals.json and schedule its own check-ins with agent37 cron, list ~/muse/library with GET /v1/files, and give the agent a script that calls my server so it can message the user first.
 Done when a cron the agent created itself fires and the user sees its message in the app.
 My key is in AGENT37_API_KEY.
 ```
@@ -30,7 +30,7 @@ My key is in AGENT37_API_KEY.
 
 ## Your agent already has Muse's shape
 
-Muse keeps who you are and who it is in plain files, the layout OpenClaw made popular. Hermes, the agent on the default `agent37-hermes` template, uses the same idea:
+Muse keeps who you are and who it is in plain files, the layout OpenClaw made popular. Hermes, the agent on the `agent37-hermes` template, uses the same idea:
 
 | File | What it holds |
 | --- | --- |
@@ -42,7 +42,7 @@ The rest of the product is files too. The agent writes `~/muse/ideas.json`, `~/m
 
 <Steps>
   <Step title="Create the user's agent">
-    One [instance](/agents-api/instances/create) per user, created when they finish onboarding. Three fields make it a Muse: a monthly `budget` (the managed LLM, search, and app calls are refused until you grant one), `auto_sleep` so an idle agent bills disk alone, and a random token in `env` that the agent later presents when it messages the user.
+    One `agent37-hermes` [instance](/agents-api/instances/create) per user, created when they finish onboarding. Three fields make it a Muse: a monthly `budget` (the managed LLM, search, and app calls are refused until you grant one), `auto_sleep` so an idle agent bills disk alone, and a random token in `env` that the agent later presents when it messages the user.
 
     <CodeGroup>
     ```bash curl
@@ -50,6 +50,7 @@ The rest of the product is files too. The agent writes `~/muse/ideas.json`, `~/m
       -H "Authorization: Bearer sk_live_..." \
       -H "Content-Type: application/json" \
       -d '{
+        "template": "agent37-hermes",
         "user": "u_882",
         "name": "muse Pip",
         "budget": { "monthly_cap_micros": 2000000 },
@@ -69,6 +70,7 @@ The rest of the product is files too. The agent writes `~/muse/ideas.json`, `~/m
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        template: "agent37-hermes",
         user: "u_882",
         name: "muse Pip",
         budget: { monthly_cap_micros: 2000000 },

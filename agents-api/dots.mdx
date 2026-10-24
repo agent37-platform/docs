@@ -9,7 +9,7 @@ OpenAI launched [Dots](https://openai.com/index/introducing-dots/) on September 
 ```text title="Paste this into your coding agent" wrap
 Read https://www.agent37.com/docs/llms-full.txt.
 I want a Dots-style personal agent: each user names an agent that owns ongoing responsibilities, keeps its own schedule, and messages them first.
-Create one instance per user with POST /v1/instances (budget.monthly_cap_micros, auto_sleep, a callback token in env and its SHA-256 in metadata), write ~/.hermes/SOUL.md read-merge-write so the agent schedules its own check-ins with the agent37 cron CLI and messages the user through a small script that calls my server, connect apps with /v1/instances/{id}/integrations, and show Scheduled and Completed from /v1/instances/{id}/crons.
+Create one instance per user with POST /v1/instances (template agent37-hermes, budget.monthly_cap_micros, auto_sleep, a callback token in env and its SHA-256 in metadata), write ~/.hermes/SOUL.md read-merge-write so the agent schedules its own check-ins with the agent37 cron CLI and messages the user through a small script that calls my server, connect apps with /v1/instances/{id}/integrations, and show Scheduled and Completed from /v1/instances/{id}/crons.
 Done when the agent schedules a reminder by itself, the reminder fires, and my app shows the message it sent first.
 My key is in AGENT37_API_KEY.
 ```
@@ -38,7 +38,7 @@ Each user's agent is one [instance](/agents-api/instances): a persistent compute
 
 <Steps>
   <Step title="Create the user's agent">
-    [`POST /v1/instances`](/agents-api/instances/create) with four things beyond the usual: a monthly `budget` (the agent spends on its own schedule, so a cap that resets suits it better than one-time credit), `auto_sleep` so it bills disk alone between check-ins, a random callback token in `env`, and that token's SHA-256 in `metadata`.
+    [`POST /v1/instances`](/agents-api/instances/create) on the `agent37-hermes` template, with four things beyond the usual: a monthly `budget` (the agent spends on its own schedule, so a cap that resets suits it better than one-time credit), `auto_sleep` so it bills disk alone between check-ins, a random callback token in `env`, and that token's SHA-256 in `metadata`.
 
     <CodeGroup>
     ```bash curl
@@ -46,6 +46,7 @@ Each user's agent is one [instance](/agents-api/instances): a persistent compute
       -H "Authorization: Bearer sk_live_..." \
       -H "Content-Type: application/json" \
       -d '{
+        "template": "agent37-hermes",
         "user": "u_882",
         "name": "dots-Pip",
         "budget": { "monthly_cap_micros": 5000000 },
@@ -65,6 +66,7 @@ Each user's agent is one [instance](/agents-api/instances): a persistent compute
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        template: "agent37-hermes",
         user: "u_882",
         name: "dots-Pip",
         budget: { monthly_cap_micros: 5_000_000 },
@@ -365,7 +367,7 @@ Dots puts its computer beside the chat: you watch it work, and when a site needs
     AGENT37_API_KEY=sk_live_... npx agent37 templates build . --name hermes-vnc-desktop --default-port 3737
     ```
 
-    Then set `DESKTOP_TEMPLATE=hermes-vnc-desktop` in the example's `.env`. Each new user's agent is created with the call from **Create the user's agent** plus `"template": "hermes-vnc-desktop"`; everything else on this page works unchanged. Add a section to the persona so the agent knows the user can see its screen: browse in the visible browser, and when a site needs the user, ask them to take over instead of asking for a password in chat.
+    Then set `DESKTOP_TEMPLATE=hermes-vnc-desktop` in the example's `.env`. Each new user's agent is created with the call from **Create the user's agent**, with `"template": "hermes-vnc-desktop"` in place of `agent37-hermes`; everything else on this page works unchanged. Add a section to the persona so the agent knows the user can see its screen: browse in the visible browser, and when a site needs the user, ask them to take over instead of asking for a password in chat.
   </Step>
 
   <Step title="Mint a token for each connection">

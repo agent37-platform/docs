@@ -30,7 +30,7 @@ The Inkbox plugin supports both. Left alone, it dials out to an Inkbox tunnel, w
   </Step>
 
   <Step title="Create the instance with a public port on 8765">
-    Declare the port at create, turn on auto-sleep, and give the instance a [budget](/agents-api/budgets) so the managed model answers:
+    Create it from `agent37-hermes`, declare the port at create, turn on auto-sleep, and give the instance a [budget](/agents-api/budgets) so the managed model answers:
 
     <CodeGroup>
     ```bash curl
@@ -38,6 +38,7 @@ The Inkbox plugin supports both. Left alone, it dials out to an Inkbox tunnel, w
       -H "Authorization: Bearer sk_live_..." \
       -H "Content-Type: application/json" \
       -d '{
+        "template": "agent37-hermes",
         "user": "u_882",
         "budget": { "credit_micros": 2000000 },
         "auto_sleep": true,
@@ -53,6 +54,7 @@ The Inkbox plugin supports both. Left alone, it dials out to an Inkbox tunnel, w
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        template: "agent37-hermes",
         user: "u_882",
         budget: { credit_micros: 2000000 },
         auto_sleep: true,

@@ -3,7 +3,7 @@ title: "Templates"
 description: "Name an image once, then create every instance from that name."
 ---
 
-A template is a named image, plus (optionally) the port its main service listens on. Instances are always created from template names: pass `template` on [`POST /v1/instances`](/agents-api/instances), or omit it for the default `agent37-hermes`. Direct image references are rejected with `400 invalid_request`; register a template first, then pass its name.
+A template is a named image, plus (optionally) the port its main service listens on. Instances are always created from template names: pass `template` on [`POST /v1/instances`](/agents-api/instances), or omit it for the default `agent37-base`. Direct image references are rejected with `400 invalid_request`; register a template first, then pass its name.
 
 ```bash curl wrap
 curl -X POST https://api.agent37.com/v1/instances \
@@ -24,7 +24,8 @@ The `agent37-` prefix is reserved for system templates. The available templates 
 
 | Template | What it runs |
 | --- | --- |
-| `agent37-hermes` | Hermes, the general agent: chat, browsing, code, files. The default. |
+| `agent37-base` | A plain Linux sandbox: Node, Python, git, build tools, and a terminal. No agent. The default. |
+| `agent37-hermes` | Hermes, the general agent: chat, browsing, code, files. |
 | `agent37-openclaw` | OpenClaw, the general agent: chat, headless browsing, code, files. |
 | `agent37-claude-code` | Claude Code, Anthropic's coding agent, on your own Anthropic account: chat, code, files, shell. No browser or desktop. |
 | `agent37-codex` | Codex, OpenAI's coding agent, on your own OpenAI account: chat, code, files, shell. No browser or desktop. |
@@ -43,7 +44,7 @@ Every template offers the same four CPU/RAM shapes. Most templates default to 2 
   Passing any other `agent37-` name on instance create returns `400 invalid_request`, because the prefix is reserved for system templates.
 </Note>
 
-On agent harness templates, port `3737` is the gateway: the [chat API](/agents-api/chat) at `https://{instanceId}.agent37.app`. Any other port an instance serves, including the built-in dashboard, terminal, and file browser, is reachable at its derivable `https://{instanceId}-{port}.agent37.app` URL; see [Instance and preview URLs](/agents-api/urls). The three app and VM templates have no Agent API: `agent37-n8n` serves its editor on port `5678` through a public URL, `agent37-android` serves its authenticated screen on port `6901`, and `agent37-ubuntu` has no default service port. Use [exec](/agents-api/exec) or [SSH](/agents-api/ssh) to run commands on these instances.
+On agent harness templates, port `3737` is the gateway: the [chat API](/agents-api/chat) at `https://{instanceId}.agent37.app`. Any other port an instance serves, including the built-in dashboard, terminal, and file browser, is reachable at its derivable `https://{instanceId}-{port}.agent37.app` URL; see [Instance and preview URLs](/agents-api/urls). The base, app, and VM templates have no Agent API: `agent37-base` serves its terminal on port `7681` and has no default service port, `agent37-n8n` serves its editor on port `5678` through a public URL, `agent37-android` serves its authenticated screen on port `6901`, and `agent37-ubuntu` has no default service port. Use [exec](/agents-api/exec) or [SSH](/agents-api/ssh) to run commands on these instances.
 
 System templates track the newest platform image: their `image_ref` moves forward as new versions ship, and each create uses whatever the template points at in that moment. Existing instances are unaffected: an instance keeps the image it was created from until you [update it](/agents-api/instances/update).
 
@@ -977,7 +978,7 @@ A workspace template registered from a registry reference echoes that reference 
   `system` for built-in `agent37-` templates, `workspace` for ones you register.
 </ResponseField>
 <ResponseField name="agents" type="string[]">
-  The agents the template installs: `["hermes"]` on `agent37-hermes`, `["claude-code"]` on `agent37-claude-code`, `["codex"]` on `agent37-codex`, `["grok"]` on `agent37-grok`, `["opencode"]` on `agent37-opencode`, `["pi"]` on `agent37-pi`, and `[]` on `agent37-n8n`, which runs a web app rather than an agent. Workspace templates report `[]`, because the platform does not inspect what your image installs.
+  The agents the template installs: `["hermes"]` on `agent37-hermes`, `["claude-code"]` on `agent37-claude-code`, `["codex"]` on `agent37-codex`, `["grok"]` on `agent37-grok`, `["opencode"]` on `agent37-opencode`, `["pi"]` on `agent37-pi`, and `[]` on `agent37-base` and `agent37-n8n`, which run no agent. Workspace templates report `[]`, because the platform does not inspect what your image installs.
 </ResponseField>
 <ResponseField name="revision" type="integer | null">
   The platform-controlled workspace image revision. It starts at `1` and increments for a changed `image_ref` or every successful [cloud build](#build-an-image-in-the-cloud), even when the digest is unchanged. Metadata-only updates and the same exact `image_ref` leave it unchanged. `null` for system templates.

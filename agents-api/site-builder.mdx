@@ -8,7 +8,7 @@ A user types "make me a landing page". The agent builds the site on its own alwa
 ```text title="Paste this into your coding agent" wrap
 Read https://www.agent37.com/docs/llms-full.txt.
 I want a website builder: my users ask an agent for a website and get a live public URL back.
-Create one instance per user with POST /v1/instances (SITE_PUBLISH_TOKEN in env, plus budget.credit_micros), brief the agent to serve the site from ~/site on port 8788 and then to call my server to publish it, and have my server check the token and open that port with POST /v1/instances/{id}/public-ports.
+Create one instance per user with POST /v1/instances (template agent37-hermes, SITE_PUBLISH_TOKEN in env, plus budget.credit_micros), brief the agent to serve the site from ~/site on port 8788 and then to call my server to publish it, and have my server check the token and open that port with POST /v1/instances/{id}/public-ports.
 Done when the user gets an agent37.app link that opens the site for anyone who has it.
 My key is in AGENT37_API_KEY.
 ```
@@ -29,7 +29,7 @@ Your endpoint is the consent gate. In a real product this is where quotas, port 
 
 <Steps>
   <Step title="Create the instance with a publish token">
-    Two fields on [`POST /v1/instances`](/agents-api/instances/create) carry the token: `env` puts the raw token in the container, where the agent's shell can read it, and `metadata` stores its SHA-256. `env` is write-only on the API and `metadata` is readable, so later your server can verify a presented token against the instance it claims to come from without keeping any state.
+    Create it from the `agent37-hermes` template. Two fields on [`POST /v1/instances`](/agents-api/instances/create) carry the token: `env` puts the raw token in the container, where the agent's shell can read it, and `metadata` stores its SHA-256. `env` is write-only on the API and `metadata` is readable, so later your server can verify a presented token against the instance it claims to come from without keeping any state.
 
     <CodeGroup>
     ```bash curl
@@ -37,6 +37,7 @@ Your endpoint is the consent gate. In a real product this is where quotas, port 
       -H "Authorization: Bearer sk_live_..." \
       -H "Content-Type: application/json" \
       -d '{
+        "template": "agent37-hermes",
         "user": "u_882",
         "name": "site-u_882",
         "budget": { "credit_micros": 1000000 },
@@ -56,6 +57,7 @@ Your endpoint is the consent gate. In a real product this is where quotas, port 
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        template: "agent37-hermes",
         user: "u_882",
         name: "site-u_882",
         budget: { credit_micros: 1000000 },

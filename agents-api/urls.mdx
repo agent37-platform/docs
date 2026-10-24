@@ -22,6 +22,14 @@ A port nothing listens on answers with a transport error (`502`) rather than a `
 
 You can also serve these on your own domain: register a [custom domain](/agents-api/domains) and every URL here (the instance URL, preview URLs, and every public-port hostname) is mirrored at `{label}.yourdomain.com` with the same authentication.
 
+### What `agent37-base` serves
+
+| Port | URL | Serves |
+| --- | --- | --- |
+| `7681` | `https://ab12cd34ef-7681.agent37.app` | A shell in the container (browser) |
+
+The default template runs no agent and has no default port, so the bare instance URL has nothing behind it. Whatever you run gets its own preview URL on its port.
+
 ### What `agent37-hermes` serves
 
 | Port | URL | Serves |
@@ -31,7 +39,7 @@ You can also serve these on your own domain: register a [custom domain](/agents-
 | `7681` | `https://ab12cd34ef-7681.agent37.app` | A shell in the container (browser) |
 | `8080` | `https://ab12cd34ef-8080.agent37.app` | File browser for the workspace (browser) |
 
-So for the default [template](/agents-api/templates), chat is just the bare URL plus a path: `POST https://ab12cd34ef.agent37.app/v1/responses`. The dashboard, terminal, and file browser live on preview URLs; mint a [signed URL](#browser-access-with-signed-urls) to open one in a browser.
+So on `agent37-hermes`, chat is just the bare URL plus a path: `POST https://ab12cd34ef.agent37.app/v1/responses`. The dashboard, terminal, and file browser live on preview URLs; mint a [signed URL](#browser-access-with-signed-urls) to open one in a browser.
 
 ### What `agent37-openclaw` serves
 
