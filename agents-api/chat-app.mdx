@@ -8,7 +8,7 @@ The pattern is four calls: create one instance per user at signup, start one ses
 ```text title="Paste this into your coding agent" wrap
 Read https://www.agent37.com/docs/llms-full.txt.
 I want a chat UI on one always-on agent, with replies streamed token by token.
-Create one instance with POST /v1/instances (leave template unset for the default agent37-hermes, set budget.credit_micros so it can answer from the first message), send turns to https://{instanceId}.agent37.app/v1/responses with the X-Agent37-Key header and stream: true, and pass the session_id from the first reply back on every later turn.
+Create one instance with POST /v1/instances (set template to agent37-hermes and budget.credit_micros so it can answer from the first message), send turns to https://{instanceId}.agent37.app/v1/responses with the X-Agent37-Key header and stream: true, and pass the session_id from the first reply back on every later turn.
 Done when response.output_text.delta events render in the UI as they arrive.
 My key is in AGENT37_API_KEY.
 ```
@@ -37,6 +37,7 @@ Each step below shows the call twice: as bare curl, and as `fetch` where it land
       -H "Authorization: Bearer sk_live_..." \
       -H "Content-Type: application/json" \
       -d '{
+        "template": "agent37-hermes",
         "user": "u_882",
         "name": "chat-u_882",
         "budget": { "credit_micros": 1000000 }
@@ -51,6 +52,7 @@ Each step below shows the call twice: as bare curl, and as `fetch` where it land
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        template: "agent37-hermes",
         user: "u_882",
         name: "chat-u_882",
         budget: { credit_micros: 1000000 },
@@ -63,7 +65,7 @@ Each step below shows the call twice: as bare curl, and as `fetch` where it land
     ```
     </CodeGroup>
 
-    Omitting `template` gives you `agent37-hermes`, the default, on the default 2 vCPU / 4 GB RAM / 4 GB disk shape, billed from your workspace wallet (see [Billing](/agents-api/billing)). Each create uses the template's newest published image; for a fleet where every signup must get the identical image, pass a [version-pinned template](/agents-api/templates#pin-a-template-version) instead (`"template": "agent37-hermes@<tag>"`). The `budget.credit_micros` field grants one-time managed-spend headroom so the agent's LLM calls work from the first message; without it the per-instance [budget](/agents-api/budgets) defaults to \$0.
+    `"template": "agent37-hermes"` gives you the Hermes agent on the default 2 vCPU / 4 GB RAM / 4 GB disk shape, billed from your workspace wallet (see [Billing](/agents-api/billing)). Each create uses the template's newest published image; for a fleet where every signup must get the identical image, pass a [version-pinned template](/agents-api/templates#pin-a-template-version) instead (`"template": "agent37-hermes@<tag>"`). The `budget.credit_micros` field grants one-time managed-spend headroom so the agent's LLM calls work from the first message; without it the per-instance [budget](/agents-api/budgets) defaults to \$0.
 
     The call is synchronous and returns `201` with `status: "running"`: the instance's computer is up. The agent inside is still booting, usually seconds but up to a few minutes on a cold host, so before the first message poll `GET /v1/health` on the instance URL until it answers with `"healthy": true`; `ok` alone only means the gateway is up (see [Health & version](/agents-api/health)). Store `inst.id` on the user row.
   </Step>

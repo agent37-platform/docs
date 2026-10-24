@@ -39,7 +39,7 @@ The owner whitelist is the other half. A new Inkbox identity accepts anyone who 
 
 <Steps>
   <Step title="Create the user's computer">
-    One [instance](/agents-api/instances) per user at signup, with a public port on `8765` (where the Inkbox plugin listens), auto-sleep, a [budget](/agents-api/budgets), and a notify token:
+    One `agent37-hermes` [instance](/agents-api/instances) per user at signup, with a public port on `8765` (where the Inkbox plugin listens), auto-sleep, a [budget](/agents-api/budgets), and a notify token:
 
     <CodeGroup>
     ```bash curl
@@ -47,6 +47,7 @@ The owner whitelist is the other half. A new Inkbox identity accepts anyone who 
       -H "Authorization: Bearer sk_live_..." \
       -H "Content-Type: application/json" \
       -d '{
+        "template": "agent37-hermes",
         "user": "u_882",
         "name": "instinct Juniper",
         "budget": { "credit_micros": 2000000 },
@@ -68,6 +69,7 @@ The owner whitelist is the other half. A new Inkbox identity accepts anyone who 
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        template: "agent37-hermes",
         user: user.id,
         name: `instinct ${user.agentName}`,
         budget: { credit_micros: 2000000 },
