@@ -67,6 +67,9 @@ ARG ANT_VERSION=1.35.0
 RUN curl -fsSL "https://github.com/anthropics/anthropic-cli/releases/download/v${ANT_VERSION}/ant_${ANT_VERSION}_linux_amd64.tar.gz" \
     | tar -xz -C /usr/local/bin ant
 
+# The agent's bash tool runs on a terminal: without this, `git log` waits on a pager until the tool times out.
+ENV PAGER=cat
+
 WORKDIR /workspace
 ENTRYPOINT ["tini", "--", "ant", "beta:worker", "poll", "--workdir", "/workspace"]
 ```
@@ -179,6 +182,12 @@ Anthropic doesn't mount files or GitHub repositories into a self-hosted sandbox,
 - **Heavier tools.** [Resize](/agents-api/instances/resize) the instance for more CPU, memory, or disk.
 - **Separate customers.** Sessions on one instance share its disk. When customers must not see each other's files, give each one its own self-hosted environment and instance.
 - **Memory stores.** The `ant` worker doesn't mount [memory stores](https://platform.claude.com/docs/en/managed-agents/memory). If your sessions attach them, replace the `ENTRYPOINT` with the Python, TypeScript, or Go SDK's `EnvironmentWorker`; see [Use memory stores](https://platform.claude.com/docs/en/managed-agents/self-hosted-sandboxes#use-memory-stores).
+
+## One instance per session
+
+To give every session its own computer, claim the work yourself instead of running `ant beta:worker poll`. A small orchestrator on your server long-polls the environment's queue with the Anthropic SDK's `WorkPoller`, creates an instance with `auto_sleep: true` for each new session, and starts `ant beta:worker run` on it over [exec](/agents-api/exec), which wakes the instance if it is asleep. The session's files stay on its instance between turns, the instance sleeps and bills disk alone while nobody is talking to it, and sessions run in parallel, one per instance.
+
+The [claude-managed-agents example](https://github.com/agent37-platform/examples/tree/main/claude-managed-agents) is a complete orchestrator in about 100 lines of Node.js, with a chat script and a parallel-sessions demo.
 
 ## Cost
 
