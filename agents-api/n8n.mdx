@@ -49,7 +49,7 @@ The public URL is permanent and unauthenticated, which is what webhooks and OAut
 
 ## AI nodes on the managed model
 
-On every boot the image seeds an n8n credential named **Agent37 managed model**, of type OpenAI, pointed at the managed LLM endpoint with the instance's managed token. In the editor, pick it on the **OpenAI Chat Model** node (or any OpenAI-compatible node); the model list comes from the managed endpoint, `default` plus the other managed models. Usage bills to the workspace wallet under the instance's [budget](/agents-api/budgets), exactly like managed usage on any other template; see [Managed services](/agents-api/managed-services). Add your own OpenAI, Anthropic, or OpenRouter credentials in n8n as usual when you want a specific provider.
+On every boot the image seeds an n8n credential named **Managed model**, of type OpenAI, pointed at the managed LLM endpoint with the instance's managed token. In the editor, pick it on the **OpenAI Chat Model** node (or any OpenAI-compatible node); the model list comes from the managed endpoint, `default` plus the other managed models. Usage bills to the workspace wallet under the instance's [budget](/agents-api/budgets), exactly like managed usage on any other template; see [Managed services](/agents-api/managed-services). Add your own OpenAI, Anthropic, or OpenRouter credentials in n8n as usual when you want a specific provider.
 
 ## What persists
 
