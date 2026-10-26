@@ -162,6 +162,85 @@ curl --fail-with-body -sS \
 
 Each Cloud Agent session claims one pool worker at a time, so create one instance per worker you want in the pool. `--idle-release-timeout 0` keeps an always-on worker connected; by default a pool worker exits after an hour idle. Start pool agents with `env: { type: "pool", name: "agent37" }`, or pick the pool on [cursor.com/agents](https://cursor.com/agents).
 
+## Sleep between sessions
+
+On a Team Pool, each agent can get its own instance that stops when the agent goes idle and starts again when a follow-up arrives, so you pay the disk rate alone between sessions (see [Billing](/agents-api/billing)). The checkout, dependencies, and build cache stay on the instance's disk. This uses Cursor's [hibernation](https://cursor.com/docs/cloud-agent/self-hosted/pool#hibernation): the [worker controller](https://cursor.com/docs/cloud-agent/self-hosted/pool#worker-controller) runs a spawn hook for every new session and every wake. A My Machines worker cannot sleep, because Cursor has no way to wake it.
+
+Give the pool a reconnect window, so Cursor holds a follow-up while its instance starts:
+
+```bash
+curl --fail-with-body -sS https://api.cursor.com/v0/private-workers/pools \
+  -u "$CURSOR_API_KEY:" \
+  -H "Content-Type: application/json" \
+  -d '{ "scope": "team", "poolName": "agent37", "workerReadyTimeoutSeconds": 900 }'
+```
+
+Save the spawn hook as `spawn.sh`. It names each instance after its Cursor worker id, so a wake starts the same instance again:
+
+```bash spawn.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+a37() {
+  curl --fail-with-body -sS "https://api.agent37.com/v1$1" \
+    -H "Authorization: Bearer $AGENT37_API_KEY" \
+    -H "Content-Type: application/json" "${@:2}"
+}
+
+ID=$(a37 /instances | jq -r --arg w "$CURSOR_AGENT_WORKER_ID" \
+  'first(.data[] | select(.name == $w) | .id) // empty')
+
+if [ -n "$ID" ]; then
+  a37 "/instances/$ID/start" -X POST > /dev/null
+else
+  ID=$(jq -n --arg w "$CURSOR_AGENT_WORKER_ID" '{
+    template: "cursor-worker",
+    name: $w,
+    metadata: { cursor_pool: env.CURSOR_POOL },
+    env: { CURSOR_API_KEY: env.CURSOR_API_KEY }
+  }' | a37 /instances --data-binary @- | jq -er '.id')
+fi
+
+jq -n --arg w "$CURSOR_AGENT_WORKER_ID" --arg p "$CURSOR_POOL" '{ command: (
+  "mkdir -p /home/node/work && rm -f /tmp/worker-exited && " +
+  "CURSOR_AGENT_WORKER_ID=\($w) nohup sh -c \"agent worker --pool \($p) " +
+  "--clone-git-repos --idle-release-timeout 600 --worker-dir /home/node/work start; " +
+  "touch /tmp/worker-exited\" > /tmp/cursor-worker.log 2>&1 < /dev/null &"
+) }' | a37 "/instances/$ID/exec" --data-binary @- > /dev/null
+```
+
+The worker checks out the agent's repositories in `/home/node/work` (`--clone-git-repos` needs a team admin to turn on GitHub token minting for pool workers) and exits after 10 idle minutes. Save this loop as `idle.sh`. Once a minute, it stops every pool instance whose worker has exited:
+
+```bash idle.sh
+#!/usr/bin/env bash
+
+a37() {
+  curl --fail-with-body -sS "https://api.agent37.com/v1$1" \
+    -H "Authorization: Bearer $AGENT37_API_KEY" \
+    -H "Content-Type: application/json" "${@:2}"
+}
+
+while true; do
+  for ID in $(a37 /instances | jq -r '.data[]
+      | select(.status == "running" and .metadata.cursor_pool != null) | .id'); do
+    a37 "/instances/$ID/exec" -d '{"command": "rm /tmp/worker-exited"}' \
+      | jq -e '.exit_code == 0' > /dev/null \
+      && a37 "/instances/$ID/stop" -X POST > /dev/null
+  done
+  sleep 60
+done
+```
+
+Run both on any always-on machine with the Cursor CLI, `curl`, and `jq`, with `AGENT37_API_KEY` set and `CURSOR_API_KEY` set to the service account key:
+
+```bash
+chmod +x spawn.sh idle.sh
+./idle.sh &
+agent worker controller --spawn ./spawn.sh --pool agent37
+```
+
+A wake starts the instance and its worker in a few seconds. A stopped instance keeps billing disk until you delete it.
+
 ## Lifecycle and cleanup
 
 The worker stops with its instance. If you stop, restart, or update the instance, start the worker again with step 4. The checkout in `/home/node/repo`, with its dependencies and build output, survives all of those.
@@ -181,7 +260,7 @@ Agent37 bills compute and storage through your [wallet](/agents-api/billing); Cu
 Cursor lists infrastructure partners on its [Self-Hosted Machines integrations](https://cursor.com/docs/cloud-agent/self-hosted/integrations) page, each linking to the partner's own guide. Everything needed to add Agent37 is below.
 
 ```text title="Provider description" wrap
-Agent37 Cloud runs Cursor Self-Hosted Machines workers on always-on Linux instances. Build the worker image once, keep the checkout, dependencies, and build cache on the instance's disk between sessions, and create and manage workers through the Agent37 Sandbox API.
+Agent37 Cloud runs Cursor Self-Hosted Machines workers on Linux instances. Build the worker image once, keep the checkout, dependencies, and build cache on the instance's disk between sessions, and create and manage workers through the Agent37 Sandbox API. On Team Pools, each agent's instance stops when it goes idle and starts again in seconds on a follow-up, billing disk alone in between.
 ```
 
 ```markdown title="Partner guide entry"
