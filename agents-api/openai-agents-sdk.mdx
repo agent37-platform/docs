@@ -1,0 +1,353 @@
+---
+title: "OpenAI Agents SDK"
+description: "Run OpenAI Agents SDK sandbox agents in Agent37 sandboxes with a one-file client, on their own or inside Temporal workflows."
+---
+
+Give a [`SandboxAgent`](https://openai.github.io/openai-agents-python/sandbox_agents/) from the open-source [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) an Agent37 sandbox to work in. Your application runs the agent loop and calls the model. Agent37 runs the agent's commands and stores its files.
+
+The client is one Python file with no package to install. It works with the default `agent37-base` template, so you do not need an agent harness inside the instance. For OpenAI's hosted Agents API, see [OpenAI Agents API on Agent37](/agents-api/openai-agents) instead.
+
+## Install
+
+Use Python 3.10 or newer, an [Agent37 API key](https://www.agent37.com/dashboard/cloud/api-keys), and a funded [workspace wallet](/agents-api/billing). The examples use your own OpenAI key for the model.
+
+```bash
+pip install openai-agents httpx
+export AGENT37_API_KEY=sk_live_...
+export OPENAI_API_KEY=...
+```
+
+Save this file as `agent37_sandbox.py` next to your code. It is tested with `openai-agents` 0.22 and 0.24.
+
+```python agent37_sandbox.py
+import base64
+import io
+import math
+import os
+import shlex
+import socket
+import uuid
+from typing import Any, Literal
+
+import httpx
+from agents.sandbox import (
+    ExecResult,
+    ExecTimeoutError,
+    ExecTransportError,
+    Manifest,
+    WorkspaceArchiveReadError,
+    WorkspaceArchiveWriteError,
+    WorkspaceReadNotFoundError,
+    resolve_snapshot,
+)
+from agents.sandbox.session import (
+    BaseSandboxClient,
+    BaseSandboxClientOptions,
+    BaseSandboxSession,
+    SandboxSession,
+    SandboxSessionState,
+)
+from agents.sandbox.session.tar_workspace import shell_tar_exclude_args
+
+API = "https://api.agent37.com/v1"
+EXEC = "https://sandbox.agent37.app/v1"
+UPLOAD_CHUNK = 48 * 1024
+DOWNLOAD_CHUNK = 256 * 1024
+
+
+class Agent37SandboxClientOptions(BaseSandboxClientOptions):
+    type: Literal["agent37"] = "agent37"
+    template: str = "agent37-base"
+    instance_id: str | None = None
+    create_options: dict[str, Any] = {}
+
+
+class Agent37SandboxSessionState(SandboxSessionState):
+    type: Literal["agent37"] = "agent37"
+    instance_id: str
+    owned: bool = True
+
+
+class Agent37SandboxSession(BaseSandboxSession):
+    state: Agent37SandboxSessionState
+
+    def __init__(self, state: Agent37SandboxSessionState, http: httpx.AsyncClient):
+        self.state = state
+        self._http = http
+        self._deleted = False
+
+    async def _run(self, command: str, timeout: float | None = None) -> dict[str, Any]:
+        url = f"{EXEC}/instances/{self.state.instance_id}/exec"
+        try:
+            response = await self._http.post(
+                url, json={"command": command, "user": "root"}, timeout=(timeout or 900) + 30
+            )
+            response.raise_for_status()
+        except httpx.TimeoutException as e:
+            raise ExecTimeoutError(command=(command,), timeout_s=timeout, cause=e) from e
+        except httpx.HTTPError as e:
+            raise ExecTransportError(command=(command,), cause=e) from e
+        return response.json()
+
+    async def _exec_internal(self, *command, timeout: float | None = None) -> ExecResult:
+        script = shlex.join(str(part) for part in command)
+        env = await self.state.manifest.environment.resolve()
+        if env:
+            assignments = " ".join(shlex.quote(f"{k}={v}") for k, v in env.items())
+            script = f"env {assignments} {script}"
+        if timeout:
+            script = f"timeout {math.ceil(timeout)} {script}"
+        root = shlex.quote(self.state.manifest.root)
+        result = await self._run(f"mkdir -p {root} && cd {root} && {script}", timeout)
+        if timeout and result["exit_code"] == 124:
+            raise ExecTimeoutError(command=command, timeout_s=timeout)
+        return ExecResult(
+            stdout=result["stdout"].encode(),
+            stderr=result["stderr"].encode(),
+            exit_code=result["exit_code"],
+        )
+
+    async def _download(self, path: str) -> bytes:
+        q = shlex.quote(path)
+        data = bytearray()
+        while True:
+            chunk_command = f"tail -c +{len(data) + 1} {q} | head -c {DOWNLOAD_CHUNK} | base64 -w0"
+            result = await self._run(f"test -f {q} || exit 3; {chunk_command}")
+            if result["exit_code"] == 3:
+                raise WorkspaceReadNotFoundError(path=path)
+            if result["exit_code"] != 0:
+                raise WorkspaceArchiveReadError(path=path, context={"stderr": result["stderr"]})
+            chunk = base64.b64decode(result["stdout"])
+            data += chunk
+            if len(chunk) < DOWNLOAD_CHUNK:
+                return bytes(data)
+
+    async def _upload(self, path: str, payload: bytes | str) -> None:
+        if isinstance(payload, str):
+            payload = payload.encode()
+        q = shlex.quote(path)
+        tmp = shlex.quote(f"{path}.{uuid.uuid4().hex}.tmp")
+        starts = range(0, max(len(payload), 1), UPLOAD_CHUNK)
+        chunks = [payload[i : i + UPLOAD_CHUNK] for i in starts]
+        for i, chunk in enumerate(chunks):
+            encoded = base64.b64encode(chunk).decode()
+            command = f"printf %s {encoded} | base64 -d {'>' if i == 0 else '>>'} {tmp}"
+            if i == 0:
+                command = f'mkdir -p "$(dirname {q})" && {command}'
+            if i == len(chunks) - 1:
+                command += f" && mv -f {tmp} {q}"
+            result = await self._run(command)
+            if result["exit_code"] != 0:
+                await self._run(f"rm -f {tmp}")
+                raise WorkspaceArchiveWriteError(path=path, context={"stderr": result["stderr"]})
+
+    async def read(self, path, *, user=None) -> io.IOBase:
+        path = await self._validate_path_access(path)
+        return io.BytesIO(await self._download(str(path)))
+
+    async def write(self, path, data: io.IOBase, *, user=None) -> None:
+        path = await self._validate_path_access(path, for_write=True)
+        await self._upload(str(path), data.read())
+
+    async def running(self) -> bool:
+        response = await self._http.get(f"{API}/instances/{self.state.instance_id}")
+        return response.is_success and response.json()["status"] in ("running", "sleeping")
+
+    async def persist_workspace(self) -> io.IOBase:
+        root = shlex.quote(str(self._workspace_root_path()))
+        tar = f"/tmp/agent37-{uuid.uuid4().hex}.tar"
+        excludes = " ".join(shell_tar_exclude_args(self._persist_workspace_skip_relpaths()))
+        result = await self._run(f"tar {excludes} -C {root} -cf {tar} .")
+        try:
+            if result["exit_code"] != 0:
+                raise WorkspaceArchiveReadError(path=root, context={"stderr": result["stderr"]})
+            return io.BytesIO(await self._download(tar))
+        finally:
+            await self._run(f"rm -f {tar}")
+
+    async def hydrate_workspace(self, data: io.IOBase) -> None:
+        root = shlex.quote(str(self._workspace_root_path()))
+        tar = f"/tmp/agent37-{uuid.uuid4().hex}.tar"
+        await self._upload(tar, data.read())
+        result = await self._run(
+            f"mkdir -p {root} && tar -C {root} -xf {tar}; s=$?; rm -f {tar}; exit $s"
+        )
+        if result["exit_code"] != 0:
+            raise WorkspaceArchiveWriteError(path=root, context={"stderr": result["stderr"]})
+
+    async def _shutdown_backend(self) -> None:
+        if self.state.owned and not self._deleted:
+            self._deleted = True
+            response = await self._http.delete(f"{API}/instances/{self.state.instance_id}")
+            if response.status_code != 404:
+                response.raise_for_status()
+
+
+class Agent37SandboxClient(BaseSandboxClient[Agent37SandboxClientOptions]):
+    backend_id = "agent37"
+    supports_default_options = True
+
+    def __init__(self, api_key: str | None = None):
+        key = api_key or os.environ["AGENT37_API_KEY"]
+        keepalive = [(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)]
+        self._http = httpx.AsyncClient(
+            headers={"Authorization": f"Bearer {key}", "X-Agent37-Key": key},
+            timeout=httpx.Timeout(120, connect=15),
+            transport=httpx.AsyncHTTPTransport(socket_options=keepalive),
+        )
+
+    async def create(self, *, snapshot=None, manifest=None, options=None) -> SandboxSession:
+        options = options or Agent37SandboxClientOptions()
+        manifest = self._validate_manifest_for_create(manifest or Manifest())
+        if options.instance_id:
+            instance_id, owned = options.instance_id, False
+        else:
+            body = {"template": options.template, **options.create_options}
+            response = await self._http.post(f"{API}/instances", json=body)
+            response.raise_for_status()
+            instance_id, owned = response.json()["id"], True
+        session_id = uuid.uuid4()
+        state = Agent37SandboxSessionState(
+            session_id=session_id,
+            manifest=manifest,
+            snapshot=resolve_snapshot(snapshot, str(session_id)),
+            instance_id=instance_id,
+            owned=owned,
+        )
+        return self._wrap_session(Agent37SandboxSession(state, self._http))
+
+    async def delete(self, session: SandboxSession) -> SandboxSession:
+        await session._inner.shutdown()
+        return session
+
+    async def resume(self, state: SandboxSessionState) -> SandboxSession:
+        inner = Agent37SandboxSession(state, self._http)
+        inner._set_start_state_preserved(await inner.running())
+        return self._wrap_session(inner)
+
+    def deserialize_session_state(self, payload: dict[str, object]) -> SandboxSessionState:
+        return self._deserialize_session_state_payload(payload, Agent37SandboxSessionState)
+```
+
+## Run an agent
+
+```python
+import asyncio
+
+from agents import Runner
+from agents.run import RunConfig
+from agents.sandbox import SandboxAgent, SandboxRunConfig
+
+from agent37_sandbox import Agent37SandboxClient
+
+
+async def main():
+    agent = SandboxAgent(
+        name="Coder",
+        model="gpt-5.5",
+        instructions="Use the sandbox to do the work, then report what the commands returned.",
+    )
+    result = await Runner.run(
+        agent,
+        "Write fib.py that prints the first 10 Fibonacci numbers, run it, and show the output.",
+        run_config=RunConfig(sandbox=SandboxRunConfig(client=Agent37SandboxClient())),
+    )
+    print(result.final_output)
+
+
+asyncio.run(main())
+```
+
+The runner creates an instance for the run and deletes it when the run ends, including when the run fails. Instances bill your workspace while they exist; OpenAI bills model calls separately.
+
+The agent gets the SDK's default tools: shell commands, file edits with `apply_patch`, and image viewing. Commands run as root in `/workspace`. Each command starts a fresh shell, so files persist between commands but shell variables and `cd` do not. A command can run for up to 15 minutes, and one that passes the timeout the agent sets is stopped.
+
+## Keep files between runs
+
+Create a sandbox yourself and pass it to each run to share one workspace:
+
+```python
+client = Agent37SandboxClient()
+
+async with await client.create() as sandbox:
+    run_config = RunConfig(sandbox=SandboxRunConfig(session=sandbox))
+    await Runner.run(agent, "Create notes.md with three to-do items.", run_config=run_config)
+    await Runner.run(agent, "Mark the second item done.", run_config=run_config)
+```
+
+Leaving the `async with` block deletes the instance. To come back to the same files from another process, store `sandbox.state.instance_id` and attach to it later:
+
+```python
+from agent37_sandbox import Agent37SandboxClientOptions
+
+sandbox = await client.create(options=Agent37SandboxClientOptions(instance_id="ab12cd34ef"))
+```
+
+The client never deletes an instance it attached to. Delete it with [Delete an instance](/agents-api/instances/delete) when you are done. Attached instances must be running or sleeping; a command wakes a sleeping one.
+
+## Choose a template and resources
+
+```python
+options = Agent37SandboxClientOptions(
+    template="agent37-base",
+    create_options={"resources": {"cpu": 4, "memory": 8}, "auto_sleep": True},
+)
+run_config = RunConfig(sandbox=SandboxRunConfig(client=Agent37SandboxClient(), options=options))
+```
+
+`create_options` accepts the JSON fields from [Create an instance](/agents-api/instances/create), such as `resources`, `env`, `region`, and `auto_sleep`. With `auto_sleep`, an instance you keep between runs sleeps while idle and pays for disk alone. Custom templates need a POSIX shell, `tar`, and GNU coreutils.
+
+The client does not support PTY sessions, exposed ports, or storage mounts.
+
+## Run on Temporal
+
+Temporal's [OpenAI Agents integration](https://docs.temporal.io/develop/python/integrations/openai-agents) runs each sandbox operation as its own activity. Install it with `pip install temporalio-openai-agents`, then register the client on the worker:
+
+```python
+from temporalio.client import Client
+from temporalio.openai_agents import OpenAIAgentsPlugin, SandboxClientProvider
+
+from agent37_sandbox import Agent37SandboxClient
+
+client = await Client.connect(
+    "localhost:7233",
+    plugins=[
+        OpenAIAgentsPlugin(
+            sandbox_clients=[SandboxClientProvider("agent37", Agent37SandboxClient())],
+        ),
+    ],
+)
+```
+
+The worker process needs `AGENT37_API_KEY` and `OPENAI_API_KEY`. In the workflow, name the same provider:
+
+```python
+from agents import Runner
+from agents.run import RunConfig
+from agents.sandbox import SandboxAgent, SandboxRunConfig
+from temporalio import workflow
+from temporalio.openai_agents.workflow import temporal_sandbox_client
+
+with workflow.unsafe.imports_passed_through():
+    from agent37_sandbox import Agent37SandboxClientOptions
+
+
+@workflow.defn
+class CodingWorkflow:
+    @workflow.run
+    async def run(self, prompt: str) -> str:
+        agent = SandboxAgent(name="Coder", model="gpt-5.5", instructions="Use the sandbox to do the work.")
+        result = await Runner.run(
+            agent,
+            prompt,
+            run_config=RunConfig(
+                sandbox=SandboxRunConfig(
+                    client=temporal_sandbox_client("agent37"),
+                    options=Agent37SandboxClientOptions(),
+                ),
+            ),
+        )
+        return result.final_output
+```
+
+Import the options inside `imports_passed_through()`, because Temporal's workflow sandbox blocks the HTTP library the client file imports.
