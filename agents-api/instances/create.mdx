@@ -221,6 +221,10 @@ The examples include every optional field. Omit any field to use its default.
   Where the instance can connect: `"allow-all"` (the public internet), `"deny-all"` (nothing, DNS included), or `{ "allow": [...] }` with up to 100 IPv4 addresses and ranges. See [Network access](/agents-api/instance-network).
 </ParamField>
 
+<ParamField body="mount_path" type="string" default="/home/node" post={["optional"]}>
+  The folder the instance's disk is mounted at, and the one folder an [update](/agents-api/instances/update) keeps. Set it when your image keeps its data somewhere else, like `/data` or `/var/lib/postgresql`. An absolute path; system folders such as `/etc` and `/usr` are refused. Fixed for the life of the instance. Defaults to `/home/node`, or the image user's home folder on a [VM](/agents-api/vm-instances). Anything the image itself ships in that folder is hidden by the disk.
+</ParamField>
+
 ## Defaults
 
 `POST /v1/instances` returns `201` with the full instance object once `status` is `running`. Every field is optional, so a `POST` with no body works: you get the default template (`agent37-base`) on the smallest shape, 2 vCPU / 4 GB.
