@@ -83,7 +83,8 @@
                 "pages": [
                   "agents-api/claude-managed-agents",
                   "agents-api/openai-agents",
-                  "agents-api/cursor"
+                  "agents-api/cursor",
+                  "agents-api/langchain"
                 ]
               },
               {

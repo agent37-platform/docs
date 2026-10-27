@@ -1,0 +1,105 @@
+---
+title: "LangChain Deep Agents"
+description: "Run Deep Agents shell commands and file operations in Agent37 sandboxes with the langchain-agent37 Python package."
+---
+
+Give a LangChain Deep Agent a remote filesystem and shell with [`langchain-agent37`](https://github.com/agent37-platform/langchain-agent37). Your application runs the agent loop and calls your model provider. Agent37 runs its commands and stores its files in a persistent instance.
+
+The package implements Deep Agents' sandbox backend over the public Agent37 REST API. It works with the plain `agent37-base` template; you do not need an agent harness or the Agent API inside the instance.
+
+## Install and run
+
+Use Python 3.11 or newer, an [Agent37 API key](https://www.agent37.com/dashboard/cloud/api-keys), and a funded [workspace wallet](/agents-api/billing). This example uses your own OpenAI key for the model.
+
+```bash
+pip install langchain-agent37 langchain-openai
+export AGENT37_API_KEY=sk_live_...
+export OPENAI_API_KEY=...
+```
+
+```python
+from deepagents import create_deep_agent
+from langchain_agent37 import Agent37Sandbox
+
+with Agent37Sandbox() as sandbox:
+    agent = create_deep_agent(model="openai:gpt-5.5", backend=sandbox)
+    result = agent.invoke({
+        "messages": [{
+            "role": "user",
+            "content": "Write /workspace/hello.py, run it, and show me its output.",
+        }]
+    })
+    print(result["messages"][-1].content)
+```
+
+The context manager creates an instance and deletes it on exit, including when your code raises an exception. Instances bill your workspace while they run. The model provider bills model calls separately.
+
+Deep Agents gets shell execution, file reads, writes, edits, directory listings, glob and grep searches, and binary uploads and downloads. Async agent runs work with `await agent.ainvoke(...)`; async backend methods use worker threads.
+
+## Commands and files
+
+```python
+with Agent37Sandbox() as sandbox:
+    sandbox.write("/workspace/hello.py", "print('hello from Agent37')\n")
+    result = sandbox.execute("python3 hello.py")
+    print(result.output)
+    print(result.exit_code)
+
+    uploaded = sandbox.upload_files([("/workspace/input.bin", b"\x00\x01")])
+    assert uploaded[0].error is None
+    downloaded = sandbox.download_files(["/workspace/input.bin"])
+    print(downloaded[0].content)
+```
+
+Commands run as root in `/workspace` by default. Each command starts a fresh shell; files persist, but shell variables and `cd` do not. Upload and download paths must be absolute. Transfers support binary files and report errors per file.
+
+The default command timeout is 120 seconds. Set `timeout` on the constructor or call `sandbox.execute(command, timeout=300)`. Values range from 1 to 840 seconds. A command that reaches its deadline is terminated and returns exit code 124, or 137 if it must be force-killed.
+
+HTTP failures raise `httpx.HTTPError`. The package does not retry commands: after a network failure, a command might still be running.
+
+## Keep files between runs
+
+```python
+sandbox = Agent37Sandbox()
+instance_id = sandbox.id  # Store this in your application.
+sandbox.write("/workspace/notes.txt", "Keep this for the next run.\n")
+sandbox.close()
+
+with Agent37Sandbox(instance_id=instance_id) as attached:
+    print(attached.read("/workspace/notes.txt"))
+```
+
+`close()` releases HTTP connections without deleting the instance. A context manager that attaches to an existing instance also leaves it running. Call `sandbox.destroy()` when you want to delete an instance, including one you attached to. Deep Agents' `sandbox.delete(path)` deletes a file instead.
+
+Attached instances must be running or sleeping. Exec wakes a sleeping instance automatically. [Start a stopped instance](/agents-api/instances/start) before using the backend.
+
+## Choose resources and a template
+
+```python
+with Agent37Sandbox(
+    template="agent37-base",
+    create_options={
+        "resources": {"cpu": 2, "memory": 4, "disk": 4},
+        "auto_sleep": True,
+        "idle_timeout_seconds": 900,
+        "env": {"PROJECT_NAME": "example"},
+    },
+) as sandbox:
+    print(sandbox.execute("echo $PROJECT_NAME").output)
+```
+
+`create_options` accepts the JSON fields from [Create an instance](/agents-api/instances/create). Custom templates need Python 3, a POSIX shell, and GNU coreutils. `workdir` changes the command directory; it does not restrict the agent to that directory inside the sandbox.
+
+## Deep Agents Code
+
+Install the package alongside Deep Agents Code to add `--sandbox agent37`. The current CLI requires Python 3.14:
+
+```bash
+uv tool install --python 3.14 --with langchain-agent37 deepagents-code
+export AGENT37_API_KEY=sk_live_...
+dcode --sandbox agent37
+```
+
+Use `dcode --sandbox agent37 --sandbox-id <instance-id>` to reconnect. The CLI starts a stopped instance when reconnecting and deletes instances it creates when the session ends. You can also use `DEEPAGENTS_CODE_AGENT37_API_KEY` through the CLI's environment settings.
+
+See the [package README](https://github.com/agent37-platform/langchain-agent37#readme) for the full interface, development commands, and integration tests.
