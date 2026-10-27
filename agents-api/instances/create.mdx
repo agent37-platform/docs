@@ -21,7 +21,6 @@ curl -X POST \
     },
     "type": "default",
     "region": "us",
-    "user": "u_882",
     "name": "Production agent",
     "metadata": {
       "plan": "pro"
@@ -63,7 +62,6 @@ response = requests.post(
         },
         "type": "default",
         "region": "us",
-        "user": "u_882",
         "name": "Production agent",
         "metadata": {
             "plan": "pro",
@@ -109,7 +107,6 @@ const response = await fetch(
       },
       type: "default",
       region: "us",
-      user: "u_882",
       name: "Production agent",
       metadata: {
         plan: "pro",
@@ -183,10 +180,6 @@ The examples include every optional field. Omit any field to use its default.
   `eu` and `ap-south` run the instance, its disk, and everything your code writes to that disk in that region. Backups and the instance's own control-plane record (its id, shape, and status) are stored in the US; if that matters for your use case, email vishnu@agent37.com before you build on it.
 
   **`us` is the only region that runs every instance type.** `eu` and `ap-south` run [VM](/agents-api/vm-instances) and Performance instances, so a create in either should also send `"type": "vm"` or `"type": "performance"`. A `default` create there returns `503 no_capacity`, and the message says so.
-</ParamField>
-
-<ParamField body="user" type="string" post={["optional"]}>
-  An opaque tag for your own attribution, typically your end user's id. Stored, never interpreted, echoed back on the instance object.
 </ParamField>
 
 <ParamField body="name" type="string" post={["optional"]}>

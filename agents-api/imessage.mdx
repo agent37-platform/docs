@@ -39,7 +39,6 @@ The Inkbox plugin supports both. Left alone, it dials out to an Inkbox tunnel, w
       -H "Content-Type: application/json" \
       -d '{
         "template": "agent37-hermes",
-        "user": "u_882",
         "budget": { "credit_micros": 2000000 },
         "auto_sleep": true,
         "public_ports": [{ "port": 8765, "label": "inkbox" }]
@@ -55,7 +54,6 @@ The Inkbox plugin supports both. Left alone, it dials out to an Inkbox tunnel, w
       },
       body: JSON.stringify({
         template: "agent37-hermes",
-        user: "u_882",
         budget: { credit_micros: 2000000 },
         auto_sleep: true,
         public_ports: [{ port: 8765, label: "inkbox" }],

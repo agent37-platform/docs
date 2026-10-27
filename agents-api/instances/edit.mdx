@@ -14,7 +14,6 @@ curl -X PATCH \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Production agent",
-    "user": "u_882",
     "metadata": {
       "plan": "pro"
     },
@@ -37,7 +36,6 @@ response = requests.patch(
     },
     json={
         "name": "Production agent",
-        "user": "u_882",
         "metadata": {
             "plan": "pro",
         },
@@ -64,7 +62,6 @@ const response = await fetch(
     },
     body: JSON.stringify({
       name: "Production agent",
-      user: "u_882",
       metadata: {
         plan: "pro",
       },
@@ -89,7 +86,6 @@ console.log(await response.json());
 {
   "id": "ab12cd34ef",
   "name": "Production agent",
-  "user": "u_882",
   "metadata": {
     "plan": "pro"
   },
@@ -113,10 +109,6 @@ The examples include every editable field. Send only the fields you want to chan
 
 <ParamField body="name" type="string | null" post={["optional"]}>
   A label for the instance, up to 60 characters. `null` or `""` clears it.
-</ParamField>
-
-<ParamField body="user" type="string | null" post={["optional"]}>
-  Your attribution tag, up to 200 characters. `null` or `""` clears it.
 </ParamField>
 
 <ParamField body="metadata" type="object | null" post={["optional"]}>
@@ -145,9 +137,9 @@ The response contains the full [instance object](/agents-api/instances/object), 
 
 ## Update behavior
 
-`PATCH /v1/instances/{id}` edits the instance's `name`, `user` tag, and `metadata` after creation, plus its [auto-sleep](/agents-api/instance-auto-sleep) settings and its [network access](/agents-api/instance-network). These are the same fields you can set at create, and they are the only things this call changes: it never touches the running container. It returns `200` with the full instance object, the same shape as `GET`.
+`PATCH /v1/instances/{id}` edits the instance's `name` and `metadata` after creation, plus its [auto-sleep](/agents-api/instance-auto-sleep) settings and its [network access](/agents-api/instance-network). These are the same fields you can set at create, and they are the only things this call changes: it never touches the running container. It returns `200` with the full instance object, the same shape as `GET`.
 
-The patch is partial: only the keys you send change, the rest are left alone. Send a string to set a label field, or `null` (or `""`) to clear it. You must send at least one of `name`, `user`, `metadata`, `env`, `auto_sleep`, `idle_timeout_seconds`, or `network`; an empty body returns `400 invalid_request`.
+The patch is partial: only the keys you send change, the rest are left alone. Send a string to set a label field, or `null` (or `""`) to clear it. You must send at least one of `name`, `metadata`, `env`, `auto_sleep`, `idle_timeout_seconds`, or `network`; an empty body returns `400 invalid_request`.
 
 Edits never bill and never recreate the container, and they work in any state except `deleted`. Unknown, deleted, or other-workspace ids return `404 not_found`.
 

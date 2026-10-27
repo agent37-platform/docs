@@ -23,7 +23,6 @@ Create, get, edit, and fork return an instance object. List wraps these objects 
   "public_ports": [
     { "port": 8443, "url": "https://3f9a1c0b7d2e4f6a8b1c.agent37.app", "domain_urls": [], "prefix": null, "label": "telegram", "created": 1781222400 }
   ],
-  "user": "u_882",
   "name": null,
   "metadata": null,
   "auto_sleep": false,
@@ -90,10 +89,6 @@ Create, get, edit, and fork return an instance object. List wraps these objects 
 
 <ResponseField name="public_ports" type="object[]">
   The instance's [public ports](/agents-api/public-ports), each `{ port, url, domain_urls, prefix, label, created }`: permanent unauthenticated URLs. `agent37-hermes` and `agent37-openclaw` instances start with one on `8443`, labelled `telegram`, for [Telegram webhooks](/agents-api/public-ports); otherwise the list is empty unless you created some.
-</ResponseField>
-
-<ResponseField name="user" type="string | null">
-  Your attribution tag, echoed back.
 </ResponseField>
 
 <ResponseField name="name" type="string | null">

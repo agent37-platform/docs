@@ -48,7 +48,7 @@ The owner whitelist is the other half. A new Inkbox identity accepts anyone who 
       -H "Content-Type: application/json" \
       -d '{
         "template": "agent37-hermes",
-        "user": "u_882",
+        "metadata": { "user": "u_882" },
         "name": "instinct Juniper",
         "budget": { "credit_micros": 2000000 },
         "auto_sleep": true,
@@ -70,7 +70,7 @@ The owner whitelist is the other half. A new Inkbox identity accepts anyone who 
       },
       body: JSON.stringify({
         template: "agent37-hermes",
-        user: user.id,
+        metadata: { user: user.id },
         name: `instinct ${user.agentName}`,
         budget: { credit_micros: 2000000 },
         auto_sleep: true,
@@ -86,7 +86,7 @@ The owner whitelist is the other half. A new Inkbox identity accepts anyone who 
 
     Keep only the token's hash: `env` is write-only, so the raw token lives in the container alone. The create returns once the computer runs; poll `GET /v1/health` on the instance URL until `healthy` is `true` before the next step.
 
-    The `user` tag is what makes a retry safe. A slow create can outlast its response (a server restart, or `fetch` giving up after its 5-minute header timeout), and the instance exists anyway. Before creating, look for it in `GET /v1/instances`, where each instance carries its `user`, and reuse it rather than leaving one billing with no owner. Save the token's hash before the create, so it still matches an instance a retry finds.
+    Tagging the instance with your user's id in `metadata` is what makes a retry safe. A slow create can outlast its response (a server restart, or `fetch` giving up after its 5-minute header timeout), and the instance exists anyway. Before creating, look for it in `GET /v1/instances`, where each instance carries its `metadata`, and reuse it rather than leaving one billing with no owner. Save the token's hash before the create, so it still matches an instance a retry finds.
   </Step>
 
   <Step title="Give it a phone line and an inbox">
