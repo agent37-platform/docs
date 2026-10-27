@@ -92,6 +92,7 @@
                 "group": "Agents and tools",
                 "pages": [
                   "agents-api/desktop",
+                  "agents-api/browser-use",
                   "agents-api/messaging",
                   "agents-api/byo-model",
                   "agents-api/composio",
