@@ -1,21 +1,55 @@
 ---
 title: "Browser Use"
-description: "Run your Hermes agent's browser on Browser Use Cloud, with stealth, residential proxies, and CAPTCHA solving, by setting two environment variables."
+description: "Run your Hermes agents' browser on Browser Use Cloud, with stealth, residential proxies, and CAPTCHA solving: one environment variable for your own agent, or a small broker that gives every user's agent a browser without exposing your Browser Use key."
 ---
 
-`agent37-hermes` browses the web out of the box with a Chromium inside the instance. To run that browser on [Browser Use Cloud](https://browser-use.com) instead, put your Browser Use API key in the instance's [environment](/agents-api/instance-environment). Hermes picks it up by itself: the agent keeps the same browser tools, and pages load in a Browser Use cloud browser with its [stealth](https://docs.browser-use.com/cloud/browser/stealth) and [residential proxies](https://docs.browser-use.com/cloud/browser/proxies).
+`agent37-hermes` browses the web out of the box with a Chromium inside the instance. To run that browser on [Browser Use Cloud](https://browser-use.com) instead, with its [stealth](https://docs.browser-use.com/cloud/browser/stealth) and [residential proxies](https://docs.browser-use.com/cloud/browser/proxies), pick the setup that matches who chats with the agent:
+
+| | Your own agent | An agent per user |
+| --- | --- | --- |
+| Who chats with it | You or your team | Your users |
+| What the instance holds | Your `BROWSER_USE_API_KEY` | A per-user link to your server |
+| Setup | Two `env` values | The [hermes-browser-use](https://github.com/agent37-platform/examples/tree/main/hermes-browser-use) broker on your server, plus one `env` value |
+
+Anything in an instance's environment, the agent can read and repeat back. When your users chat with their agents, a key in the environment is a key your users can take, so keep it on your server.
+
+## An agent per user
 
 ```text title="Paste this into your coding agent" wrap
 Read https://www.agent37.com/docs/llms-full.txt.
-I want my Hermes agents to browse on Browser Use Cloud.
-Create an agent37-hermes instance with BROWSER_USE_API_KEY and TMPDIR=/tmp in its env and a budget, then ask it in chat to open https://ipinfo.io/json with its browser tool.
-Done when the org the agent reports is a consumer internet provider, not a cloud or hosting company.
-My Agent37 key is in AGENT37_API_KEY and my Browser Use key is in BROWSER_USE_API_KEY.
+I want each of my users' Hermes agents to browse on Browser Use Cloud without my Browser Use key in their instance.
+Run https://github.com/agent37-platform/examples/tree/main/hermes-browser-use behind a cloudflared tunnel as its README says, then create an agent for a test user with npm run create-agent.
+Done when that agent, asked to open https://ipinfo.io/json with its browser tool, reports a consumer internet provider as the org.
+My keys are in AGENT37_API_KEY and BROWSER_USE_API_KEY.
 ```
 
-## Create an instance with Browser Use
+<Card title="agent37-platform/examples: hermes-browser-use" icon="github" href="https://github.com/agent37-platform/examples/tree/main/hermes-browser-use" horizontal>
+  A broker server and a create script, plain Node with no dependencies. Your Browser Use key stays on the server; each user's agent gets a link that opens only that user's browser.
+</Card>
 
-Get an API key from [cloud.browser-use.com](https://cloud.browser-use.com) and pass it as `BROWSER_USE_API_KEY`, with `TMPDIR` set to `/tmp`:
+Hermes reads `BROWSER_CDP_URL` the way it reads a Chrome debugging port: it asks that URL's `/json/version` for a browser and drives whatever comes back. Point it at your server with a token for the user:
+
+```bash
+curl -X POST https://api.agent37.com/v1/instances \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "agent37-hermes",
+    "env": { "BROWSER_CDP_URL": "https://your-server.com/browser/<user token>" },
+    "budget": { "monthly_cap_micros": 2000000 }
+  }'
+```
+
+Your server checks the token, starts that user's Browser Use browser with your key (or reuses the one already running), and returns the browser's address. The agent then drives the browser directly; no page traffic passes through your server.
+
+- **One browser per user.** It is labelled with the user in your Browser Use dashboard and reused across that user's chats until it times out (15 minutes by default), so a sign-in carries over between chats while it lives.
+- **A copied link opens one browser.** A user who takes their link can only reach their own browser, and you cut them off in the token check.
+- **Concurrency.** Each user holds at most one browser, so your Browser Use plan's concurrent session limit caps how many users browse in the same window.
+- **If your server is down,** browsing fails for that turn and the rest of the agent keeps working.
+
+## Your own agent
+
+When you are the one chatting with the agent, put your Browser Use key straight into its environment, with `TMPDIR` set to `/tmp`:
 
 ```bash
 curl -X POST https://api.agent37.com/v1/instances \
@@ -28,23 +62,12 @@ curl -X POST https://api.agent37.com/v1/instances \
   }'
 ```
 
-That is the whole setup: no Hermes config, no custom image. `TMPDIR` works around a Hermes bug that makes cloud browser sessions fail when Hermes keeps its temp files under the home directory ([hermes-agent#122786](https://github.com/NousResearch/hermes-agent/issues/122786)); without it the browser tool fails and the agent falls back to fetching pages without a browser. Like every `env` value, the key is write-only: it lives in the instance and is never returned by the API.
+Hermes picks the key up by itself. `TMPDIR` works around a Hermes bug that makes Browser Use sessions fail when Hermes keeps its temp files under the home directory ([hermes-agent#122786](https://github.com/NousResearch/hermes-agent/issues/122786)); without it the browser tool fails and the agent falls back to fetching pages without a browser.
 
-## Add it to an existing instance
+- **One browser per turn.** Each chat turn that browses opens its own cloud browser, and Hermes closes it when the turn ends. A sign-in does not carry over to the next turn.
+- **Fallback to the instance.** If Browser Use won't start a browser, for example because the account is out of credits or at its concurrency limit, Hermes loads the page in the instance's own Chromium and the turn still completes.
 
-[Edit the environment](/agents-api/instances/edit), then [restart](/agents-api/instances/restart) so the agent starts with the new values:
-
-```bash
-curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{ "env": { "BROWSER_USE_API_KEY": "bu_...", "TMPDIR": "/tmp" } }'
-
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/restart \
-  -H "Authorization: Bearer sk_live_..."
-```
-
-Waking a [sleeping](/agents-api/instance-auto-sleep) instance does not pick up the change; restart it. To go back to the built-in browser, set `BROWSER_USE_API_KEY` to `null` and restart.
+To add either setup to an existing instance, [edit its environment](/agents-api/instances/edit) and [restart](/agents-api/instances/restart) it. Waking a [sleeping](/agents-api/instance-auto-sleep) instance keeps the old environment.
 
 ## Check it works
 
@@ -57,22 +80,13 @@ curl https://ab12cd34ef.agent37.app/v1/responses \
   -d '{ "input": "Open https://ipinfo.io/json with your browser tool and tell me the ip and org fields." }'
 ```
 
-An `org` that is a consumer internet provider (Charter, Comcast, and the like) means the page loaded through Browser Use's residential proxy. A cloud or hosting company means it did not: either the browser ran inside the instance, or the agent fetched the page without a browser. The session also appears in your Browser Use dashboard.
-
-## How sessions behave
-
-- **One browser per turn.** Each chat turn that browses opens its own cloud browser, and Hermes closes it when the turn ends, so you pay Browser Use only for the minutes a turn spends browsing. A page or sign-in does not carry over to the next turn.
-- **Fallback to the instance.** If Browser Use won't start a browser, for example because the account is out of credits or already has as many browsers open as its plan allows, Hermes loads the page in the instance's own Chromium and the turn still completes.
-
-## Many agents on one key
-
-For a product where every user gets their own agent, the same key can go into every instance. Your Browser Use plan's concurrent session limit caps how many agents can browse at the same moment, so size it to peak simultaneous browsing, not to user count. Browser Use bills browser time and proxy traffic to that account; the model and the instance bill to your Agent37 wallet as usual.
+An `org` that is a consumer internet provider (Charter, Comcast, and the like) means the page loaded through Browser Use's residential proxy. A cloud or hosting company means it did not: either the browser ran inside the instance, or the agent fetched the page without a browser.
 
 ## Browser Use Cloud or the built-in browser
 
 | | Built-in Chromium | Browser Use Cloud |
 | --- | --- | --- |
-| Setup | None | Two `env` values |
+| Setup | None | See above |
 | Cost | Included in the instance | Billed by Browser Use ([pricing](https://browser-use.com/pricing)) |
 | Visits from | The instance's datacenter IP | Residential proxies |
 | Bot checks and CAPTCHAs | Often blocked | Stealth browser and CAPTCHA solving |
