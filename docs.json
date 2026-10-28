@@ -132,6 +132,7 @@
                     "pages": [
                       "agents-api/instances/stop",
                       "agents-api/instances/start",
+                      "agents-api/instances/sleep",
                       "agents-api/instances/restart",
                       "agents-api/instances/update",
                       "agents-api/instances/resize",

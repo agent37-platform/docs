@@ -17,4 +17,4 @@ While asleep:
 - `update` wakes the instance and then updates it, leaving it `running` (see [Update](/agents-api/instances/update)). It validates the requested template before the wake, so an update it rejects leaves the instance asleep.
 - `restart`, `resize`, and `restore` return `400`: wake the instance first, with any request to its URL or an explicit [`start`](/agents-api/instances/start).
 
-Both fields are set at create and editable any time with `PATCH /v1/instances/{id}`, no restart needed. Instances default to `auto_sleep: false` and never sleep unless you opt them in.
+Both fields are set at create and editable any time with `PATCH /v1/instances/{id}`, no restart needed. Instances default to `auto_sleep: false` and never sleep on their own unless you opt them in. To put an instance to sleep right away, with auto-sleep on or off, call [`POST /v1/instances/{id}/sleep`](/agents-api/instances/sleep).

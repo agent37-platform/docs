@@ -1,0 +1,73 @@
+---
+title: "Sleep an instance"
+description: "Put an instance to sleep now. It keeps its memory, bills disk only, and wakes on the next request."
+api: "POST https://api.agent37.com/v1/instances/{id}/sleep"
+playground: "simple"
+authMethod: "bearer"
+---
+
+<RequestExample>
+```bash curl wrap
+curl -X POST \
+  https://api.agent37.com/v1/instances/ab12cd34ef/sleep \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+```python Python wrap
+import requests
+
+response = requests.post(
+    "https://api.agent37.com/v1/instances/ab12cd34ef/sleep",
+    headers={
+        "Authorization": "Bearer sk_live_..."
+    },
+)
+response.raise_for_status()
+print(response.json())
+```
+
+```javascript Node wrap
+const response = await fetch(
+  "https://api.agent37.com/v1/instances/ab12cd34ef/sleep",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer sk_live_..."
+    },
+  },
+);
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+console.log(await response.json());
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 wrap
+{
+  "id": "ab12cd34ef",
+  "status": "sleeping"
+}
+```
+</ResponseExample>
+
+Authenticate with `Authorization: Bearer sk_live_...` on `https://api.agent37.com`.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The instance id, returned when you create an instance.
+</ParamField>
+
+## Behavior and errors
+
+`POST /v1/instances/{id}/sleep` puts a `running` instance to sleep right away, the same sleep [auto-sleep](/agents-api/instance-auto-sleep) applies after the idle timeout. Memory and running processes are saved, CPU and memory are released, the disk stays, and billing drops to the disk rate alone. It works whether `auto_sleep` is on or off, and returns once the instance is asleep: a few seconds for most instances, longer for one with a lot of memory.
+
+Wake it with [`start`](/agents-api/instances/start), a command sent through [exec](/agents-api/exec), or any request to its URLs. With `auto_sleep` off, the default, a woken instance then stays awake until you put it to sleep or stop it again.
+
+Sleep and [stop](/agents-api/instances/stop) both release CPU and memory and bill disk alone. A sleeping instance keeps its memory and wakes on the next request; a stopped one loses its memory and stays down until `start`.
+
+Sleeping an already sleeping instance returns the same ack again; any state other than `running` returns `400`. If another operation on the instance is still running, or the instance is already going to sleep, sleep returns `409 try_again`; retry in a few seconds. If the sleep fails, it returns `502` and the instance keeps running.
+
+See [Instance lifecycle](/agents-api/instance-lifecycle) for disk persistence and boot hooks. Retrieve the [instance object](/agents-api/instances/get) for its full representation.
