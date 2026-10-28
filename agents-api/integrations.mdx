@@ -250,7 +250,7 @@ Pass a `callbackUrl` to return the user to your own app after they grant access:
 `callbackUrl` is where Composio sends the user once they grant access. Point it at a page in your own app to keep the flow seamless instead of leaving them on Composio's hosted page. Two things make the round-trip clean:
 
 - **Carry your own context.** Add query params to the `callbackUrl` you pass, so the page they land on knows what just happened, for example `https://app.example.com/integrations/done?toolkit=gmail`. The user returns to your URL with those params intact; Composio doesn't add any of its own, so put everything you need to know there yourself.
-- **Confirm it took.** Landing back on your page means the user finished the OAuth screens, not that the account is live. Verify by calling [`GET /v1/instances/{id}/integrations/connections`](#list-connections): match the `connectedAccountId` you got from `connect` and check its `status` is `ACTIVE`. A new connection can take a moment to settle, so poll briefly if it isn't active on the first read.
+- **Confirm it took.** Landing back on your page means the user finished the OAuth screens, not that the account is live. Verify by calling [`GET /v1/instances/{id}/integrations/connections`](#list-connections): match the `connectedAccountId` you got from `connect` and check its `status` is `ACTIVE`. A new connection can take a moment to settle, so poll briefly if it isn't active on the first read. If it ends `FAILED` or `EXPIRED`, its `statusReason` says why (for example the user clicked Cancel on the provider's screen, or didn't finish within 10 minutes), and a new `connect` call starts over.
 
 ### Multiple accounts of one app
 
@@ -275,7 +275,7 @@ Configure the toolkit's auth config for your workspace, then retry. If managed C
 </ParamField>
 
 <ResponseField name="connections" type="array">
-  Composio connected-account objects, passed through as-is. Each carries `id`, `toolkitSlug`, `toolkitName`, `status`, and the account's auth and timestamp metadata. Because this is Composio's native shape, its fields follow Composio's naming and its timestamps are epoch **milliseconds** (not the Sandbox API's usual seconds).
+  Composio connected-account objects, passed through as-is. Each carries `id`, `toolkitSlug`, `toolkitName`, `status`, `statusReason`, and the account's auth and timestamp metadata. `statusReason` is Composio's explanation when `status` is not `ACTIVE`, such as `"Authorization was denied at the provider (provider_error: access_denied)"` or `"Authorization was started but not completed within 10 minutes"`, and `null` otherwise. Because this is Composio's native shape, its fields follow Composio's naming and its timestamps are epoch **milliseconds** (not the Sandbox API's usual seconds).
 </ResponseField>
 
 <CodeGroup>
@@ -330,6 +330,7 @@ console.log(await response.json());
       "toolkitSlug": "gmail",
       "toolkitName": "Gmail",
       "status": "ACTIVE",
+      "statusReason": null,
       "authConfigId": "ac_managed_gmail",
       "authScheme": "OAUTH2",
       "isDisabled": false,
