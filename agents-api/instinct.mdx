@@ -134,8 +134,8 @@ The owner whitelist is the other half. A new Inkbox identity accepts anyone who 
     ```bash curl
     # install.sh holds the script from step 5 of the iMessage guide, with this user's values.
     SCRIPT=$(cat install.sh)
-    curl https://api.agent37.com/v1/instances/ab12cd34ef/exec \
-      -H "Authorization: Bearer sk_live_..." \
+    curl https://sandbox.agent37.app/v1/instances/ab12cd34ef/exec \
+      -H "X-Agent37-Key: sk_live_..." \
       -H "Content-Type: application/json" \
       -d "$(jq -n --arg command "$SCRIPT" '{command: $command}')"
 
@@ -150,11 +150,16 @@ The owner whitelist is the other half. A new Inkbox identity accepts anyone who 
         headers: { Authorization: `Bearer ${process.env.AGENT37_API_KEY}`, "Content-Type": "application/json" },
       }).then((r) => r.json());
 
+    // exec is answered by the machine the instance runs on, at sandbox.agent37.app.
+    const exec = (instanceId, command) =>
+      fetch(`https://sandbox.agent37.app/v1/instances/${instanceId}/exec`, {
+        method: "POST",
+        headers: { "X-Agent37-Key": process.env.AGENT37_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ command }),
+      }).then((r) => r.json());
+
     // installScript() returns the script from the iMessage guide with this user's values filled in.
-    const result = await agent37(`/v1/instances/${user.instanceId}/exec`, {
-      method: "POST",
-      body: JSON.stringify({ command: installScript({ handle, webhookUrl: user.webhookUrl, key: api_key }) }),
-    });
+    const result = await exec(user.instanceId, installScript({ handle, webhookUrl: user.webhookUrl, key: api_key }));
     const start = result.stdout.indexOf("{");
     if (start < 0) throw new Error(result.stderr || "bootstrap printed no JSON");
     const outcome = JSON.parse(result.stdout.slice(start));

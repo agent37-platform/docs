@@ -23,8 +23,8 @@ The response is the full [instance object](/agents-api/instances/object), with t
 A common pattern is to install dependencies with the internet open, then lock the instance down before it runs code you do not trust:
 
 ```bash
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
-  -H "Authorization: Bearer $AGENT37_API_KEY" -H "Content-Type: application/json" \
+curl -X POST https://sandbox.agent37.app/v1/instances/ab12cd34ef/exec \
+  -H "X-Agent37-Key: $AGENT37_API_KEY" -H "Content-Type: application/json" \
   -d '{ "command": "npm install" }'
 
 curl -X PATCH https://api.agent37.com/v1/instances/ab12cd34ef \

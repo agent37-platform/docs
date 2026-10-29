@@ -11,31 +11,39 @@ import os
 import requests
 
 API = "https://api.agent37.com/v1"
+SANDBOX = "https://sandbox.agent37.app/v1"
 
 
 class Sandbox:
-    def __init__(self, id, session):
+    def __init__(self, id, api_key):
         self.id = id
-        self._session = session
+        self._api = requests.Session()
+        self._api.headers["Authorization"] = f"Bearer {api_key}"
+        self._sandbox = requests.Session()
+        self._sandbox.headers["X-Agent37-Key"] = api_key
 
     @classmethod
     def create(cls, api_key=None, **params):
-        session = requests.Session()
-        session.headers["Authorization"] = f"Bearer {api_key or os.environ['AGENT37_API_KEY']}"
-        response = session.post(f"{API}/instances", json=params or None, timeout=120)
+        api_key = api_key or os.environ["AGENT37_API_KEY"]
+        response = requests.post(
+            f"{API}/instances",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json=params or None,
+            timeout=120,
+        )
         response.raise_for_status()
-        return cls(response.json()["id"], session)
+        return cls(response.json()["id"], api_key)
 
     def exec(self, command, user=None):
         body = {"command": command}
         if user:
             body["user"] = user
-        response = self._session.post(f"{API}/instances/{self.id}/exec", json=body, timeout=900)
+        response = self._sandbox.post(f"{SANDBOX}/instances/{self.id}/exec", json=body, timeout=900)
         response.raise_for_status()
         return response.json()
 
     def delete(self):
-        self._session.delete(f"{API}/instances/{self.id}", timeout=120).raise_for_status()
+        self._api.delete(f"{API}/instances/{self.id}", timeout=120).raise_for_status()
 
     def __enter__(self):
         return self
@@ -61,4 +69,4 @@ with Sandbox.create() as sandbox:
 
 Leaving the `with` block deletes the sandbox, which removes its data and ends billing. Call `sandbox.delete()` yourself when you create one outside a `with` block.
 
-The SDK covers the calls most scripts need. Every other operation is a plain HTTPS request in the [API reference](/agents-api/overview), sent with the same `Authorization: Bearer` header.
+The SDK covers the calls most scripts need. Every other operation is a plain HTTPS request in the [API reference](/agents-api/overview). `exec` goes to `sandbox.agent37.app` with an `X-Agent37-Key` header, which the machine your sandbox runs on answers directly; everything else goes to `api.agent37.com` with `Authorization: Bearer`.

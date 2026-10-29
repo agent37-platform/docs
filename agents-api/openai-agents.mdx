@@ -114,8 +114,8 @@ Back in the first terminal, start the executor through Agent37 [exec](/agents-ap
 
 ```bash
 curl --fail-with-body -sS \
-  "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  "https://sandbox.agent37.app/v1/instances/$INSTANCE_ID/exec" \
+  -H "X-Agent37-Key: $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "command": "mkdir -p /home/node/workspace; nohup codex exec-server --remote \"$CODEX_REMOTE_URL\" --environment-id \"$CODEX_ENVIRONMENT_ID\" > /tmp/openai-executor.log 2>&1 < /dev/null &"
@@ -152,8 +152,8 @@ Follow the stream until the root turn completes or fails. After a successful tas
 
 ```bash
 curl --fail-with-body -sS \
-  "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  "https://sandbox.agent37.app/v1/instances/$INSTANCE_ID/exec" \
+  -H "X-Agent37-Key: $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{ "command": "cat /home/node/workspace/hello.txt" }'
 ```

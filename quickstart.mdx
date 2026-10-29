@@ -19,8 +19,8 @@ INSTANCE=$(curl --fail-with-body -sS -X POST https://api.agent37.com/v1/instance
 export INSTANCE_ID=$(printf '%s' "$INSTANCE" | jq -er '.id')
 
 # Run a command on that instance.
-curl --fail-with-body -sS "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
+curl --fail-with-body -sS "https://sandbox.agent37.app/v1/instances/$INSTANCE_ID/exec" \
+  -H "X-Agent37-Key: $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "uname -s"}'
 ```
@@ -29,17 +29,17 @@ curl --fail-with-body -sS "https://api.agent37.com/v1/instances/$INSTANCE_ID/exe
 import os
 import requests
 
-headers = {"Authorization": f"Bearer {os.environ['AGENT37_API_KEY']}"}
+key = os.environ["AGENT37_API_KEY"]
 base = "https://api.agent37.com/v1/instances"
 
-response = requests.post(base, headers=headers)
+response = requests.post(base, headers={"Authorization": f"Bearer {key}"})
 response.raise_for_status()
 instance = response.json()
 print("Instance:", instance["id"])
 
 response = requests.post(
-    f"{base}/{instance['id']}/exec",
-    headers=headers,
+    f"https://sandbox.agent37.app/v1/instances/{instance['id']}/exec",
+    headers={"X-Agent37-Key": key},
     json={"command": "uname -s"},
 )
 response.raise_for_status()
@@ -47,17 +47,17 @@ print(response.json())
 ```
 
 ```javascript Node
-const headers = { Authorization: `Bearer ${process.env.AGENT37_API_KEY}` };
+const key = process.env.AGENT37_API_KEY;
 const base = "https://api.agent37.com/v1/instances";
 
-const created = await fetch(base, { method: "POST", headers });
+const created = await fetch(base, { method: "POST", headers: { Authorization: `Bearer ${key}` } });
 if (!created.ok) throw new Error(await created.text());
 const instance = await created.json();
 console.log("Instance:", instance.id);
 
-const response = await fetch(`${base}/${instance.id}/exec`, {
+const response = await fetch(`https://sandbox.agent37.app/v1/instances/${instance.id}/exec`, {
   method: "POST",
-  headers: { ...headers, "Content-Type": "application/json" },
+  headers: { "X-Agent37-Key": key, "Content-Type": "application/json" },
   body: JSON.stringify({ command: "uname -s" }),
 });
 if (!response.ok) throw new Error(await response.text());
@@ -84,8 +84,8 @@ A service listening on port `8000` is reachable at `https://{instanceId}-8000.ag
 
 ```bash
 # Python and Node users: set INSTANCE_ID to the id printed above.
-curl --fail-with-body -sS "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
+curl --fail-with-body -sS "https://sandbox.agent37.app/v1/instances/$INSTANCE_ID/exec" \
+  -H "X-Agent37-Key: $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "mkdir -p /tmp/hello && echo Hello > /tmp/hello/index.html && nohup python3 -m http.server 8000 --bind 0.0.0.0 --directory /tmp/hello > /tmp/hello-server.log 2>&1 &"}'
 
@@ -97,7 +97,7 @@ curl --fail-with-body -sS "https://$INSTANCE_ID-8000.agent37.app" \
 If the server is still starting, retry the preview request. To open the service in a browser, create a [signed URL](/agents-api/urls#browser-access-with-signed-urls). Use a [public port](/agents-api/public-ports) when a caller cannot send credentials.
 
 <Note>
-  The Sandbox API uses `Authorization: Bearer`. Instance and preview URLs use `X-Agent37-Key`, leaving `Authorization` available to the software you run. Keep your workspace key on your backend.
+  `api.agent37.com` uses `Authorization: Bearer`. Everything on `agent37.app` (exec on `sandbox.agent37.app`, instance and preview URLs) uses `X-Agent37-Key`, leaving `Authorization` available to the software you run. Keep your workspace key on your backend.
 </Note>
 
 ## Clean up

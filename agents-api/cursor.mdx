@@ -76,8 +76,8 @@ Leave [auto-sleep](/agents-api/instance-auto-sleep) off: the worker's outbound c
 
 ```bash
 jq -n --arg url "$REPO_URL" '{ command: "git clone \($url) /home/node/repo" }' \
-  | curl --fail-with-body -sS "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
-    -H "Authorization: Bearer $AGENT37_API_KEY" \
+  | curl --fail-with-body -sS "https://sandbox.agent37.app/v1/instances/$INSTANCE_ID/exec" \
+    -H "X-Agent37-Key: $AGENT37_API_KEY" \
     -H "Content-Type: application/json" \
     --data-binary @-
 ```
@@ -88,8 +88,8 @@ Check `exit_code` is `0`. For a private repository, use a URL that carries a tok
 
 ```bash
 curl --fail-with-body -sS \
-  "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  "https://sandbox.agent37.app/v1/instances/$INSTANCE_ID/exec" \
+  -H "X-Agent37-Key: $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "command": "nohup agent worker --worker-dir /home/node/repo --name agent37 start > /tmp/cursor-worker.log 2>&1 < /dev/null &"
@@ -100,8 +100,8 @@ A successful exec response only means the launch command ran. Read the worker's 
 
 ```bash
 curl --fail-with-body -sS \
-  "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  "https://sandbox.agent37.app/v1/instances/$INSTANCE_ID/exec" \
+  -H "X-Agent37-Key: $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{ "command": "cat /tmp/cursor-worker.log" }'
 ```
@@ -138,8 +138,8 @@ Then read the file directly from your instance:
 
 ```bash
 curl --fail-with-body -sS \
-  "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  "https://sandbox.agent37.app/v1/instances/$INSTANCE_ID/exec" \
+  -H "X-Agent37-Key: $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{ "command": "cat /home/node/repo/hello.txt" }'
 ```
@@ -152,8 +152,8 @@ On a Cursor Enterprise plan, the same image serves a [Team Pool](https://cursor.
 
 ```bash
 curl --fail-with-body -sS \
-  "https://api.agent37.com/v1/instances/$INSTANCE_ID/exec" \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
+  "https://sandbox.agent37.app/v1/instances/$INSTANCE_ID/exec" \
+  -H "X-Agent37-Key: $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "command": "nohup agent worker --pool agent37 --idle-release-timeout 0 --worker-dir /home/node/repo start > /tmp/cursor-worker.log 2>&1 < /dev/null &"
@@ -187,6 +187,12 @@ a37() {
     -H "Content-Type: application/json" "${@:2}"
 }
 
+a37exec() {
+  curl --fail-with-body -sS "https://sandbox.agent37.app/v1/instances/$1/exec" \
+    -H "X-Agent37-Key: $AGENT37_API_KEY" \
+    -H "Content-Type: application/json" "${@:2}"
+}
+
 ID=$(a37 /instances | jq -r --arg w "$CURSOR_AGENT_WORKER_ID" \
   'first(.data[] | select(.name == $w) | .id) // empty')
 
@@ -206,7 +212,7 @@ jq -n --arg w "$CURSOR_AGENT_WORKER_ID" --arg p "$CURSOR_POOL" '{ command: (
   "CURSOR_AGENT_WORKER_ID=\($w) nohup sh -c \"agent worker --pool \($p) " +
   "--clone-git-repos --idle-release-timeout 600 --worker-dir /home/node/work start; " +
   "touch /tmp/worker-exited\" > /tmp/cursor-worker.log 2>&1 < /dev/null &"
-) }' | a37 "/instances/$ID/exec" --data-binary @- > /dev/null
+) }' | a37exec "$ID" --data-binary @- > /dev/null
 ```
 
 The worker checks out the agent's repositories in `/home/node/work` (`--clone-git-repos` needs a team admin to turn on GitHub token minting for pool workers) and exits after 10 idle minutes. Save this loop as `idle.sh`. Once a minute, it stops every pool instance whose worker has exited:
@@ -220,10 +226,16 @@ a37() {
     -H "Content-Type: application/json" "${@:2}"
 }
 
+a37exec() {
+  curl --fail-with-body -sS "https://sandbox.agent37.app/v1/instances/$1/exec" \
+    -H "X-Agent37-Key: $AGENT37_API_KEY" \
+    -H "Content-Type: application/json" "${@:2}"
+}
+
 while true; do
   for ID in $(a37 /instances | jq -r '.data[]
       | select(.status == "running" and .metadata.cursor_pool != null) | .id'); do
-    a37 "/instances/$ID/exec" -d '{"command": "rm /tmp/worker-exited"}' \
+    a37exec "$ID" -d '{"command": "rm /tmp/worker-exited"}' \
       | jq -e '.exit_code == 0' > /dev/null \
       && a37 "/instances/$ID/stop" -X POST > /dev/null
   done

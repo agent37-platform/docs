@@ -28,8 +28,8 @@ The agent serves a messaging API on port `9119` inside the instance, on the loop
 Every call has the same shape. Fetch the agent's session token out of its own UI, then call the API with it:
 
 ```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
-  -H "Authorization: Bearer sk_live_..." \
+curl -X POST https://sandbox.agent37.app/v1/instances/ab12cd34ef/exec \
+  -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
     "command": "token=$(curl -sS http://127.0.0.1:9119/ | grep -o '\''__HERMES_SESSION_TOKEN__=\"[^\"]*\"'\'' | head -1 | cut -d'\''\"'\'' -f2); curl -sS -H \"X-Hermes-Session-Token: $token\" http://127.0.0.1:9119/api/messaging/platforms"

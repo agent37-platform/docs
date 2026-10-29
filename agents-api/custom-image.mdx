@@ -47,8 +47,8 @@ Bake binaries into `/usr/local/bin` and everything else into `/usr/local` or `/o
   **Skills don't belong in the image.** Hermes reads them from `~/.hermes/skills`, which lives on the instance's persistent volume, so anything the image writes there is masked. Install them into a running instance instead, over [exec](/agents-api/exec) or the [files API](/agents-api/files):
 
   ```bash curl
-  curl -X POST https://api.agent37.com/v1/instances/<id>/exec \
-    -H "Authorization: Bearer $AGENT37_API_KEY" -H "Content-Type: application/json" \
+  curl -X POST https://sandbox.agent37.app/v1/instances/<id>/exec \
+    -H "X-Agent37-Key: $AGENT37_API_KEY" -H "Content-Type: application/json" \
     -d '{ "command": "mkdir -p ~/.hermes/skills/my-skill && echo '"'"'<base64 of SKILL.md>'"'"' | base64 -d > ~/.hermes/skills/my-skill/SKILL.md" }'
   ```
 
@@ -182,8 +182,8 @@ curl -X POST https://api.agent37.com/v1/instances \
 The result is a standard Agent37 instance running your image: same [lifecycle](/agents-api/instances), [exec](/agents-api/exec), and routed URLs as any other. Confirm your CLI shipped, without needing a model:
 
 ```bash curl
-curl -X POST https://api.agent37.com/v1/instances/<id>/exec \
-  -H "Authorization: Bearer $AGENT37_API_KEY" \
+curl -X POST https://sandbox.agent37.app/v1/instances/<id>/exec \
+  -H "X-Agent37-Key: $AGENT37_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{ "command": "your-cli --version" }'
 ```

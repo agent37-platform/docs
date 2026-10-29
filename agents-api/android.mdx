@@ -35,8 +35,8 @@ Omitting `resources` selects 4 vCPU / 8 GB RAM / 12 GB disk. The example request
 The create returns as soon as the machine has started. Android is still booting at that point. The AVD is created on first boot; later boots reuse it and can use an emulator quick-boot snapshot when one is available. Wait after every start with the image's own helper, which blocks until Android reports `sys.boot_completed`:
 
 ```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
-  -H "Authorization: Bearer sk_live_..." \
+curl -X POST https://sandbox.agent37.app/v1/instances/ab12cd34ef/exec \
+  -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{ "command": "android-wait 600" }'
 ```
@@ -51,8 +51,8 @@ Launch your target app before capturing it, for example with
 ADB is already connected to the phone, so [exec](/agents-api/exec) is all you need. Nothing has to be exposed to the internet for your code to drive the device.
 
 ```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
-  -H "Authorization: Bearer sk_live_..." \
+curl -X POST https://sandbox.agent37.app/v1/instances/ab12cd34ef/exec \
+  -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{ "command": "adb shell am start -a android.intent.action.VIEW -d https://example.com" }'
 ```
@@ -74,8 +74,8 @@ The commands a device-driving agent leans on:
 ### Screenshots through the API
 
 ```bash curl
-curl -X POST https://api.agent37.com/v1/instances/ab12cd34ef/exec \
-  -H "Authorization: Bearer sk_live_..." \
+curl -X POST https://sandbox.agent37.app/v1/instances/ab12cd34ef/exec \
+  -H "X-Agent37-Key: sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{ "command": "android-shot" }'
 ```
