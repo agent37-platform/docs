@@ -16,7 +16,7 @@ Create, get, edit, and fork return an instance object. List wraps these objects 
   "image_digest": "sha256:d3f6f28fae8128274b15256a3f17ecf6b2cc5e209db886def17f0595900a1045",
   "type": "default",
   "region": "us",
-  "mount_path": null,
+  "mount_path": "/home/node",
   "resources": { "cpu": 2, "memory": 4, "disk": 4 },
   "url": "https://ab12cd34ef.agent37.app",
   "domain_urls": [],
@@ -71,8 +71,8 @@ Create, get, edit, and fork return an instance object. List wraps these objects 
   Where the instance runs: `us`, `eu` (France), or `ap-south` (India, Mumbai). Set at create, fixed for the life of the instance. See [`region`](/agents-api/instances/create#request-body) on create.
 </ResponseField>
 
-<ResponseField name="mount_path" type="string | null">
-  The folder the disk is mounted at, as set by [`mount_path`](/agents-api/instances/create#request-body) on create. `null` is the default: `/home/node`, or the image user's home folder on a VM.
+<ResponseField name="mount_path" type="string">
+  The folder the disk is mounted at: the one set by [`mount_path`](/agents-api/instances/create#request-body) on create, or else the image user's home folder.
 </ResponseField>
 
 <ResponseField name="resources" type="object">
