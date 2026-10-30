@@ -101,7 +101,7 @@ A [signed URL](/agents-api/urls) cannot authorize exec: it is API-key-only, on b
   Who runs the command. Omit it to run as the image's default user; pass `"root"` to run as root, for example to install system packages with `apt-get`. Any other value returns `400 invalid_request`.
 </ParamField>
 <ParamField body="name" type="string" post={["optional"]}>
-  A label for this run, 1 to 128 characters, that makes a resend safe. If your connection drops before the answer arrives, send the identical request again with the same `name`: you get that run's result, waiting for it if it is still running, and the command does not run a second time. A name is remembered for 45 minutes; the same name with a different command in that window returns `400 invalid_request`. Leave it out and every call runs. Calls to `api.agent37.com` do this for you.
+  A label for this run, 1 to 128 characters, that makes a resend safe. If your connection drops before the answer arrives, send the identical request again with the same `name`: you get that run's result, waiting for it if it is still running, and the command does not run a second time. A name is remembered for up to 45 minutes; the same name with a different command in that window returns `400 invalid_request`. Leave it out and every call runs. Calls to `api.agent37.com` do this for you.
 </ParamField>
 
 <Note>
